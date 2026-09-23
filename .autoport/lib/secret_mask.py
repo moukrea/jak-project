@@ -259,7 +259,7 @@ def install_hooks(quiet=False):
         return {}
     hooks = Path(common) / "hooks"
     etat = {}
-    for name in ("pre-commit", "pre-push"):
+    for name in ("pre-commit", "pre-push", "commit-msg"):   # commit-msg : archive-guard (23/09)
         dst, src = hooks / name, here / name
         if dst.is_symlink() or dst.exists():
             etat[name] = "en-place" if dst.resolve() == src.resolve() else "etranger"

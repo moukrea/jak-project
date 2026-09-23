@@ -2481,6 +2481,53 @@ def _scope_changed(seen: str | None) -> str | None:
         return seen
 
 
+# ARCHIVE-OWNER/debut — harness-owner-archive-of-running-item-is-safe (owner 23/09).
+# `linear_sync.apply_owner_archive` archive un chantier VIVANT des que l'owner archive son
+# ticket, `in-progress` compris. L'orchestrateur, lui, tenait le backlog lu AVANT l'essai : il
+# finissait l'essai, le jugeait, le comptait, commitait sous le nom de l'item et reposait
+# « open » par-dessus l'archivage. Il relit donc le STATUT SUR LE DISQUE a chaque tick (un stat,
+# le YAML n'est relu que si le fichier a bouge) et coupe l'essai comme un changement de
+# perimetre : ni compte, ni juge, aucun statut ecrit, le travail sauve HORS du nom de l'item.
+ARCHIVE_CUT_LABEL = "owner-archive"
+_DISK_STATUS: dict = {}
+
+
+def _archived_on_disk(item_id: str) -> bool:
+    """Vrai si l'item porte `status: archived` dans BACKLOG_PATH, relu sur le disque."""
+    try:
+        mt = BACKLOG_PATH.stat().st_mtime_ns
+    except OSError:
+        return False
+    key = (str(BACKLOG_PATH), item_id)
+    hit = _DISK_STATUS.get(key)
+    if hit and hit[0] == mt:
+        return hit[1] == "archived"
+    try:
+        lib = str(AUTOPORT_DIR / "lib")
+        if lib not in sys.path:
+            sys.path.insert(0, lib)
+        import backlog as _bk
+        st = (_bk.load(BACKLOG_PATH).get(item_id) or {}).get("status")
+    except Exception:  # noqa: BLE001 — un backlog illisible ne tue pas l'essai
+        return bool(hit and hit[1] == "archived")
+    _DISK_STATUS[key] = (mt, st)
+    return st == "archived"
+
+
+def _write_status(bk, item_id: str, status: str, **fields) -> bool:
+    """`bk.set_status`, sauf sur un item que l'owner a archive : le refus du backlog
+    (`ArchivedItem`, pose sous son verrou) est DIT et la boucle continue."""
+    try:
+        bk.set_status(item_id, status, **fields)
+        return True
+    except Exception as e:  # noqa: BLE001
+        if not getattr(e, "archived_by_owner", False):
+            raise
+        log(f"· {item_id} est ARCHIVÉ par l'owner : statut « {status} » NON écrit", "yellow")
+        return False
+# ARCHIVE-OWNER/fin
+
+
 def _progress_fingerprint(item_id: str) -> str:
     """Cheap snapshot of what THIS attempt has actually produced.
 
@@ -2785,6 +2832,7 @@ class Outcome:
       blocked         max_retries, missing input, fatal config
       aborted         the launcher killed the worker's background tasks: NOT counted
       interrupted     signal / scope change / duplicate worker: NOT counted
+      archived        the owner archived the item mid-attempt: NOT counted, nothing written
       no-start        refused at the door, zero work: NOT counted
       infra           529 storm: NOT counted
     """
@@ -3002,6 +3050,11 @@ def run_attempt(item: dict, state: dict) -> Outcome:
                 if _scope_changed(scope_seen) != scope_seen:
                     _kill("scope")
                     break
+                if _archived_on_disk(iid):
+                    log("· ARCHIVÉ PAR L'OWNER pendant l'essai — essai coupé (ni compté, "
+                        "ni jugé, aucun statut écrit)", "red")
+                    _kill("archived")
+                    break
                 if BACKEND == "codex" and pstate.tool_calls >= min(item.get("max_turns", 300), 300):
                     _kill("tool-budget")
                     break
@@ -3178,6 +3231,32 @@ def run_attempt(item: dict, state: dict) -> Outcome:
     # A signal, a scope change or a refusal at the door is OUR interruption, not
     # the worker's failure. Counting them is what made 373 of 597 sessions last
     # under three minutes and blocked items on retries nobody ever used.
+    # ---- ARCHIVE-OWNER/ : L'OWNER A ARCHIVE L'ITEM ------------------------
+    # Verifie a chaque etape longue (sortie du worker, juge, validateur, porte) : un
+    # archivage peut tomber pendant chacune. `counted` : `retries` a deja ete incremente,
+    # on le rend. Le travail est commite sous ARCHIVE_CUT_LABEL, jamais sous le nom de
+    # l'item : il n'est pas perdu, et rien n'est ecrit au nom d'un chantier archive.
+    def _archived_exit(stage: str, counted: bool = False) -> Outcome:
+        if counted:
+            state["retries"][iid] = max(0, int(state["retries"].get(iid, 0)) - 1)
+            save_state(state)
+        try:
+            paths = worker_paths()
+            if paths and git_commit_paths(
+                    ARCHIVE_CUT_LABEL, f"travail de {iid} (essai {seq}) coupé {stage} par "
+                    f"l'archivage de l'owner — sauvé, ni jugé ni compté", paths):
+                log(f"  travail sauvé ({len(paths)} chemin(s)) sous [autoport/{ARCHIVE_CUT_LABEL}]",
+                    "green")
+        except Exception as e:  # noqa: BLE001
+            log(f"travail de l'essai archivé NON sauvé : {e}", "yellow")
+        log(f"⏹ {iid} ARCHIVÉ PAR L'OWNER ({stage}) : essai coupé, ni compté ni jugé, "
+            f"aucun statut écrit", "yellow")
+        return Outcome("archived", f"archivé par l'owner {stage}", seq=seq)
+
+    if abort_reason == "archived" or _archived_on_disk(iid):
+        return _archived_exit("pendant l'essai" if abort_reason == "archived"
+                              else "à la sortie du worker")
+
     if HALT or abort_reason == "signal":
         _checkpoint(f"essai {seq} interrompu par un signal (non compté)")
         return Outcome("interrupted", "signal reçu")
@@ -3256,6 +3335,8 @@ def run_attempt(item: dict, state: dict) -> Outcome:
     # anti-boucle a lu trois empreintes d'echec identiques et a bloque l'item, ce qui a demande
     # un arbitrage humain pour un travail qui etait fait. Le verrou d'ecriture dit qu'une course
     # ECRIT : on l'attend, borne, et on le DIT. On ne relance rien, on ne tue rien.
+    if _archived_on_disk(iid):
+        return _archived_exit("avant le juge")
     # JUGEMENT/debut
     # LE BLOC QUE LE BANC `lib/judge_measure_selftest.py` LEVE, et dont il retire la region
     # `MESURE-DU-JUGE/` pour son bras d'AVANT : le bras d'avant n'est pas la couche desarmee,
@@ -3322,6 +3403,8 @@ def run_attempt(item: dict, state: dict) -> Outcome:
     _aborted_record(state, iid)["streak"] = 0   # un essai JUGE remet la serie a zero
     save_state(state)
     # JUGEMENT/fin
+    if _archived_on_disk(iid):
+        return _archived_exit("pendant le juge ou le validateur", counted=True)
 
     gate_reason = ""
     # LA PORTE DE FERMETURE EST APPELÉE DANS LES DEUX CAS. GATE -1 — « preuve impossible » —
@@ -3330,6 +3413,8 @@ def run_attempt(item: dict, state: dict) -> Outcome:
     gate_status, gate_reason = close_gate(item, pre_dirty_engine,
                                           validator_ok=(v.returncode == 0),
                                           since=started_at)
+    if _archived_on_disk(iid):
+        return _archived_exit("pendant la porte de fermeture", counted=True)
 
     if gate_status == "impossible":
         _imp = impossible_state.read(str(AUTOPORT_DIR / "reports"), iid, since=started_at)
@@ -3488,7 +3573,7 @@ def promote_owner_validated(bk) -> list[str]:
                 "date": datetime.fromtimestamp(token.stat().st_mtime).strftime("%Y-%m-%d"),
                 "text": f"jeton .autoport/owner-ok/{iid} déposé par le superviseur",
             }
-        bk.set_status(iid, "validated", **fields)
+        _write_status(bk, iid, "validated", **fields)
         promoted.append(iid)
         log(f"✓ {iid} : l'owner a dit oui — validé.", "bold green")
     return promoted
@@ -3556,12 +3641,12 @@ def pronounce_gate(bk, item_id: str, status: str, result: str,
         reports = str(AUTOPORT_DIR / "reports")
     record = gate_verdict.gate_record(result, reports, item_id, seq, journal)
     try:
-        bk.set_status(item_id, status, gate_verdict=record, **fields)
+        _write_status(bk, item_id, status, gate_verdict=record, **fields)
     except Exception as e:                                              # noqa: BLE001
         log(f"⚠ {item_id} : le verdict de la porte n'a pas pu etre ecrit dans l'item ({e}) — "
             f"le statut est pose sans lui, et la promotion machine devra relire le journal.",
             "yellow")
-        bk.set_status(item_id, status, **fields)
+        _write_status(bk, item_id, status, **fields)
         return {}
     return record
 
@@ -3615,9 +3700,9 @@ def launch_item(bk, item: dict) -> dict:
         log(f"· {iid} : son périmètre a été DEVINÉ dans une phrase ({pourquoi}). Le champ "
             f"`code_scope: none` le dirait sans deviner — ce repli est compté.", "dim")
     try:
-        bk.set_status(iid, "in-progress", **({"no_code": True} if pose else {}))
+        _write_status(bk, iid, "in-progress", **({"no_code": True} if pose else {}))
     except TypeError:
-        bk.set_status(iid, "in-progress")
+        _write_status(bk, iid, "in-progress")
         pose = False
     if pose:
         # `bk.items` a été remplacé par la relecture du disque : l'objet que `run_attempt` et
@@ -3653,7 +3738,7 @@ def release_stale_in_progress(bk) -> list[str]:
             log(f"· {iid} est tenu par un worker VIVANT ({held.stdout.strip()[:60]}) "
                 f"— laissé en place", "yellow")
             continue
-        bk.set_status(iid, "open")
+        _write_status(bk, iid, "open")
         freed.append(iid)
     if freed:
         log(f"· items rendus au backlog après un arrêt brutal : {', '.join(freed)}", "yellow")
@@ -3814,10 +3899,13 @@ def main(argv: list[str] | None = None) -> int:
         started = time.time()
         # Le périmètre de l'item est prononcé ICI, pas à sa fermeture : voir `launch_item`.
         launch_item(bk, item)
+        if _archived_on_disk(iid):          # ARCHIVE-OWNER/ : archive entre la lecture et le lancement
+            log(f"⏹ {iid} : archivé par l'owner au lancement — aucun essai.", "yellow")
+            continue
         try:
             out = run_attempt(item, state)
         except StateConflict as e:
-            bk.set_status(iid, "open")
+            _write_status(bk, iid, "open")
             console.print(Panel.fit(f"[bold red]{e}[/bold red]", border_style="red"))
             return 1
 
@@ -3847,7 +3935,7 @@ def main(argv: list[str] | None = None) -> int:
         elif out.kind in ("stuck", "blocked"):
             # lib/backlog.py refuse un `blocked` sans raison : on ne laisse
             # jamais ce refus tuer la boucle au moment précis où un item bloque.
-            bk.set_status(iid, "blocked",
+            _write_status(bk, iid, "blocked",
                           block_reason=out.reason or "raison non enregistrée")
             console.print(Panel.fit(
                 f"[bold red]✗ {iid} BLOQUÉ[/bold red]\n\n{out.reason}\n\n"
@@ -3863,7 +3951,7 @@ def main(argv: list[str] | None = None) -> int:
             # L'arbre portait le travail non commité d'un AUTRE item : l'essai n'a pas
             # échoué, il n'avait rien de reproductible à juger. Ni compté, ni empreinté,
             # et `retries` a été remis comme avant.
-            bk.set_status(iid, "open")
+            _write_status(bk, iid, "open")
             log(f"⏹ {iid} : essai CLASSÉ À PART — cause EXTÉRIEURE à l'item, non compté, "
                 f"non empreinté. Le travail est commité.\n{out.reason}", "yellow")
             no_start_streak = 0
@@ -3874,7 +3962,7 @@ def main(argv: list[str] | None = None) -> int:
             # la machine ne pouvait rien mesurer, la cause est NOMMÉE et DATÉE. `autoport
             # status` et le digest de l'owner la portent aussi — cet item ne se lit plus
             # comme un item qui n'a rien produit.
-            bk.set_status(iid, "open")
+            _write_status(bk, iid, "open")
             log(f"⏹ {iid} : essai CLASSÉ À PART — PREUVE IMPOSSIBLE, non compté, non "
                 f"empreinté. Le travail est commité.\n{out.reason}", "yellow")
             no_start_streak = 0
@@ -3883,20 +3971,28 @@ def main(argv: list[str] | None = None) -> int:
         elif out.kind == "aborted":
             # Le lanceur a coupe les taches de fond du worker : l'essai n'a pas eu lieu.
             # On rouvre l'item tel quel — ni compte, ni empreinte, ni validateur.
-            bk.set_status(iid, "open")
+            _write_status(bk, iid, "open")
             log(f"⏹ {iid} : essai ABORTÉ — {out.reason}. Ni compté, ni empreinté, "
                 f"validateur non lancé. Le travail est commité.", "yellow")
             nap(10)
 
+        elif out.kind == "archived":
+            # ARCHIVE-OWNER/ : l'owner a archive le chantier pendant l'essai. Son geste tient :
+            # aucun statut, aucun verdict, rien n'est compte.
+            log(f"⏹ {iid} : {out.reason} — essai coupé, rien n'est écrit en son nom.", "yellow")
+            no_start_streak = 0
+            if HALT:
+                break
+
         elif out.kind == "interrupted":
-            bk.set_status(iid, "open")
+            _write_status(bk, iid, "open")
             log(f"· {iid} : essai annulé ({out.reason}) — ni compté, ni empreinté. "
                 f"Le travail est commité.", "yellow")
             if HALT:
                 break
 
         elif out.kind == "no-start":
-            bk.set_status(iid, "open")
+            _write_status(bk, iid, "open")
             no_start_streak += 1
             state["rate_interrupts"][iid] = int(state["rate_interrupts"].get(iid, 0)) + 1
             save_state(state)
@@ -3923,13 +4019,13 @@ def main(argv: list[str] | None = None) -> int:
                 nap(NO_START_FALLBACK_SLEEP)
 
         elif out.kind == "infra":
-            bk.set_status(iid, "open")
+            _write_status(bk, iid, "open")
             log(f"⏸ {iid} : {out.reason} — panne d'infra, essai non compté.", "yellow")
             if out.resume_at:
                 sleep_until(out.resume_at, "la fin de la tempête d'API")
 
         else:  # fail
-            bk.set_status(iid, "open")
+            _write_status(bk, iid, "open")
             attempts = state["retries"].get(iid, 0)
             fps = state.get("fingerprints", {}).get(iid, [])
             log(f"{iid} : essai {attempts}/{item.get('max_retries', 6)} échoué. "

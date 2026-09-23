@@ -1709,6 +1709,20 @@ def owner_archived(L, hist, owner_id, rec):
     return ev
 
 
+def worker_comment_refused(bl, iid, env=None):
+    """ARCHIVE-OWNER/ (harness-owner-archive-of-running-item-is-safe, 23/09) : un ESSAI n'ecrit rien au
+    nom d'un item que l'owner a archive — son commentaire ressortirait le ticket des archives (`on_ticket`
+    `revive=True`) et defairait le geste. Un essai = `AUTOPORT_PHASE_ID` pose par l'orchestrateur ; le
+    superviseur (sans lui) garde la main. -> motif du refus, ou "" si le message peut partir."""
+    env = os.environ if env is None else env
+    if not env.get("AUTOPORT_PHASE_ID"):
+        return ""
+    if ((bl.get(iid) or {}).get("status")) != "archived":
+        return ""
+    return ("REFUS : %s est ARCHIVE par l'owner ; un essai ne poste rien en son nom (le message "
+            "ressortirait le ticket des archives)" % iid)
+
+
 def apply_owner_archive(bl, iid, rec, ev):
     """Owner 23/09 (« oui ouvre ») : un ticket de chantier VIVANT que l'owner archive lui-meme est sa DECISION, comme un
     deplacement en « Canceled ». On ne lui ecrit rien : tout message ressortirait le ticket des archives et defairait son
@@ -1943,6 +1957,9 @@ def main():
         print("coherence : %d tickets, %d ecarts d'etat, %d orphelins, %d items actifs sans ticket%s" % (len([k for k in mp if not k.startswith("_")]), drift, orphans, len(missing), (" : " + ", ".join(missing)) if missing else ""))
         return
     if a.comment:
+        refus = worker_comment_refused(B.load(), a.comment)
+        if refus:
+            raise SystemExit(refus)
         mp = load_map()
         _CTX["mp"] = mp
         rec = mp.get(a.comment)

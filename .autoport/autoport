@@ -96,7 +96,7 @@ def cmd_set(args):
     if args.reason:
         extra["block_reason" if args.status == "blocked" else "notes"] = args.reason
     try:
-        it = b.set_status(args.id, args.status, **extra)
+        it = b.set_status(args.id, args.status, unarchive=True, **extra)  # geste EXPLICITE de l'operateur
     except bl.BacklogError as exc:
         print(str(exc), file=sys.stderr)
         return 1

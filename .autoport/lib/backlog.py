@@ -127,6 +127,15 @@ class BacklogError(Exception):
     pass
 
 
+class ArchivedItem(BacklogError):
+    """ARCHIVE-OWNER/ — un statut pose sur un item que l'owner a ARCHIVE (23/09,
+    harness-owner-archive-of-running-item-is-safe). L'archivage est SON geste : un essai qui finit
+    apres lui ne le defait pas en reposant « open », « to-test » ou « validated » par-dessus. Le
+    refus est ICI, sous le verrou et sur le disque relu, parce que l'orchestrateur ecrit sur un
+    backlog lu AVANT l'essai. Desarchiver reste possible, mais explicitement : `unarchive=True`."""
+    archived_by_owner = True
+
+
 class _Lock:
     """Verrou consultatif inter-processus autour du fichier de backlog."""
 
@@ -331,7 +340,10 @@ class Backlog:
         self.machine_promotion_refused = []
         for e in self.machine_promotion_plan():
             if e["promote"]:
-                self.set_status(e["id"], "validated")
+                try:
+                    self.set_status(e["id"], "validated")
+                except ArchivedItem:     # ARCHIVE-OWNER/ : archive par l'owner depuis la lecture
+                    continue
                 promus.append(e["id"])
             elif not e["owner_test"]:
                 # VERDICT/origine-dite
@@ -406,6 +418,7 @@ class Backlog:
             raise BacklogError("REFUS : owner_feedback ne se pose pas par set_status (liste tenue en "
                                "memoire = retour perdu) ; passer par add_owner_feedback ou validate")
         autorise = bool(fields.pop("allow_verdict_drop", False))
+        desarchive = bool(fields.pop("unarchive", False))
         if "deliverable" in fields and not autorise:
             ancien = self.get(item_id)
             ref = self._verdict_ref().get(item_id)
@@ -426,6 +439,9 @@ class Backlog:
                     break
             if target is None:
                 raise BacklogError("item inconnu : %s" % item_id)
+            if target.get("status") == "archived" and status != "archived" and not desarchive:
+                raise ArchivedItem("REFUS : %s est ARCHIVE sur le disque ; « %s » n'est pas ecrit "
+                                   "par-dessus (desarchiver : unarchive=True)" % (item_id, status))
             target["status"] = status
             for k, v in fields.items():
                 target[k] = v

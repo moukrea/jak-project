@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Refuse le commit d'un ESSAI sous `[autoport/<id>]` quand l'owner a archive <id>. Pose par
+# lib/secret_mask.py install-hooks. harness-owner-archive-of-running-item-is-safe.
+exec python3 "$(dirname "$(readlink -f "$0")")/../../lib/archived_commit_guard.py" "$1"
