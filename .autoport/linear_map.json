@@ -36,7 +36,7 @@
    "url": "https://linear.app/moukrea/document/e1fe9500339a"
   }
  },
- "_gen": 192,
+ "_gen": 202,
  "_ids": {
   "labels": {
    "ok": "000e105b-24ba-4fa3-a579-bc3bf0869242",
@@ -622,6 +622,14 @@
   "pulled_at": "2026-09-17T05:37:21.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-154/la-garde-build-en-cours-ne-prend-plus-le-demon-gradle-pour-un-build"
  },
+ "harness-census-fake-backlog-matches-real-api": {
+  "hash": "c3eb1b2c84fa00ff3fc3425fb01ae33703692d7b",
+  "identifier": "JAK-266",
+  "issue_id": "fe41d9af-b81f-4462-be30-533d5b6ea08f",
+  "last_state": "Todo",
+  "pulled_at": "2026-09-23T10:09:47.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-266/les-faux-backlogs-des-recensements-linear-suivent-lapi-reelle-deux"
+ },
  "harness-census-seeds-anchored-structurally": {
   "hash": "bf8efabea7aae9875e223ff4a67b1b05062b7eac",
   "identifier": "JAK-262",
@@ -675,6 +683,14 @@
   "last_verdict_announced": "validator-002.txt",
   "pulled_at": "2026-09-22T21:11:57.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-193/la-porte-de-deploiement-sur-appareil-compare-aussi-le-pack-dassets"
+ },
+ "harness-directives-promises-are-implemented": {
+  "hash": "4f462e75a0a5361fa463e166aae925e189faa8a3",
+  "identifier": "JAK-269",
+  "issue_id": "f4ddb738-3b69-43a3-b17a-d864b72790bc",
+  "last_state": "Todo",
+  "pulled_at": "2026-09-23T10:09:48.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-269/ce-que-directives-promet-est-fait-par-du-code-le-rapport-perime-est"
  },
  "harness-invisible-item-comment-has-no-capture-boilerplate": {
   "hash": "2d239283237de7550145bc238f3cf40ef1e80c00",
@@ -784,13 +800,13 @@
   "url": "https://linear.app/moukrea/issue/JAK-258/quand-lowner-deplace-un-ticket-la-synchro-decide-sur-letat-frais-de"
  },
  "harness-linear-owner-moves-never-lost": {
-  "hash": "0e7c070ed64b976cbe5d258176581522eba4bf91",
+  "hash": "501d96d44af9e9dbde44da37f0c6338f8b60c9d7",
   "identifier": "JAK-251",
   "issue_id": "ca4a8931-4d9c-4470-b6c1-86c0ca999ac1",
-  "last_state": "In Progress",
+  "last_state": "Done",
   "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-23T05:37:21.000Z",
-  "state_at": "2026-09-23T09:27:54.000Z",
+  "state_at": "2026-09-23T09:50:58.572Z",
   "url": "https://linear.app/moukrea/issue/JAK-251/un-deplacement-de-ticket-fait-par-lowner-nest-jamais-ecrase-perdu-ni"
  },
  "harness-linear-pull-minor-gaps": {
@@ -838,6 +854,14 @@
   "pulled_at": "2026-09-23T05:37:20.000Z",
   "state_at": "2026-09-23T07:31:01.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-249/un-ticket-termine-ou-annule-que-la-synchro-a-perdu-est-retrouve-et-les"
+ },
+ "harness-linear-request-economy": {
+  "hash": "b99369417c506dede1de6b760662ad6d5cf97279",
+  "identifier": "JAK-270",
+  "issue_id": "826544b6-87c6-422d-ac9c-5635e19666de",
+  "last_state": "Todo",
+  "pulled_at": "2026-09-23T10:09:49.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-270/la-synchro-linear-depense-moins-de-requetes-et-ne-garde-pas"
  },
  "harness-linear-space-counts-other-teams": {
   "hash": "8a2cb7fddac3d11a6d7d3c91b1d4a46f40a133ae",
@@ -920,6 +944,14 @@
   "state_at": "2026-09-23T05:53:34.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-246/deux-ecritures-simultanees-dun-retour-de-lowner-synchro-linear-et"
  },
+ "harness-owner-gesture-not-imputed-to-running-item": {
+  "hash": "225049c8ade8b14333720a58e8d7f51188d974f1",
+  "identifier": "JAK-268",
+  "issue_id": "c79deb3b-07bb-471c-b2ba-9491e7d53225",
+  "last_state": "Todo",
+  "pulled_at": "2026-09-23T10:09:48.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-268/un-geste-de-lowner-pendant-un-essai-ticket-linear-adopte-etc-nest-plus"
+ },
  "harness-owner-secret-never-copied-in-clear": {
   "hash": "61932660c16c6017818e138f9cc1b2c6b4a29161",
   "identifier": "JAK-234",
@@ -975,11 +1007,13 @@
   "url": "https://linear.app/moukrea/issue/JAK-187/le-manifeste-du-pack-dassets-est-un-produit-du-build-pas-une-source-il"
  },
  "harness-prompt-fingerprint-store-locked": {
-  "hash": "cf03069f8819ffd16d3d0515aa88fab43dabc168",
+  "hash": "24b47d621f6a8fe36a9cedaf04df3a1871977b41",
   "identifier": "JAK-264",
   "issue_id": "6599b3a2-2341-4507-aa63-27c686f69eb0",
-  "last_state": "Todo",
+  "last_state": "In Progress",
+  "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-23T08:38:50.000Z",
+  "state_at": "2026-09-23T09:50:59.969Z",
   "url": "https://linear.app/moukrea/issue/JAK-264/le-magasin-dempreintes-des-consignes-secrit-sous-verrou-deux-ecrivains"
  },
  "harness-prompt-fingerprints-absolute-path": {
@@ -1156,6 +1190,14 @@
   "last_verdict_announced": "validator-002.txt",
   "pulled_at": "2026-09-17T05:37:21.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-156/le-banc-de-la-suite-nherite-plus-de-lenvironnement-de-celui-qui-la"
+ },
+ "harness-tests-never-write-real-registries": {
+  "hash": "d5dcb29cff41661faa04e4130212d5ea32126e6a",
+  "identifier": "JAK-267",
+  "issue_id": "fff566c1-b27b-4491-94eb-6ff8b7343db4",
+  "last_state": "Todo",
+  "pulled_at": "2026-09-23T10:09:48.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-267/les-tests-du-harnais-necrivent-plus-dans-les-vrais-journaux-du-harnais"
  },
  "harness-undeclared-profile-attempts": {
   "hash": "9c04b8bbec2225d23f225881959b46fbf65e9669",
@@ -1592,7 +1634,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-18/passer-le-logo-naughty-dog-avec-start"
  },
  "owner-attention-aux-profils-opus-5-5-bouscule-tout": {
-  "hash": "71c610bac9b476e91639ac011031056ac0bc8a46",
+  "hash": "af248b65a3a6e460b8b8b4b0a740e2869c1b7cf5",
   "identifier": "JAK-265",
   "issue_id": "bb5a9e0b-cc72-4a3c-9fb8-df010b27e5c7",
   "last_state": "Todo",
