@@ -1,0 +1,29 @@
+Verdict : un chantier interne (rien a regarder par l'owner) ne peut plus poster d'image ni de gabarit « version a essayer » sur son ticket ; la porte est tenue a 0.
+DIRECTIVES vf25e340d89
+
+Ce qui a change (commit d89080d807) :
+- linear_sync.py --comment : sur un item hors champ (owner_capture.is_visible faux), REFUS avant tout reseau de --no-capture, d'une image jointe, et d'un corps qui parle de capture / build a tester (le titre et l'id de l'item cites ne comptent pas).
+- linear_sync.post_comment (point de production, tous appelants) : filet qui retire images et phrases capture/build a tester d'un message sur item hors champ ; le registre logs/linear_comments.jsonl consigne visible/talk/stripped. L'annonce de verdict ne televerse plus les images de notes/ d'un item hors champ.
+- DIRECTIVES.md : le paragraphe capture est borne (<!-- chantier-visible -->) ; lib/directives.py ne le rend qu'a un item visible (meme juge que CLOSE-GATE/capture). Exemple --attach rendu neutre.
+- Recensement lib/census/invisible_capture.py + 11 controles semes sur le VRAI main()/post_comment (reseau remplace par un faux qui compte) ; tests unitaires ajoutes ; suite tests/harness entiere verte.
+
+Preuve (proof.txt) :
+proof_attempt_id=harness-invisible-item-comment-has-no-capture-boilerplate@2#1790151625
+invisible_capture_anchor=d89080d807
+invisible_capture_before_7d=6
+invisible_prompt_items=31
+invisible_prompt_capture_mentions=0
+visible_prompt_items_with_capture_rule=47
+invisible_capture_controls_failed=0
+invisible_item_capture_mentions=0
+
+AVANT, 7 jours relus dans Linear (notes/avant-7j-linear.txt, pagine) : 218 messages du harnais sur 115 items hors champ ; 9 portent le gabarit « Capture impossible ... Build a tester » (8 items, dont JAK-240), 11 parlent de capture, 0 image.
+Ablation : les memes controles contre le linear_sync.py de HEAD~ rendent 4 echecs (porte = 4) : les controles vivent.
+Controle negatif : item visible -> --no-capture accepte avec sa ligne « Build a tester », image acceptee, judge() rend « defaut » sans capture ; 47/47 items visibles vivants recoivent toujours la consigne.
+
+Ce que l'owner doit regarder : rien (chantier interne). Les prochains messages des chantiers de harnais n'ont plus ce paragraphe.
+
+Non prouve :
+- l'APRES reel : 1 seul message poste depuis le correctif (le mien, visible=false, talk=[], stripped=0) ; la porte repose sur les controles.
+- le corps des messages d'avant n'est pas dans le registre (invisible_capture_before_prose_measured=0) : l'AVANT prose vient de la relecture Linear, hors preuve.
+- les versions DIRECTIVES des items hors champ changent (le texte rendu change) ; les versions deja remises restent acceptees sous le serial courant (.directives_issued).

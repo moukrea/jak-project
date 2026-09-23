@@ -1,0 +1,14 @@
+# Recensement AVANT, 7 jours, lu dans Linear le 2026-09-23T10:30:20 (lecture seule, pagine) : commentaires du HARNAIS sur les items hors champ (owner_capture.is_visible faux)
+ao-prepass-tie-alpha | 2026-09-17T09:31 capture
+ao-prepass-tie-alpha | 2026-09-17T10:41 capture
+harness-linear-learned-limit-can-rise | 2026-09-23T05:35 GABARIT build a tester,capture
+harness-linear-learned-limit-can-rise | 2026-09-23T05:39 GABARIT build a tester,capture
+harness-linear-relink-keeps-owner-comments | 2026-09-23T04:08 GABARIT build a tester,capture
+harness-linear-relinks-closed-tickets | 2026-09-23T07:26 GABARIT build a tester,capture
+harness-owner-archive-of-running-item-is-safe | 2026-09-23T07:56 GABARIT build a tester,capture
+harness-owner-feedback-write-never-loses-a-return | 2026-09-23T05:49 GABARIT build a tester,capture
+harness-owner-test-requires-a-capture | 2026-09-22T13:24 GABARIT build a tester,capture
+harness-owner-test-requires-a-capture | 2026-09-23T02:36 GABARIT build a tester,capture
+harness-prompt-fingerprints-absolute-path | 2026-09-23T08:15 GABARIT build a tester,capture
+items_hors_champ_avec_ticket=115 requetes_en_echec=0
+commentaires_harnais_7j=218 gabarit_capture_impossible_ou_build_a_tester=9 parle_de_capture=11 image_jointe=0 items_touches=8
