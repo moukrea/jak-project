@@ -15694,7 +15694,7 @@ items:
     journal: validator-002.txt
 - id: acquis-hud-eco-gauge
   feature: 'La jauge d''eco du HUD recharge ne peut plus regresser : un acquis la protege'
-  status: open
+  status: validated
   priority: 36
   code_scope: harnais
   device: true
@@ -15721,6 +15721,25 @@ items:
     3. CONTROLE POSITIF FABRIQUE : forcer une taille differente pour un type, verifier que l'acquis rougit et NOMME le type fautif. Publier la valeur des deux bras.
     4. CONTROLE NEGATIF : sur le binaire courant, l'acquis rend 0.
     5. Publier `eco_gauge_acquis_defects` et le NOMBRE de grandeurs reellement comparees (`terms_measured`) : une somme a 0 sur zero terme mesure est un faux vert.
+  no_code: true
+  proof_props:
+  - debug.opengoal.want.levels=village1,beach
+  - debug.opengoal.want.display=beach,display
+  - debug.opengoal.fixed_tick=1
+  - debug.opengoal.recharged=1
+  - debug.opengoal.level.warp=village1-hut
+  - debug.opengoal.level.warp.pos=-116 14 40
+  - debug.opengoal.costprobe=hud-eco-gauge
+  proof_timeout: 240
+  depends_on:
+  - hud-eco-gauge
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-23'
+    proof_sha: d6c1338475ddd692
+    proof_bytes: 74275
+    attempt: 1
+    journal: validator-001.txt
 - id: harness-owner-sla-matches-every-owner-comment
   feature: 'Chaque retour de l''owner recopie de Linear se retrouve sur son ticket : le compteur « sans
     reponse » ne perd plus ses messages'
@@ -15888,7 +15907,7 @@ items:
 - id: harness-wake-unanswered-list-carries-its-age
   feature: La liste des retours de l'owner sans reponse, dans le reveil du superviseur, dit depuis quand
     chacun attend et monte d'un cran quand ca dure
-  status: in-progress
+  status: validated
   priority: 20
   code_scope: harnais
   device: false
@@ -15910,6 +15929,13 @@ items:
     3. `wake_unanswered_lost` = retours sans reponse absents du bloc de reveil ; doit valoir 0.
     CONTROLE POSITIF fabrique (le defaut semé rougit la porte et est NOMME) + CONTROLE NEGATIF (cas sain a 0). Publier le denominateur.
   no_code: true
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-23'
+    proof_sha: 574d54955a48a27c
+    proof_bytes: 75878
+    attempt: 1
+    journal: validator-001.txt
 - id: harness-status-says-when-linear-cache-is-stale
   feature: Si la synchro Linear est morte, le rapport d'etat le dit au lieu d'afficher un etat fige comme
     s'il etait frais
@@ -16129,7 +16155,7 @@ items:
 - id: harness-linear-relink-keeps-owner-comments
   feature: Un commentaire de l'owner poste pendant que la synchro a perdu la trace d'un ticket est quand
     meme recopie
-  status: open
+  status: validated
   priority: 30
   code_scope: harnais
   device: false
@@ -16152,9 +16178,17 @@ items:
     1. A la reliaison, `pulled_at` repart de la date de creation du ticket (ou du dernier commentaire deja recopie dans owner_feedback), jamais de maintenant.
     2. `owner_comments_skipped_on_relink` = commentaires owner non recopies apres reliaison ; doit valoir 0.
     CONTROLE POSITIF fabrique (le defaut seme rougit la porte et est NOMME) + CONTROLE NEGATIF (cas sain a 0). Publier le denominateur.
+  no_code: true
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-23'
+    proof_sha: d51beb112246d77c
+    proof_bytes: 74921
+    attempt: 1
+    journal: validator-001.txt
 - id: harness-linear-stale-map-never-fakes-an-owner-move
   feature: La synchro ne prend jamais un etat perime de sa carte pour un deplacement de ticket par l'owner
-  status: open
+  status: validated
   priority: 30
   code_scope: harnais
   device: false
@@ -16177,6 +16211,14 @@ items:
     1. Un deplacement n'est attribue a l'owner que si Linear le prouve (historique du ticket : auteur = l'owner, date posterieure au dernier passage), jamais par difference avec la carte locale.
     2. `fake_owner_moves` = deplacements appliques sans auteur owner prouve ; doit valoir 0.
     CONTROLE POSITIF fabrique (le defaut seme rougit la porte et est NOMME) + CONTROLE NEGATIF (cas sain a 0). Publier le denominateur.
+  no_code: true
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-23'
+    proof_sha: fd93e4595e9ff2af
+    proof_bytes: 75573
+    attempt: 1
+    journal: validator-001.txt
 - id: harness-owner-secret-never-copied-in-clear
   feature: 'Un secret colle par l''owner dans un commentaire Linear n''est jamais recopie en clair : ni
     dans le backlog, ni dans un journal, ni dans un prompt'
@@ -16251,8 +16293,14 @@ items:
   owner_feedback:
   - date: '2026-09-23'
     text: oui ouvre
-    via: &id007
+    via:
       source: supervisor
+  - date: '2026-09-23'
+    text: Ok tu peux traiter le tout du coup, comme tu l'entends
+    via:
+      comment: db77ccc8-d508-4379-a7ce-5a3d24997ff8
+      ticket: ffab7f75-5753-4725-83fc-5db08f86e0da
+      at: '2026-09-23T05:35:58.378Z'
   known_cause: |-
     Signale par les workers de harness-linear-auto-archive-when-space-runs-out / harness-owner-sla-matches-every-owner-comment / harness-owner-sla-answer-must-address-the-owner (reports/<id>/FINDINGS.txt), non corrige ; l'owner a dit « oui ouvre » le 23/09.
     `.autoport/linear_sync.py:pull_owner` ne demande pas `includeArchived` : un commentaire pose sur un ticket ARCHIVE n'est jamais recopie, et un ticket de chantier ouvert que l'owner archive a la main n'est pas lu comme une decision. D'autant plus probable que la synchro archive maintenant d'elle-meme. Meme famille : owner_sla poste une alerte via post_comment sur un ticket d'origine archive sans le desarchiver (post_failed en boucle).
@@ -16286,7 +16334,8 @@ items:
   owner_feedback:
   - date: '2026-09-23'
     text: oui ouvre
-    via: *id007
+    via: &id007
+      source: supervisor
   known_cause: |-
     Signale par les workers de harness-linear-auto-archive-when-space-runs-out / harness-owner-sla-matches-every-owner-comment / harness-owner-sla-answer-must-address-the-owner (reports/<id>/FINDINGS.txt), non corrige ; l'owner a dit « oui ouvre » le 23/09.
     `.autoport/lib/wake_gate.py:276-290` lit le bloc « RETOURS DE L'OWNER SANS REPONSE » sur l'etiquette « A traiter » du journal de synchro, pas sur owner_sla ; `linear_sync.py --comment` retire l'etiquette meme hors fil. Le reveil peut taire un retour que owner_sla compte encore ouvert. Recoupe harness-wake-unanswered-list-carries-its-age (s'il est deja livre, partir de son etat).
@@ -16305,7 +16354,7 @@ items:
 - id: harness-workers-reply-in-the-owner-thread
   feature: Quand un worker repond a un retour de l'owner, sa reponse est postee dans le fil de ce retour
     et compte comme une reponse
-  status: open
+  status: validated
   priority: 20
   code_scope: harnais
   device: false
@@ -16319,7 +16368,14 @@ items:
   owner_feedback:
   - date: '2026-09-23'
     text: oui ouvre
-    via: *id007
+    via:
+      source: supervisor
+  - date: '2026-09-23'
+    text: Vas-y traite comme tu l'entends
+    via:
+      comment: 342f4c81-c23e-4b09-90ba-bc8137c8cff4
+      ticket: 702e69fe-8ef5-479c-9115-c49aa48159c2
+      at: '2026-09-23T05:36:24.970Z'
   known_cause: |-
     Signale par les workers de harness-linear-auto-archive-when-space-runs-out / harness-owner-sla-matches-every-owner-comment / harness-owner-sla-answer-must-address-the-owner (reports/<id>/FINDINGS.txt), non corrige ; l'owner a dit « oui ouvre » le 23/09.
     `.autoport/DIRECTIVES.md:86` : la consigne de commentaire des workers ne mentionne pas `--reply-to` ; depuis 2026-09-23T00:30Z, une reponse d'agent postee hors fil n'eteint plus le compteur. Le worker n'a PAS modifie DIRECTIVES (ordre de l'owner : pas de regle en prose). Faire passer la reponse dans le fil par l'OUTIL (ex. `--comment` qui repond par defaut au dernier retour owner ouvert du ticket), pas par une phrase de plus.
@@ -16327,6 +16383,14 @@ items:
     1. L'outil de commentaire rattache la reponse au dernier retour owner ouvert du ticket quand il y en a un.
     2. `worker_replies_off_thread` = reponses d'agents a un retour owner postees hors fil sur 7 jours ; doit valoir 0 apres correctif.
     CONTROLE POSITIF fabrique (le defaut seme rougit la porte et est NOMME) + CONTROLE NEGATIF (cas sain a 0). Publier le denominateur.
+  no_code: true
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-23'
+    proof_sha: 9808d4f962e9e2c9
+    proof_bytes: 75585
+    attempt: 1
+    journal: validator-001.txt
 - id: harness-supervisor-relay-command
   feature: Les mots que l'owner dit au superviseur dans le terminal sont recopies par une commande qui
     les marque comme relayes
@@ -16389,7 +16453,7 @@ items:
     CONTROLE POSITIF fabrique (le defaut seme rougit la porte et est NOMME) + CONTROLE NEGATIF (cas sain a 0). Publier le denominateur.
 - id: harness-linear-learned-limit-can-rise
   feature: La limite de tickets apprise sur un refus Linear remonte d'elle-meme si l'owner change de plan
-  status: open
+  status: in-progress
   priority: 40
   code_scope: harnais
   device: false
@@ -16411,9 +16475,10 @@ items:
     1. La limite apprise expire ou est re-sondee (ex. une creation reussie au-dela la releve).
     2. `linear_learned_limit_stale` = limite apprise plus basse qu'une creation deja reussie ; doit valoir 0.
     CONTROLE POSITIF fabrique (le defaut seme rougit la porte et est NOMME) + CONTROLE NEGATIF (cas sain a 0). Publier le denominateur.
+  no_code: true
 - id: harness-linear-check-survives-a-bad-ticket
   feature: La verification de coherence Linear continue apres un ticket en erreur
-  status: open
+  status: validated
   priority: 40
   code_scope: harnais
   device: false
@@ -16435,6 +16500,14 @@ items:
     1. Chaque ticket est traite dans sa garde ; les echecs sont comptes et nommes.
     2. `linear_check_aborted` = passages --check interrompus par un ticket ; doit valoir 0.
     CONTROLE POSITIF fabrique (le defaut seme rougit la porte et est NOMME) + CONTROLE NEGATIF (cas sain a 0). Publier le denominateur.
+  no_code: true
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-23'
+    proof_sha: 767a57d779c91b1b
+    proof_bytes: 75370
+    attempt: 1
+    journal: validator-001.txt
 - id: harness-linear-pull-paginates-comments
   feature: Le tirage Linear lit tous les commentaires neufs d'un ticket, meme plus de 50 entre deux passages
   status: open
@@ -16555,3 +16628,319 @@ items:
     proof_bytes: 75079
     attempt: 1
     journal: validator-001.txt
+- id: harness-owner-feedback-write-never-loses-a-return
+  feature: Deux ecritures simultanees d'un retour de l'owner (synchro Linear et superviseur) ne perdent
+    jamais l'une des deux
+  status: open
+  priority: 11
+  code_scope: harnais
+  device: false
+  owner_test: false
+  max_retries: 5
+  gate:
+    key: owner_feedback_lost_on_race
+    op: ==
+    value: 0
+  prompt: prompts/item-harness-owner-feedback-write-never-loses-a-return.md
+  known_cause: |-
+    Signale par les workers de harness-owner-secret-never-copied-in-clear / harness-linear-pull-reads-archived-tickets / harness-linear-census-reads-archived-tickets / harness-supervisor-relay-command (reports/<id>/FINDINGS.txt). Owner 23/09 (JAK-235) : « Ok tu peux traiter le tout du coup, comme tu l'entends ».
+    `.autoport/lib/backlog.py:480` `add_owner_feedback` reecrit la liste LUE EN MEMOIRE (set_status ne relit que l'item) : un retour ajoute entre le load et l'ecriture est PERDU ; appele par linear_sync.py:877 et :1607. `relay()` (autoport feedback) evite ce chemin.
+  deliverable: |-
+    1. Tout ajout d'owner_feedback relit l'item SOUS le verrou et ajoute, jamais ne remplace la liste.
+    2. `owner_feedback_lost_on_race` = retours perdus quand deux ecrivains ajoutent en meme temps (course fabriquee) ; doit valoir 0.
+    CONTROLE POSITIF fabrique (le defaut seme rougit la porte et est NOMME) + CONTROLE NEGATIF (cas sain a 0). Publier le denominateur.
+  owner_feedback:
+  - date: '2026-09-23'
+    text: Ok tu peux traiter le tout du coup, comme tu l'entends
+    via:
+      source: supervisor
+      at: '2026-09-23T05:37:19+00:00'
+      by: autoport feedback
+- id: harness-archived-census-controls-are-alive
+  feature: 'Les garde-fous de lecture des tickets archives redetectent reellement : leurs controles ne
+    visent plus un code reecrit depuis'
+  status: open
+  priority: 12
+  code_scope: harnais
+  device: false
+  owner_test: false
+  max_retries: 5
+  gate:
+    key: archived_census_dead_controls
+    op: ==
+    value: 0
+  prompt: prompts/item-harness-archived-census-controls-are-alive.md
+  known_cause: |-
+    Signale par les workers de harness-linear-relink-keeps-owner-comments / harness-linear-stale-map-never-fakes-an-owner-move / harness-wake-unanswered-list-carries-its-age / harness-workers-reply-in-the-owner-thread (reports/<id>/FINDINGS.txt). Owner 23/09 : « Ok tu peux traiter le tout du coup, comme tu l'entends » (pose sur JAK-235, applique aussi a la question JAK-237 posee juste avant).
+    `.autoport/lib/census/harness-linear-pull-reads-archived-tickets.sh:415-416` : le controle C+_statique seme sa graine sur `    return on_ticket(L, issue_id, lambda: L.q('mutation($i:CommentCreateInput!)`, ligne reecrite par ef3327822c (harness-owner-test-requires-a-capture) en `r = on_ticket(...)` : le controle est MORT, la porte ne peut plus rougir. Et `lib/census/harness-linear-census-reads-archived-tickets.sh:45` : la regex SITE accuse la chaine de dispatch `"team(id:$t){issues("` du faux Linear de lib/census/harness-linear-relink-keeps-owner-comments.sh:186 (faux positif).
+  deliverable: |-
+    1. Le controle positif est seme sur une forme STRUCTURELLE (noeud d'appel, AST), pas sur un litteral de ligne (voir feedback_another_items_witness_pins_the_literal_you_want_to_factor).
+    2. Le faux Linear d'un recensement n'est plus accuse.
+    3. `archived_census_dead_controls` = controles positifs qui ne rougissent plus + faux positifs ; doit valoir 0. Recenser AUSSI les autres census/*.sh dont le controle vise un litteral de ligne.
+    CONTROLE POSITIF fabrique (le defaut seme rougit la porte et est NOMME) + CONTROLE NEGATIF (cas sain a 0). Publier le denominateur.
+  owner_feedback:
+  - date: '2026-09-23'
+    text: Ok tu peux traiter le tout du coup, comme tu l'entends
+    via:
+      source: supervisor
+      at: '2026-09-23T05:37:20+00:00'
+      by: autoport feedback
+  - date: '2026-09-23'
+    text: Vas-y traite comme tu l'entends
+    via:
+      source: supervisor
+      at: '2026-09-23T05:37:43+00:00'
+      by: autoport feedback
+- id: harness-prompt-fingerprints-absolute-path
+  feature: 'L''empreinte des consignes s''ecrit toujours au meme endroit, d''ou que l''outil soit lance
+    : une consigne n''est plus gelee en silence'
+  status: open
+  priority: 13
+  code_scope: harnais
+  device: false
+  owner_test: false
+  max_retries: 5
+  gate:
+    key: prompt_fingerprints_misplaced
+    op: ==
+    value: 0
+  prompt: prompts/item-harness-prompt-fingerprints-absolute-path.md
+  known_cause: |-
+    Signale par les workers de harness-owner-secret-never-copied-in-clear / harness-linear-pull-reads-archived-tickets / harness-linear-census-reads-archived-tickets / harness-supervisor-relay-command (reports/<id>/FINDINGS.txt). Owner 23/09 (JAK-235) : « Ok tu peux traiter le tout du coup, comme tu l'entends ».
+    `.autoport/lib/backlog.py:1030` `_FINGERPRINTS` est un chemin RELATIF au cwd (.autoport/.prompt_fingerprints.json) : un write_prompt lance hors de la racine ecrit l'empreinte ailleurs, et la consigne relue depuis la racine passe « a-la-main » (plus jamais refabriquee).
+  deliverable: |-
+    1. Chemin ancre sur le fichier (comme AP/ROOT ailleurs).
+    2. Recenser les empreintes egarees hors racine et les consignes passees « a-la-main » a tort.
+    3. `prompt_fingerprints_misplaced` ; doit valoir 0.
+    CONTROLE POSITIF fabrique (le defaut seme rougit la porte et est NOMME) + CONTROLE NEGATIF (cas sain a 0). Publier le denominateur.
+  owner_feedback:
+  - date: '2026-09-23'
+    text: Ok tu peux traiter le tout du coup, comme tu l'entends
+    via:
+      source: supervisor
+      at: '2026-09-23T05:37:22+00:00'
+      by: autoport feedback
+- id: harness-linear-relinks-closed-tickets
+  feature: Un ticket termine ou annule que la synchro a perdu est retrouve, et les nouveaux commentaires
+    de l'owner dessus sont lus
+  status: open
+  priority: 13
+  code_scope: harnais
+  device: false
+  owner_test: false
+  max_retries: 5
+  gate:
+    key: closed_tickets_unlinked
+    op: ==
+    value: 0
+  prompt: prompts/item-harness-linear-relinks-closed-tickets.md
+  known_cause: |-
+    Signale par les workers de harness-linear-relink-keeps-owner-comments / harness-linear-stale-map-never-fakes-an-owner-move / harness-wake-unanswered-list-carries-its-age / harness-workers-reply-in-the-owner-thread (reports/<id>/FINDINGS.txt). Owner 23/09 : « Ok tu peux traiter le tout du coup, comme tu l'entends » (pose sur JAK-235, applique aussi a la question JAK-237 posee juste avant).
+    `.autoport/linear_sync.py:adopt_owner_issues` ne relie que les tickets NON clos : un ticket Done/Canceled perdu de la carte, dont l'item n'est plus envoye (ensure_ticket), n'est jamais relie ; un « ca marche toujours pas » de l'owner dessus n'est jamais tire.
+  deliverable: |-
+    1. La reliaison couvre aussi les tickets clos et archives.
+    2. `closed_tickets_unlinked` = tickets clos portant une cle d'item et absents de la carte ; doit valoir 0.
+    CONTROLE POSITIF fabrique (le defaut seme rougit la porte et est NOMME) + CONTROLE NEGATIF (cas sain a 0). Publier le denominateur.
+  owner_feedback:
+  - date: '2026-09-23'
+    text: Ok tu peux traiter le tout du coup, comme tu l'entends
+    via:
+      source: supervisor
+      at: '2026-09-23T05:37:24+00:00'
+      by: autoport feedback
+  - date: '2026-09-23'
+    text: Vas-y traite comme tu l'entends
+    via:
+      source: supervisor
+      at: '2026-09-23T05:37:44+00:00'
+      by: autoport feedback
+- id: harness-owner-archive-of-running-item-is-safe
+  feature: Si l'owner archive un chantier pendant qu'un essai tourne dessus, l'essai s'arrete proprement
+    et rien n'est ecrit au nom d'un item archive
+  status: open
+  priority: 13
+  code_scope: harnais
+  device: false
+  owner_test: false
+  max_retries: 5
+  gate:
+    key: archived_item_attempt_side_effects
+    op: ==
+    value: 0
+  prompt: prompts/item-harness-owner-archive-of-running-item-is-safe.md
+  known_cause: |-
+    Signale par les workers de harness-owner-secret-never-copied-in-clear / harness-linear-pull-reads-archived-tickets / harness-linear-census-reads-archived-tickets / harness-supervisor-relay-command (reports/<id>/FINDINGS.txt). Owner 23/09 (JAK-235) : « Ok tu peux traiter le tout du coup, comme tu l'entends ».
+    `.autoport/linear_sync.py:apply_owner_archive` : un archivage de l'owner sur un chantier EN COURS l'archive tout de suite ; le comportement de l'orchestrateur sur un item archive en plein essai n'est pas mesure (essai peut-etre termine, commite et juge sur un item deja archive).
+  deliverable: |-
+    1. Mesurer d'abord ce qui se passe aujourd'hui (item archive pendant un essai fabrique).
+    2. L'orchestrateur voit l'archivage et annule l'essai sans le compter, ou l'archivage attend la fin de l'essai en le disant a l'owner.
+    3. `archived_item_attempt_side_effects` = commits, verdicts ou statuts ecrits apres l'archivage ; doit valoir 0.
+    CONTROLE POSITIF fabrique (le defaut seme rougit la porte et est NOMME) + CONTROLE NEGATIF (cas sain a 0). Publier le denominateur.
+  owner_feedback:
+  - date: '2026-09-23'
+    text: Ok tu peux traiter le tout du coup, comme tu l'entends
+    via:
+      source: supervisor
+      at: '2026-09-23T05:37:26+00:00'
+      by: autoport feedback
+- id: harness-linear-owner-moves-never-lost
+  feature: Un deplacement de ticket fait par l'owner n'est jamais ecrase, perdu ni applique deux fois
+  status: open
+  priority: 20
+  code_scope: harnais
+  device: false
+  owner_test: false
+  max_retries: 5
+  gate:
+    key: owner_moves_lost
+    op: ==
+    value: 0
+  prompt: prompts/item-harness-linear-owner-moves-never-lost.md
+  known_cause: |-
+    Signale par les workers de harness-linear-relink-keeps-owner-comments / harness-linear-stale-map-never-fakes-an-owner-move / harness-wake-unanswered-list-carries-its-age / harness-workers-reply-in-the-owner-thread (reports/<id>/FINDINGS.txt). Owner 23/09 : « Ok tu peux traiter le tout du coup, comme tu l'entends » (pose sur JAK-235, applique aussi a la question JAK-237 posee juste avant).
+    `.autoport/linear_sync.py:push_existing` : un deplacement de l'owner fait entre la lecture (pull_owner) et l'envoi du meme passage est ECRASE (fenetre de quelques secondes toutes les 30 s). `owner_move` : sous le repli « cle de l'owner » (mode != app), un vrai deplacement sans `state_at` n'est pas applique (auteur indistinguable) et est perdu ; carte ET cliche recules sous le `state_at` : un vrai deplacement deja applique est re-applique (priorite remise en tete, message « Note. » repete).
+  deliverable: |-
+    1. L'envoi relit l'etat Linear juste avant d'ecrire et n'ecrase jamais un changement plus recent de l'owner.
+    2. Un deplacement deja applique porte une trace (id d'historique) et ne l'est jamais deux fois.
+    3. Sous le repli d'identite, le deplacement est NOMME a l'owner au lieu d'etre perdu.
+    4. `owner_moves_lost` = deplacements ecrases + perdus + re-appliques ; doit valoir 0.
+    CONTROLE POSITIF fabrique (le defaut seme rougit la porte et est NOMME) + CONTROLE NEGATIF (cas sain a 0). Publier le denominateur.
+  owner_feedback:
+  - date: '2026-09-23'
+    text: Ok tu peux traiter le tout du coup, comme tu l'entends
+    via:
+      source: supervisor
+      at: '2026-09-23T05:37:27+00:00'
+      by: autoport feedback
+  - date: '2026-09-23'
+    text: Vas-y traite comme tu l'entends
+    via:
+      source: supervisor
+      at: '2026-09-23T05:37:45+00:00'
+      by: autoport feedback
+- id: harness-linear-archived-structures-not-recreated
+  feature: Un projet, une etiquette ou une vue Linear archives par l'owner ne sont jamais recrees en double
+  status: open
+  priority: 20
+  code_scope: harnais
+  device: false
+  owner_test: false
+  max_retries: 5
+  gate:
+    key: linear_structures_duplicated
+    op: ==
+    value: 0
+  prompt: prompts/item-harness-linear-archived-structures-not-recreated.md
+  known_cause: |-
+    Signale par les workers de harness-owner-secret-never-copied-in-clear / harness-linear-pull-reads-archived-tickets / harness-linear-census-reads-archived-tickets / harness-supervisor-relay-command (reports/<id>/FINDINGS.txt). Owner 23/09 (JAK-235) : « Ok tu peux traiter le tout du coup, comme tu l'entends ».
+    `.autoport/linear_sync.py:615,632,643` (ensure_projects, ensure_label, ensure_view) lisent `team{projects}`, `team{labels}`, `customViews` sans `includeArchived` : un element archive est invisible et serait RECREE. Aussi : une etiquette « A lire » posee sur un ticket archive y reste (enumerations 1029,1378,1390,1718), sans effet visible.
+  deliverable: |-
+    1. Les trois lectures voient les archives et respectent le choix de l'owner (pas de recreation).
+    2. `linear_structures_duplicated` ; doit valoir 0.
+    CONTROLE POSITIF fabrique (le defaut seme rougit la porte et est NOMME) + CONTROLE NEGATIF (cas sain a 0). Publier le denominateur.
+  owner_feedback:
+  - date: '2026-09-23'
+    text: Ok tu peux traiter le tout du coup, comme tu l'entends
+    via:
+      source: supervisor
+      at: '2026-09-23T05:37:28+00:00'
+      by: autoport feedback
+- id: harness-linear-pull-minor-gaps
+  feature: 'Petits trous du tirage Linear : pagination des tickets hors backlog, doublons d''anciens retours,
+    liens bloques jamais retentes'
+  status: open
+  priority: 40
+  code_scope: harnais
+  device: false
+  owner_test: false
+  max_retries: 5
+  gate:
+    key: linear_pull_minor_gaps
+    op: ==
+    value: 0
+  prompt: prompts/item-harness-linear-pull-minor-gaps.md
+  known_cause: |-
+    Signale par les workers de harness-owner-secret-never-copied-in-clear / harness-linear-pull-reads-archived-tickets / harness-linear-census-reads-archived-tickets / harness-supervisor-relay-command (reports/<id>/FINDINGS.txt). Owner 23/09 (JAK-235) : « Ok tu peux traiter le tout du coup, comme tu l'entends ».
+    Signale par les workers de harness-linear-relink-keeps-owner-comments / harness-linear-stale-map-never-fakes-an-owner-move / harness-wake-unanswered-list-carries-its-age / harness-workers-reply-in-the-owner-thread (reports/<id>/FINDINGS.txt). Owner 23/09 : « Ok tu peux traiter le tout du coup, comme tu l'entends » (pose sur JAK-235, applique aussi a la question JAK-237 posee juste avant).
+    (1) `linear_sync.py:1154` pull_labeled_unmapped : 50 commentaires max, un pouce ou retour enfoui est invisible. (2) pull_owner/have_ids : dedoublonnage seulement par `via.comment` : un ancien retour recopie sans `via` (ou absorbe par le superviseur, JAK-189) est recopie une 2e fois si son ticket est relie. (3) sync_relations : une relation refusee parce qu'un ticket est archive est nommee puis consideree posee, jamais retentee.
+  deliverable: |-
+    1. Paginer ; 2. dedoublonner aussi par texte+date d'un retour sans `via` ; 3. retenter (ou desarchiver) une relation refusee.
+    4. `linear_pull_minor_gaps` = somme des trois ; doit valoir 0.
+    CONTROLE POSITIF fabrique (le defaut seme rougit la porte et est NOMME) + CONTROLE NEGATIF (cas sain a 0). Publier le denominateur.
+  owner_feedback:
+  - date: '2026-09-23'
+    text: Ok tu peux traiter le tout du coup, comme tu l'entends
+    via:
+      source: supervisor
+      at: '2026-09-23T05:37:29+00:00'
+      by: autoport feedback
+  - date: '2026-09-23'
+    text: Vas-y traite comme tu l'entends
+    via:
+      source: supervisor
+      at: '2026-09-23T05:37:47+00:00'
+      by: autoport feedback
+- id: harness-secret-guards-hardening
+  feature: 'Les gardes anti-secret couvrent aussi les cas limites : --no-verify, reponses de l''outil
+    d''identite, secret sur deux lignes, requete ecrite en morceaux'
+  status: open
+  priority: 40
+  code_scope: harnais
+  device: false
+  owner_test: false
+  max_retries: 5
+  gate:
+    key: secret_guard_gaps
+    op: ==
+    value: 0
+  prompt: prompts/item-harness-secret-guards-hardening.md
+  known_cause: |-
+    Signale par les workers de harness-owner-secret-never-copied-in-clear / harness-linear-pull-reads-archived-tickets / harness-linear-census-reads-archived-tickets / harness-supervisor-relay-command (reports/<id>/FINDINGS.txt). Owner 23/09 (JAK-235) : « Ok tu peux traiter le tout du coup, comme tu l'entends ».
+    (1) `.autoport/hooks/git/pre-commit + pre-push` contournables par `--no-verify` (l'orchestrateur ne l'utilise pas, orchestrator.py:1991). (2) `.autoport/linear_identity.py:gql` : ses reponses ne passent pas par le masque. (3) `lib/census/harness-owner-secret-never-copied-in-clear.sh` : un « Client Secret » et sa valeur sur deux lignes YAML ne sont pas vus dans l'historique. (4) `lib/census/harness-linear-census-reads-archived-tickets.sh` (S) : une requete assemblee par morceaux echappe au recensement statique.
+  deliverable: |-
+    1. Controle cote serveur ou porte du juge qui rejoue la recherche de secret sur les commits de l'essai (independant des hooks locaux).
+    2. linear_identity passe par le masque.
+    3. Recherche multi-lignes dans l'historique ; recensement structurel des requetes.
+    4. `secret_guard_gaps` ; doit valoir 0.
+    CONTROLE POSITIF fabrique (le defaut seme rougit la porte et est NOMME) + CONTROLE NEGATIF (cas sain a 0). Publier le denominateur.
+  owner_feedback:
+  - date: '2026-09-23'
+    text: Ok tu peux traiter le tout du coup, comme tu l'entends
+    via:
+      source: supervisor
+      at: '2026-09-23T05:37:31+00:00'
+      by: autoport feedback
+- id: harness-wake-and-reply-minor-gaps
+  feature: 'Petits defauts du reveil et des reponses : reveil inutile apres une reponse en retard, libelle
+    de delai faux, retours du terminal sans fil, cible de --reply-to'
+  status: open
+  priority: 40
+  code_scope: harnais
+  device: false
+  owner_test: false
+  max_retries: 5
+  gate:
+    key: wake_reply_minor_gaps
+    op: ==
+    value: 0
+  prompt: prompts/item-harness-wake-and-reply-minor-gaps.md
+  known_cause: |-
+    Signale par les workers de harness-linear-relink-keeps-owner-comments / harness-linear-stale-map-never-fakes-an-owner-move / harness-wake-unanswered-list-carries-its-age / harness-workers-reply-in-the-owner-thread (reports/<id>/FINDINGS.txt). Owner 23/09 : « Ok tu peux traiter le tout du coup, comme tu l'entends » (pose sur JAK-235, applique aussi a la question JAK-237 posee juste avant).
+    (1) `wake_gate.py:empreinte_retours` : repondre a un retour EN RETARD change la signature, le reveil suivant passe au lieu d'etre refuse. (2) `wake_gate.py:cran_retour` : « PLUS D'UN JOUR » faux si AUTOPORT_OWNER_SLA_S > 12 h. (3) `owner_sla.py:EXCLUDED_SOURCES` : un retour relaye du terminal n'a pas de fil, aucune mesure ne dit s'il a ete repondu. (4) `linear_sync.py:reply_target` : `--reply-to last` vise le dernier recopie meme deja repondu ; `wake_gate.py:310` conseille encore `--reply-to last`.
+  deliverable: |-
+    1. Corriger les quatre ; le reveil conseille la commande sans option (dernier retour OUVERT).
+    2. `wake_reply_minor_gaps` = somme ; doit valoir 0.
+    CONTROLE POSITIF fabrique (le defaut seme rougit la porte et est NOMME) + CONTROLE NEGATIF (cas sain a 0). Publier le denominateur.
+  owner_feedback:
+  - date: '2026-09-23'
+    text: Ok tu peux traiter le tout du coup, comme tu l'entends
+    via:
+      source: supervisor
+      at: '2026-09-23T05:37:32+00:00'
+      by: autoport feedback
+  - date: '2026-09-23'
+    text: Vas-y traite comme tu l'entends
+    via:
+      source: supervisor
+      at: '2026-09-23T05:37:48+00:00'
+      by: autoport feedback
