@@ -28,7 +28,7 @@ ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || { echo "owner_archived_comm
 cd "$ROOT" || exit 1
 
 python3 - <<'PY'
-import copy, io, re, sys, types
+import ast, copy, io, os, re, sys, types
 from contextlib import redirect_stdout
 from pathlib import Path
 sys.path.insert(0, '.autoport')
@@ -38,6 +38,11 @@ def pub(k, v): OUT[k] = str(v).replace(" ", "_")
 unmeasured = []    # termes non mesures (1 chacun)
 dead = []          # controles qui ne tiennent pas (1 chacun)
 LIVE = ("open", "in-progress", "blocked", "to-test")
+# `CENSUS_CONTROLS_ONLY=1` (harness-archived-census-controls-are-alive) : les CONTROLES seuls, sans toucher Linear.
+# Le terme vivant n'est pas mesure et le dit (`owner_archived_live=saute`) : ce mode ne rend jamais la porte de CET item.
+CONTROLS_ONLY = os.environ.get("CENSUS_CONTROLS_ONLY") == "1"
+class SkipLive(Exception):
+    pass
 SRC_PATH = Path(".autoport/linear_sync.py")
 SRC = SRC_PATH.read_text()
 
@@ -96,6 +101,8 @@ def measure(world_issues, items_by_id, recs, owner_id, hist_of):
 
 # ============================================================================== VIVANT (Linear) ==
 try:
+    if CONTROLS_ONLY:
+        raise SkipLive
     import linear_sync as S, linear_identity as LI
     from lib import owner_sla as OSLA
     L = S.Linear(LI.resolve())
@@ -158,6 +165,10 @@ try:
     pub("owner_archived_identity", getattr(L, "mode", "?"))
     pub("owner_archived_queries", L.n)
     live_lost = len(lost_c) + len(lost_a)
+except SkipLive:
+    live_lost = 0
+    unmeasured.append("vivant:saute")
+    pub("owner_archived_live", "saute")
 except Exception as e:  # noqa: BLE001 — un terme non mesure est un DEFAUT, jamais un zero
     unmeasured.append("vivant:" + str(e)[:80])
     live_lost = 0
@@ -395,6 +406,31 @@ def scan_writes(name, text):
     return out
 
 
+def unguard(src, func, mutation):
+    """Graine STRUCTURELLE : dans la fonction `func`, chaque appel `on_ticket(..., lambda: <corps>)` dont le corps porte
+    `mutation` est remplace par `(<corps>)`. Lue sur l'ARBRE, pas sur une ligne : `return on_ticket(` devenu
+    `r = on_ticket(` (ef3327822c) avait tue la graine litterale sans un mot. -> (source semee, nombre d'appels semes)."""
+    b = src.encode()
+    starts, k = [0], 0
+    for l in b.splitlines(keepends=True):
+        k += len(l)
+        starts.append(k)
+    at = lambda ln, col: starts[ln - 1] + col   # col_offset d'ast = octets UTF-8
+    cuts = []
+    for fn in ast.walk(ast.parse(src)):
+        if not (isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)) and fn.name == func):
+            continue
+        for c in ast.walk(fn):
+            if isinstance(c, ast.Call) and isinstance(c.func, ast.Name) and c.func.id == "on_ticket":
+                lam = [a for a in c.args if isinstance(a, ast.Lambda)]
+                body = b[at(lam[0].body.lineno, lam[0].body.col_offset):at(lam[0].body.end_lineno, lam[0].body.end_col_offset)] if lam else b""
+                if mutation.encode() in body:
+                    cuts.append((at(c.lineno, c.col_offset), at(c.end_lineno, c.end_col_offset), body))
+    for s, e, body in sorted(cuts, reverse=True):
+        b = b[:s] + b"(" + body + b")" + b[e:]
+    return b.decode(), len(cuts)
+
+
 try:
     import subprocess
     files = [f for f in subprocess.run(["git", "ls-files", ".autoport"], capture_output=True, text=True).stdout.split()
@@ -413,12 +449,14 @@ try:
     pub("linear_archived_write_unguarded", len(bad))
     pub("linear_archived_write_unguarded_first", ",".join(bad[:4]) or "-")
     # controles du recensement statique
-    seeded = SRC.replace("    return on_ticket(L, issue_id, lambda: L.q('mutation($i:CommentCreateInput!)",
-                         "    return (L.q('mutation($i:CommentCreateInput!)", 1)
+    seeded, n_seeded = unguard(SRC, "post_comment", "commentCreate")
+    pub("linear_archived_write_ctl_pos_seeded", n_seeded)
     seeded += "\n\ndef poke(L, i):\n    return L.q('mutation($i:CommentCreateInput!){ commentCreate(input:$i){ success } }', i=i)\n"
     sb = [s["where"] for s in scan_writes(".autoport/linear_sync.py", seeded) if not s["guard"] and not s["exempt"]]
     pub("linear_archived_write_ctl_pos", ",".join(sb) or "-")
-    if not (any(w.endswith(":post_comment:commentCreate") for w in sb) and any(w.endswith(":poke:commentCreate") for w in sb)):
+    if n_seeded != 1:
+        dead.append("C+_statique:introuvable")
+    elif not (any(w.endswith(":post_comment:commentCreate") for w in sb) and any(w.endswith(":poke:commentCreate") for w in sb)):
         dead.append("C+_statique")
     clean = "def poke(L, i):\n    return on_ticket(L, i, lambda: L.q('mutation($i:CommentCreateInput!){ commentCreate(input:$i){ success } }', i=i))\n"
     if [s for s in scan_writes("sain.py", clean) if not s["guard"]]:

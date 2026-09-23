@@ -23,13 +23,14 @@
 #   INCONNU = DEFAUT : un terme non mesure compte 1. Un controle positif qui ne rougit pas compte 1.
 # CONTROLES : C+ = le defaut SEME rougit et est NOMME (site retire de pull_owner, site neuf, cible
 # deguisee dans une fonction exemptee ; requete d'identite privee du drapeau ; pull_owner prive du
-# drapeau). C- = code sain synthetique a 0. Le code livre lui-meme est la mesure.
+# drapeau ; la cle d'un faux Linear ENVOYEE comme requete). C- = code sain synthetique a 0, et la cle de repartition
+# d'un faux Linear (`"<requete>" in q`) n'est pas accusee. Le code livre lui-meme est la mesure.
 set -uo pipefail
 ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || { echo "linear_archived_blind_reads=99"; exit 1; }
 cd "$ROOT" || exit 1
 
 python3 - <<'PY'
-import copy, io, re, subprocess, sys
+import copy, io, os, re, subprocess, sys
 from contextlib import redirect_stdout
 from pathlib import Path
 sys.path.insert(0, '.autoport')
@@ -40,6 +41,11 @@ blind = 0          # la somme de la porte
 unmeasured = []    # termes non mesures (1 chacun)
 dead = []          # controles positifs qui ne rougissent pas (1 chacun)
 FLAG = "includeArchived:true"
+# `CENSUS_CONTROLS_ONLY=1` (harness-archived-census-controls-are-alive) : S et ses controles seuls, sans toucher Linear.
+# Les termes vivants ne sont pas mesures et le disent (`linear_live=saute`) : ce mode ne rend jamais la porte de CET item.
+CONTROLS_ONLY = os.environ.get("CENSUS_CONTROLS_ONLY") == "1"
+class SkipLive(Exception):
+    pass
 
 # ================================================================================ S : STATIQUE ==
 SITE = re.compile(r"\{\s*(issues|searchIssues|issueSearch)\s*([({])")
@@ -70,8 +76,24 @@ def parent_of(text, i):
     return m.group(1) if m else "?"
 
 
+def dispatch_key(text, a, b):
+    """Le site `text[a:b]` est-il dans un litteral qui est l'operande GAUCHE d'un `in` / `not in` ? C'est la cle de
+    repartition d'un FAUX Linear (`if "<requete>" in q1:`, relink-keeps-owner-comments:186) : il reconnait une
+    requete, il n'en envoie aucune. Lu sur la FORME (litteral -> in), jamais sur le texte de la cle."""
+    ls = text.rfind("\n", 0, a) + 1
+    le = text.find("\n", b)
+    le = len(text) if le < 0 else le
+    head, tail = text[ls:a], text[b:le]
+    qs = [(head.rfind(q), q) for q in "\"'"]
+    k, q = max(qs)
+    if k < 0 or q not in tail:
+        return False
+    return bool(re.match(r"\s+(not\s+)?in\b", tail[tail.index(q) + 1:]))
+
+
 def scan(name, text):
-    """-> liste de sites {where, func, parent, covered, target, exempt}."""
+    """-> liste de sites {where, func, parent, covered, target, exempt}. Une cle de repartition (`dispatch_key`)
+    n'est pas un site : elle est comptee a part (`dispatch`)."""
     out = []
     lines = text.splitlines()
     ind = lambda l: len(l) - len(l.lstrip())
@@ -89,6 +111,9 @@ def scan(name, text):
         return "<module>"
     for m in SITE.finditer(text):
         line = text.count("\n", 0, m.start()) + 1
+        if dispatch_key(text, m.start(), m.end()):
+            DISPATCH.append("%s:%d" % (name.replace(".autoport/", ""), line))
+            continue
         func = enclosing(line)
         args = args_of(text, m.end(2) - 1) if m.group(2) == "(" else ""
         par = parent_of(text, m.start())
@@ -104,6 +129,7 @@ def blind_of(sites):
     return [s for s in sites if not s["covered"] and not s["exempt"]]
 
 
+DISPATCH = []
 files = subprocess.run(["git", "ls-files", ".autoport"], capture_output=True, text=True).stdout.split()
 files = [f for f in files if not re.match(r"\.autoport/(archive|reports|logs|owner-feedback)/", f)
          and (f.endswith((".py", ".sh", ".bash")) or not re.search(r"[/.]", f[len(".autoport/"):]))]
@@ -119,6 +145,8 @@ pub("linear_read_files_scanned", len(files))
 pub("linear_read_sites_total", len(sites))
 pub("linear_read_sites_covered", sum(s["covered"] for s in sites))
 pub("linear_read_sites_exempt", sum(1 for s in sites if s["exempt"]))
+pub("linear_read_sites_dispatch", len(DISPATCH))
+pub("linear_read_sites_dispatch_list", ",".join(DISPATCH) or "-")
 pub("linear_read_sites_blind", len(sb))
 pub("linear_read_sites_blind_list", ",".join(s["where"] for s in sb) or "-")
 pub("linear_read_exempt_list", ",".join(s["where"] for s in sites if s["exempt"]) or "-")
@@ -153,9 +181,23 @@ c4 = blind_of(scan(".autoport/neuf.py", healthy))
 pub("linear_ctl_healthy", len(c4))
 if c4:
     blind += len(c4)   # C- rouge = le classifieur accuse un code sain : il ne vaut rien
+# La cle de repartition d'un faux Linear n'est pas une lecture (C-) ; la MEME chaine ENVOYEE l'est (C+) : l'exclusion
+# tient a la forme `litteral in x`, pas au texte de la cle.
+KEY = '"team(id:$t){' + 'issues("'
+fake_linear = "def q(self, q1, **v):\n    if " + KEY + " in q1:\n        return {}\n"
+c5 = blind_of(scan(".autoport/faux.py", fake_linear))
+pub("linear_ctl_dispatch_healthy", len(c5))
+blind += len(c5)
+sent = "def lookup(L, t):\n    return L.q(" + KEY[:-1] + "filter:{title:{eq:$t}}){ nodes { id } } }\", t=t)\n"
+c6 = blind_of(scan(".autoport/neuf.py", sent))
+pub("linear_ctl_dispatch_sent", ",".join(s["where"] for s in c6) or "-")
+if len(c6) != 1:
+    dead.append("C+_cle_envoyee")
 
 # ================================================================================ L : VIVANT ==
 try:
+    if CONTROLS_ONLY:
+        raise SkipLive
     import linear_sync as S
     import linear_identity as LI
     L = S.Linear(LI.resolve())
@@ -254,6 +296,9 @@ try:
     bad4 = int(kv.get("lid_author_distinct", "1") != "0") + int(was and not still)
     pub("linear_identity_on_archived_bad", bad4)
     blind += bad4
+except SkipLive:
+    pub("linear_live", "saute")
+    unmeasured.append("L_vivant:saute")
 except Exception as e:  # noqa: BLE001
     pub("linear_live_error", str(e)[:200])
     unmeasured.append("L_vivant")
