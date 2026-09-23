@@ -313,6 +313,24 @@ def _rec_of(issue_id):
     return None, None
 
 
+def _item_of_issue(issue_id):
+    """L'item d'un ticket, meme quand `main()` n'a pas pose la carte (`_CTX["mp"]` vide : appel direct de
+    `post_comment` par un recensement ou un outil). Lecture SEULE de la carte et de son cliche : `load_map`
+    reecrit l'un ou l'autre, ce qu'un envoi de commentaire n'a pas a faire."""
+    k = _rec_of(issue_id)[0]
+    if k or _CTX["mp"]:
+        return k or ""
+    for path in (MAP_PATH, SHADOW_PATH):
+        try:
+            mp = json.loads(path.read_text())
+        except (OSError, ValueError):
+            continue
+        for k, v in (mp or {}).items():
+            if not k.startswith("_") and isinstance(v, dict) and v.get("issue_id") == issue_id:
+                return k
+    return ""
+
+
 def _name(issue_id):
     k, v = _rec_of(issue_id)
     return "%s (%s)" % (v.get("identifier"), k) if v else issue_id
@@ -906,7 +924,14 @@ def post_comment(L, issue_id, body, parent=None, capture_failed=""):
     # INVISIBLE-CAPTURE/ filet du point de production (23/09) : un chantier hors champ ne parle ni de
     # capture ni de build a tester, quel que soit l'appelant (annonce de verdict qui relaie le rapport
     # et joint les images de notes/, relances...). `--comment` a deja REFUSE ce que le worker a ecrit.
-    _iid = _rec_of(issue_id)[0] or ""
+    _iid = _item_of_issue(issue_id)
+    # SANS CHANTIER, RIEN NE PART (harness-tests-never-write-real-registries, 23/09) : 26 lignes du registre
+    # avaient item="" (JAK-180 poste hors `main()`, tickets de recensement) ; elles echappaient a
+    # CLOSE-GATE/capture et au garde INVISIBLE-CAPTURE ci-dessous, qui ne savent pas de quel chantier il s'agit.
+    if not _iid:
+        print("COMMENTAIRE REFUSE : le ticket %s n'est rattache a aucun chantier de la carte, rien n'est poste"
+              % issue_id)
+        return None
     try:
         _it = ((_CTX.get("bl") or B.load()).get(_iid) or {}) if _iid else {}
     except Exception:  # noqa: BLE001 — backlog illisible : l'item est traite comme visible (rien retire)

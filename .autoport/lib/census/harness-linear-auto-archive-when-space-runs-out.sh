@@ -224,6 +224,7 @@ def c3(at_limit):
     else:
         items, mp = seed_space(L, 50, 50)
     L.add("verdict", state="completed", archived=True)
+    mp["verdict-fini"] = {"issue_id": "verdict", "identifier": "V1"}  # un commentaire sans chantier ne part plus
     reset(items, mp)
     before_crash = 0
     try:                                                               # bras AVANT : l'appel nu

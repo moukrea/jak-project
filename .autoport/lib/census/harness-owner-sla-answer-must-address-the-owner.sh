@@ -152,6 +152,7 @@ sla_sb = FB.Sandbox([{"id": "i", "status": "open", "owner_feedback":
                       [{"date": "2026-09-01", "text": "a", "via": {"comment": "o8"}},
                        {"date": "2026-09-02", "text": "b", "via": {"comment": "o9"}}]}])
 tk, parent = S.reply_target(L1, sla_sb.load(), "i", "last")
+S._CTX["mp"] = {"i": {"issue_id": "T9", "identifier": "FAKE-9"}}  # un commentaire sans chantier ne part plus
 S.post_comment(L1, tk, "reponse", parent=parent)
 S.post_comment(L1, "T9", "→ **En cours**")
 check("prod_reply_to_last_posts_in_thread", (tk, parent) == ("T9", "h3")

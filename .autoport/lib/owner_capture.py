@@ -24,7 +24,9 @@ commentaire posté, avec l'identifiant que Linear a rendu.
 from __future__ import annotations
 
 import json
+import os
 import re
+import subprocess
 import time
 import unicodedata
 from datetime import datetime
@@ -38,6 +40,58 @@ DATE_RX = re.compile(r"^date: (\S+)", re.M)
 TAG_RX = re.compile(r"^TAG: (\S+)", re.M)
 
 HORS_CHAMP, CAPTURE, LIVRE, DEFAUT = "hors-champ", "capture", "livre", "defaut"
+
+# LE VRAI REGISTRE N'ACCUEILLE QUE DE VRAIS COMMENTAIRES (harness-tests-never-write-real-registries, 23/09).
+# Le 23/09, 134 lignes sur 231 du registre de l'arbre principal venaient des tests et des recensements
+# (tickets `t-d`, `t-b`, `t0`, `T9`, `verdict`, items `item-d`, `harness-un`...) et 26 n'avaient pas d'item :
+# CLOSE-GATE/capture et INVISIBLE-CAPTURE lisaient ce melange. Deux verrous, ici, au point de production :
+#   * REGISTRY_ENV : un banc qui la pose (tests/harness/bench_env.py) ecrit et lit le registre de l'arbre
+#     principal dans ce dossier jetable, jamais dans `.autoport/logs`. Un `ap_dir` de bac a sable n'est
+#     pas concerne : il est deja jetable.
+#   * `polluted` : ce qui n'est pas un commentaire Linear rattache a un chantier (ticket qui n'est pas un
+#     identifiant Linear, item vide) n'entre JAMAIS dans le registre de l'arbre principal. Meme predicat
+#     que la grandeur `registry_pollution` (lib/census/harness-tests-never-write-real-registries.py).
+REGISTRY_ENV = "AUTOPORT_REGISTRY_DIR"
+LINEAR_ID_RX = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+_MAIN = {}
+
+
+def main_autoport() -> Path:
+    """Le `.autoport` de l'arbre PRINCIPAL (meme regle que `linear_sync._home`), celui du vrai registre."""
+    if "p" not in _MAIN:
+        here = Path(__file__).resolve().parents[1]
+        try:
+            common = subprocess.run(["git", "-C", str(here), "rev-parse", "--path-format=absolute",
+                                     "--git-common-dir"], capture_output=True, text=True, timeout=10).stdout.strip()
+        except Exception:  # noqa: BLE001 — pas de git : l'arbre courant
+            common = ""
+        main = Path(common).parent / ".autoport" if common else None
+        _MAIN["p"] = (main if main and (main / "linear_sync.py").exists() else here).resolve()
+    return _MAIN["p"]
+
+
+def is_main(ap_dir) -> bool:
+    try:
+        return Path(ap_dir).resolve() == main_autoport()
+    except OSError:
+        return False
+
+
+def ledger_path(ap_dir) -> Path:
+    """Ou le registre de `ap_dir` s'ecrit ET se lit : le dossier jetable du banc pour l'arbre principal."""
+    env = os.environ.get(REGISTRY_ENV, "").strip()
+    if env and is_main(ap_dir):
+        return Path(env) / LEDGER.name
+    return Path(ap_dir) / LEDGER
+
+
+def polluted(rec: dict) -> str:
+    """Pourquoi cette ligne n'a pas sa place dans le vrai registre ('' = elle l'a)."""
+    if not str(rec.get("item") or "").strip():
+        return "sans-item"
+    if not LINEAR_ID_RX.match(str(rec.get("issue_id") or "")):
+        return "ticket-fictif"
+    return ""
 
 
 def plain(text) -> str:
@@ -167,7 +221,13 @@ def record(ap_dir, item_id, body, *, issue_id="", comment_id="", capture_failed=
     }
     if visible is not None:   # INVISIBLE-CAPTURE/ : lu par le recensement de l'item, apres le correctif
         rec.update(visible=bool(visible), talk=list(talk or []), stripped=int(stripped or 0))
-    p = Path(ap_dir) / LEDGER
+    p = ledger_path(ap_dir)
+    why = polluted(rec) if p == Path(ap_dir) / LEDGER and is_main(ap_dir) else ""
+    if why:
+        print("REGISTRE DES COMMENTAIRES : ligne refusee (%s : item=%r ticket=%r) — le vrai registre ne "
+              "prend que des commentaires Linear rattaches a un chantier" % (why, rec["item"], rec["issue_id"]))
+        rec["refused"] = why
+        return rec
     p.parent.mkdir(parents=True, exist_ok=True)
     with p.open("a") as f:
         f.write(json.dumps(rec, ensure_ascii=False) + "\n")
@@ -178,7 +238,7 @@ def entries(ap_dir, item_id, since: float) -> list[dict]:
     """Les commentaires du harnais postés sur l'item depuis `since` (début de l'essai)."""
     out = []
     try:
-        lines = (Path(ap_dir) / LEDGER).read_text(errors="replace").splitlines()
+        lines = ledger_path(ap_dir).read_text(errors="replace").splitlines()
     except OSError:
         return out
     for ln in lines:

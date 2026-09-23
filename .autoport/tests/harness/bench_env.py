@@ -58,7 +58,14 @@ TRANSMISES = (
 EXPLICITES = (
     "AUTOPORT_SANDBOX_MANIFEST",    # lib/verdict_sources_selftest.sh -> test_proof.py
     "AUTOPORT_BENCH_ENV_MANIFEST",  # lib/census/harness-test-bench-... -> test_bench_env.py
+    "AUTOPORT_REGISTRY_DIR",        # le registre de commentaires du banc (lib/owner_capture.REGISTRY_ENV)
 )
+
+# LE REGISTRE DU BANC EST JETABLE (harness-tests-never-write-real-registries, 23/09). test_loop.py et
+# test_attempt.py poussaient leurs commentaires fictifs (`item-d`, `item-b`...) dans le VRAI
+# `.autoport/logs/linear_comments.jsonl`, lu par CLOSE-GATE/capture : 102 lignes en un jour. Pose ici, au
+# point de production de l'environnement du banc, la variable suit tous les sous-processus.
+REGISTRY = "AUTOPORT_REGISTRY_DIR"
 
 # LE BRAS D'ABLATION. `=1` rend au banc l'etat d'AVANT : il herite tout. C'est le seul commutateur,
 # et il est lu AVANT l'assainissement — il disparait ensuite avec le reste.
@@ -100,6 +107,9 @@ def install(environ=None, force=False):
     _RETIREES.update({k: v for k, v in parent.items() if k not in garde})
     env.clear()
     env.update(garde)
+    if not env.get(REGISTRY):
+        import tempfile  # noqa: PLC0415
+        env[REGISTRY] = tempfile.mkdtemp(prefix="autoport-bench-registry-")
     _ETAT.update(installe=1, mode="maitrise", parent=len(parent),
                  gardees=tuple(sorted(garde)), retirees=tuple(sorted(_RETIREES)))
     return etat()
