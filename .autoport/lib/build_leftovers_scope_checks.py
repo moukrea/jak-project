@@ -20,7 +20,8 @@ def _scope_module(source):
     tree = ast.parse(source)
     names = {"normalise", "scope_decision", "scope_census", "code_free_item"}
     constants = {"CODE_FREE_PATTERNS", "SCOPE_FIELDS", "SCOPE_FIELD", "SCOPE_SANS_CODE",
-                 "SCOPE_AVEC_CODE", "SRC_FIELD", "SRC_FLAG", "SRC_PROSE", "SRC_SILENT", "SRC_BAD"}
+                 "SCOPE_AVEC_CODE", "SRC_FIELD", "SRC_FLAG", "SRC_PROSE", "SRC_SILENT", "SRC_BAD",
+                 "SCOPE_A_CADRER", "SRC_UNFRAMED"}
     tree.body = [n for n in tree.body if isinstance(n, ast.Assign) and any(
                     isinstance(t, ast.Name) and t.id in constants for t in n.targets)
                  or isinstance(n, ast.FunctionDef) and n.name in names]

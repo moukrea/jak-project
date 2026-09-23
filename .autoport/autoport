@@ -224,6 +224,10 @@ def cmd_profile(args):
 
 
 def main(argv=None):
+    # GESTE ETRANGER (23/09) : hors d'un essai, cette ligne de commande est la main du SUPERVISEUR.
+    # Ses ecritures du backlog sont journalisees pour `lib/suite_gate.py`, qui ne les impute pas a
+    # l'essai qui tourne. Un worker (AUTOPORT_ATTEMPT_ID pose) ecrit pour son essai : rien n'est excuse.
+    bl.DEFAULT_AUTHOR = None if os.environ.get("AUTOPORT_ATTEMPT_ID") else "superviseur"
     ap = argparse.ArgumentParser(prog="autoport", description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--file", default=None, help="backlog.yaml a lire (defaut : celui du harnais)")

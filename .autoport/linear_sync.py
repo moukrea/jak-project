@@ -1159,6 +1159,19 @@ def catch_overwritten(L, bl, iid, rec, st, seen):
     return ours["createdAt"], mv
 
 
+def adopted_item(iid, iss):
+    """L'item que devient un ticket de l'owner adopte. `code_scope: a-cadrer` (23/09) : il recevait
+    `jeu` en dur, et JAK-265 — les profils de modeles, un sujet de HARNAIS — est entre classe « jeu ».
+    Le superviseur pose le vrai perimetre en le cadrant (`set_scope`) ; d'ici la, `next_open` le saute."""
+    return {"id": iid, "status": "open", "game": "jak1", "priority": 999, "feature": iss["title"].strip()[:200],
+            "gate": None, "depends_on": [], "device": False, "owner_test": True, "owner_ok": None,
+            "code_scope": B.SCOPE_A_CADRER,
+            "max_turns": 600, "max_retries": 6, "proof_timeout": 420, "no_code": True,
+            "known_cause": "Ticket cree par l'owner dans Linear le %s. Son texte : %s" % (dt.date.today().isoformat(), (iss.get("description") or "").strip()),
+            "notes": B.AWAITING_FRAMING_NOTE,
+            "where": "", "deliverable": "", "out_of_scope": "", "spec": None}
+
+
 def adopt_owner_issues(L, bl, mp, team, todo_id, dry):
     """Un ticket cree par l'owner directement dans Linear devient un item du backlog (owner 17/09 :
     « j'ai ajouté une nouvelle issue et t'en a rien fait c'est pas normal ! »). Il arrive en bas de la pile,
@@ -1196,17 +1209,15 @@ def adopt_owner_issues(L, bl, mp, team, todo_id, dry):
         print("NOUVEAU TICKET OWNER : %s « %s » -> item %s (a cadrer par le superviseur)" % (iss["identifier"], iss["title"][:60], iid))
         if dry:
             continue
-        item = {"id": iid, "status": "open", "game": "jak1", "priority": 999, "feature": iss["title"].strip()[:200],
-                "gate": None, "depends_on": [], "device": False, "owner_test": True, "owner_ok": None, "code_scope": "jeu",
-                "max_turns": 600, "max_retries": 6, "proof_timeout": 420, "no_code": True,
-                "known_cause": "Ticket cree par l'owner dans Linear le %s. Son texte : %s" % (dt.date.today().isoformat(), (iss.get("description") or "").strip()),
-                "notes": B.AWAITING_FRAMING_NOTE,
-                "where": "", "deliverable": "", "out_of_scope": "", "spec": None}
+        item = adopted_item(iid, iss)
         path = bl.path
         with B._Lock(path):
             fresh = B._read(path)
             fresh["items"].append(item)
             B._atomic_write(path, B._dump(fresh))
+            # UN GESTE DE L'OWNER, quel que soit le processus qui l'a tire : `suite_gate` ne l'impute
+            # pas a l'essai qui tourne (JAK-265 a coute l'essai 2 d'un chantier innocent le 23/09).
+            B.record_gesture(path, "linear_sync", "adopt_owner_issues", [(iid, None, item)])
         mp[iid] = {"issue_id": iss["id"], "identifier": iss["identifier"], "url": "https://linear.app/moukrea/issue/" + iss["identifier"],
                    "last_state": iss["state"]["name"], "hash": "", "pulled_at": PULL_FROM_START}
         _say(L, {"issue_id": iss["id"]}, "Ticket adopté par le harnais (item « %s »). Il n'a pas encore de porte de mesure : le superviseur le cadre, puis il entrera dans la file. Ta description est conservée dans l'item." % iid)
@@ -2041,6 +2052,10 @@ def main():
     # Une seule synchro a la fois : le veilleur (30 s) et les appels du superviseur s'entrelacaient
     # (17/09, JAK-173 : trois etiquettes a la fois, un deplacement du superviseur lu comme celui de l'owner).
     lock = map_lock()  # noqa: F841 — tenu jusqu'a la sortie du processus
+    # GESTE ETRANGER (23/09) : ce que la synchro ecrit dans le backlog vient de l'OWNER (ou du
+    # superviseur qui la lance), jamais de l'essai qui tourne. Journalise pour `lib/suite_gate.py`.
+    # Lancee par un worker (`--comment`), elle ecrit pour l'essai : rien n'est journalise.
+    B.DEFAULT_AUTHOR = None if os.environ.get("AUTOPORT_ATTEMPT_ID") else "linear_sync"
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--no-pull", action="store_true")

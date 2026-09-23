@@ -17,6 +17,7 @@ fichier par un `rename` atomique. Rien n'est jamais ecrit en place.
 
 from __future__ import annotations
 
+import copy
 import datetime
 import errno
 import importlib
@@ -26,6 +27,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 
 try:
     import fcntl
@@ -127,9 +129,133 @@ STATUSES = ("open", "in-progress", "to-test", "validated", "blocked", "archived"
 AWAITING_FRAMING_NOTE = "A CADRER : porte, livrable et perimetre a ecrire par le superviseur avant tout essai."
 
 
+# 23/09 (harness-owner-gesture-not-imputed-to-running-item) — LE CHAMP LE DIT. L'adoption posait
+# `code_scope: jeu` en dur : JAK-265, un sujet de HARNAIS, est entre classe « jeu ». Un ticket adopte
+# recoit `code_scope: a-cadrer`, et c'est LUI qui le tient hors de la file tant que le superviseur n'a
+# pas pose un vrai perimetre (`set_scope`) — une consigne ecrite ne suffit pas a le liberer.
+# `getattr` : si le rechargement protege de `gate_verdict` a echoue, l'autorite d'avant n'a pas le nom.
+SCOPE_A_CADRER = "a-cadrer"
+
+
 def awaiting_framing(it):
-    """Un ticket de l'owner adopte que le superviseur n'a pas encore dote d'une consigne."""
+    """Un ticket de l'owner adopte que le superviseur n'a pas encore cadre : `code_scope: a-cadrer`,
+    ou (ancienne forme, avant le 23/09) la note A CADRER sans consigne."""
+    a_cadrer = getattr(_gate_verdict, "SCOPE_A_CADRER", (SCOPE_A_CADRER,))
+    if _gate_verdict.normalise(it.get(_gate_verdict.SCOPE_FIELD)) in a_cadrer:
+        return True
     return (it.get("notes") or "").startswith(AWAITING_FRAMING_NOTE) and not it.get("prompt")
+
+
+# ==================================== LES GESTES ETRANGERS A L'ESSAI QUI TOURNE (23/09) ==========
+# harness-owner-gesture-not-imputed-to-running-item. L'essai 2 de
+# harness-invisible-item-comment-has-no-capture-boilerplate a ete REFUSE le 23/09 a 11:01 pour deux
+# tests de `test_backlog.py` rougis par JAK-265 : un ticket que l'owner venait d'ouvrir, adopte dans
+# `backlog.yaml` par la synchro Linear PENDANT l'essai. `lib/suite_gate.py` n'avait aucun moyen de
+# le savoir : le backlog ne disait ni QUI l'avait ecrit, ni QUAND.
+#
+# CE JOURNAL LE DIT. Chaque ecriture du backlog par un ecrivain ETRANGER a l'essai — la synchro
+# Linear (les gestes de l'owner) et le superviseur (la ligne de commande `autoport`) — y laisse une
+# ligne : l'instant, l'auteur, le chemin d'ecriture, et pour chaque item touche son etat AVANT et
+# APRES. La porte de la suite s'en sert pour REJOUER le rouge avec et sans ces gestes ; elle ne
+# conclut rien sur la seule foi de ce journal. L'orchestrateur et le worker n'y ecrivent pas : leurs
+# ecritures sont celles de l'essai, et un rouge qu'elles fabriquent reste impute.
+#
+# Ecrit SOUS LE VERROU du backlog, apres l'ecriture : l'ordre des lignes est celui des ecritures.
+# Une ecriture qui ne peut pas etre journalisee n'est PAS refusee — le geste reste alors impute,
+# ce qui est le sens severe. Une edition A LA MAIN de `backlog.yaml` n'est pas journalisee non plus.
+GESTURES_NAME = ".backlog_gestures.jsonl"
+FOREIGN_AUTHORS = ("linear_sync", "superviseur")
+GESTURES_MAX_BYTES = 4 << 20
+# L'auteur des ecritures de CE processus. Pose par les points d'entree : `linear_sync.main` et la
+# ligne de commande `autoport` (hors d'un essai). `None` = l'essai ou l'orchestrateur : rien n'est
+# journalise, rien n'est excuse.
+DEFAULT_AUTHOR = None
+
+
+def gestures_path(backlog_path):
+    return os.path.join(os.path.dirname(os.path.abspath(os.fspath(backlog_path))), GESTURES_NAME)
+
+
+def record_gesture(backlog_path, author, via, changes):
+    """Journalise un geste ETRANGER : `changes` = [(item_id, avant|None, apres|None)]."""
+    if author not in FOREIGN_AUTHORS:
+        return 0
+    items = [{"id": i, "before": b, "after": a} for i, b, a in changes or () if b != a]
+    if not items:
+        return 0
+    ligne = json.dumps({"at": time.time(), "author": author, "via": via, "pid": os.getpid(),
+                        "items": items}, ensure_ascii=False, default=str) + "\n"
+    chemin = gestures_path(backlog_path)
+    try:
+        if os.path.exists(chemin) and os.path.getsize(chemin) > GESTURES_MAX_BYTES:
+            with open(chemin, encoding="utf-8") as fh:
+                lignes = fh.readlines()
+            _atomic_write(chemin, "".join(lignes[len(lignes) // 2:]))
+        with open(chemin, "a", encoding="utf-8") as fh:
+            fh.write(ligne)
+    except OSError:
+        return 0
+    return len(items)
+
+
+def read_gestures(backlog_path, since=0.0):
+    """Les gestes etrangers journalises a partir de `since` (epoch), dans l'ordre d'ecriture."""
+    out = []
+    try:
+        with open(gestures_path(backlog_path), encoding="utf-8") as fh:
+            for ligne in fh:
+                try:
+                    e = json.loads(ligne)
+                except ValueError:
+                    continue
+                if (isinstance(e, dict) and e.get("author") in FOREIGN_AUTHORS
+                        and float(e.get("at") or 0) >= float(since or 0)):
+                    out.append(e)
+    except OSError:
+        return []
+    return out
+
+
+def apply_gestures(doc, gestures, reverse=False):
+    """`doc` (le backlog lu) avec les gestes APPLIQUES (`reverse=False`) ou RETIRES (`True`).
+
+    Champ par champ, jamais l'item entier : retirer un geste du superviseur sur l'item qui tourne ne
+    doit pas effacer ce que l'orchestrateur y a ecrit ensuite. Un item cree par le geste est retire ;
+    un item supprime par lui est remis. Rend (doc, nombre de champs ou d'items touches)."""
+    doc = copy.deepcopy(doc) if isinstance(doc, dict) else {"version": 1, "items": []}
+    items = doc.get("items")
+    if not isinstance(items, list):
+        items = doc["items"] = []
+    touches = 0
+    seq = [x for e in gestures for x in (e.get("items") or []) if isinstance(x, dict)]
+    for g in (reversed(seq) if reverse else seq):
+        de, vers = (g.get("after"), g.get("before")) if reverse else (g.get("before"), g.get("after"))
+        idx = next((k for k, it in enumerate(items)
+                    if isinstance(it, dict) and it.get("id") == g.get("id")), None)
+        if vers is None:
+            if idx is not None:
+                del items[idx]
+                touches += 1
+            continue
+        if de is None or idx is None:
+            if idx is None:
+                items.append(copy.deepcopy(vers))
+            else:
+                items[idx] = copy.deepcopy(vers)
+            touches += 1
+            continue
+        cible = items[idx]
+        for cle in set(de) | set(vers):
+            if de.get(cle) == vers.get(cle):
+                continue
+            if cle in vers:
+                cible[cle] = copy.deepcopy(vers[cle])
+            else:
+                cible.pop(cle, None)
+            touches += 1
+    return doc, touches
+
+
 ACTIONABLE = ("open", "in-progress", "to-test", "blocked")
 OPS = {"==": lambda a, b: a == b, "!=": lambda a, b: a != b,
        "<": lambda a, b: a < b, "<=": lambda a, b: a <= b,
@@ -251,6 +377,8 @@ class Backlog:
         self.items = list(doc.get("items") or [])
         # Ce que la derniere `machine_proved_to_validated` a REFUSE de promouvoir, et pourquoi.
         self.machine_promotion_refused = []
+        # Qui ecrit par CET objet : voir `record_gesture`. Les points d'entree posent DEFAULT_AUTHOR.
+        self.author = DEFAULT_AUTHOR
 
     # ---------------------------------------------------------------- lecture
     def get(self, item_id):
@@ -457,12 +585,15 @@ class Backlog:
             if target.get("status") == "archived" and status != "archived" and not desarchive:
                 raise ArchivedItem("REFUS : %s est ARCHIVE sur le disque ; « %s » n'est pas ecrit "
                                    "par-dessus (desarchiver : unarchive=True)" % (item_id, status))
+            avant = copy.deepcopy(target) if self.author in FOREIGN_AUTHORS else None
             target["status"] = status
             for k, v in fields.items():
                 target[k] = v
             if status == "blocked" and not target.get("block_reason"):
                 raise BacklogError("un item bloque doit porter block_reason")
             _atomic_write(self.path, _dump(fresh))
+            if avant is not None:
+                record_gesture(self.path, self.author, "set_status", [(item_id, avant, target)])
         self.items = fresh["items"]
         self.version = fresh.get("version", 1)
         if "deliverable" in fields:
@@ -500,10 +631,13 @@ class Backlog:
                     break
             if target is None:
                 raise BacklogError("item inconnu : %s" % item_id)
+            avant = copy.deepcopy(target) if self.author in FOREIGN_AUTHORS else None
             target[_gate_verdict.SCOPE_FIELD] = valeur
             if source and source != "-":
                 target["code_scope_source"] = str(source)
             _atomic_write(self.path, _dump(fresh))
+            if avant is not None:
+                record_gesture(self.path, self.author, "set_scope", [(item_id, avant, target)])
         self.items = fresh["items"]
         self.version = fresh.get("version", 1)
         return self.get(item_id)
@@ -589,6 +723,7 @@ class Backlog:
                 raise BacklogError("item inconnu : %s" % item_id)
             avant_fb = list(target.get("owner_feedback") or [])
             avant_livrable = target.get("deliverable")
+            avant = copy.deepcopy(target) if self.author in FOREIGN_AUTHORS else None
             res = change(target, fresh["items"])
             if res:
                 if target.get("status") not in STATUSES:
@@ -602,6 +737,8 @@ class Backlog:
                 if target.get("deliverable") != avant_livrable:
                     raise BacklogError("REFUS : le livrable passe par set_status (releve des verdicts)")
                 _atomic_write(self.path, _dump(fresh))
+                if avant is not None:
+                    record_gesture(self.path, self.author, "update", [(item_id, avant, target)])
         self.items = fresh["items"]
         self.version = fresh.get("version", 1)
         return res
@@ -613,9 +750,12 @@ class Backlog:
         n = 0
         with _Lock(self.path):
             fresh = _read(self.path)
+            touches = []
             for it in fresh["items"]:
                 if it.get("id") != item_id:
                     continue
+                if self.author in FOREIGN_AUTHORS:
+                    touches.append((item_id, copy.deepcopy(it), it))
                 for e in it.get("owner_feedback") or []:
                     if (isinstance(e, dict) and not e.get("via") and str(e.get("date")) == str(date)
                             and e.get("text") == text):
@@ -623,6 +763,7 @@ class Backlog:
                         n += 1
             if n:
                 _atomic_write(self.path, _dump(fresh))
+                record_gesture(self.path, self.author, "set_feedback_via", touches)
         self.items = fresh["items"]
         return n
 

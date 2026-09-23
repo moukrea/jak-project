@@ -15,6 +15,7 @@ la commande ; `backfill()` etiquette une fois les relais existants, seulement si
     python3 .autoport/lib/relay.py --backfill [--apply]
 """
 
+import copy
 import datetime
 import os
 import subprocess
@@ -67,8 +68,10 @@ def relay(b, item_id, text, date=None, now=None):
                for fb in fbs):
             b.items = fresh["items"]
             return "deja-recopie", "-"
+        avant = copy.deepcopy(it)
         it["owner_feedback"] = list(fbs) + [{"date": date, "text": text, "via": relay_via(now)}]
         B._atomic_write(b.path, B._dump(fresh))
+        B.record_gesture(b.path, getattr(b, "author", None), "relay", [(item_id, avant, it)])
     b.items = fresh["items"]
     return "ajoute", _refresh_prompt(b.get(item_id), os.path.dirname(os.path.abspath(b.path)))
 

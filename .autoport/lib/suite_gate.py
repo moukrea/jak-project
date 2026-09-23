@@ -300,7 +300,7 @@ MAX_PROBE_NODES = int(os.environ.get("AUTOPORT_SUITE_PROBE_MAX") or 40)
 
 
 def replay(root: str, refs: list[str], nodes: list[str],
-           timeout_s: int = 600) -> tuple[dict, dict]:
+           timeout_s: int = 600, arms: list | None = None) -> tuple[dict, dict]:
     """Rejoue `nodes` a chaque revision de `refs`, dans UN arbre de travail jetable.
 
     Rend `({ref: {nodeid: verdict}}, info)`. Verdicts : `failed`, `passed`, `skipped`,
@@ -317,7 +317,14 @@ def replay(root: str, refs: list[str], nodes: list[str],
     qui lit un fichier GITIGNORE rend un verdict different hors de l'arbre livre — mesure du
     13/09, 7 rouges en detache contre 5 dans l'arbre livre au MEME commit. On rejoue donc AUSSI
     a `HEAD`, dans le meme arbre jetable, et c'est `base` CONTRE `head` qui decide.
+
+    `arms` (23/09, geste de l'owner) : `[(etiquette, ref, {chemin_relatif: texte})]`. Chaque bras
+    est la revision `ref` avec ces fichiers REECRITS apres le checkout ; le resultat est range sous
+    l'etiquette. Sans `arms`, un bras par revision de `refs`, sans surcharge — le rejeu d'avant.
     """
+    if arms is None:
+        arms = [(r, r, {}) for r in refs]
+    refs = [a[0] for a in arms]
     info = {"ran": 0, "seconds": 0.0, "error": "-", "worktree": "-", "capped": 0}
     res = {ref: {} for ref in refs}
     if not refs or not nodes:
@@ -334,19 +341,28 @@ def replay(root: str, refs: list[str], nodes: list[str],
         return res, info
     wt = os.path.join(tmpd, "wt")
     try:
-        r = subprocess.run(["git", "-C", root, "worktree", "add", "--detach", wt, refs[0]],
+        r = subprocess.run(["git", "-C", root, "worktree", "add", "--detach", wt, arms[0][1]],
                            capture_output=True, text=True, timeout=timeout_s)
         if r.returncode != 0:
             info["error"] = (r.stderr or "worktree-add-echec").strip().splitlines()[-1][:160]
             return res, info
         info["worktree"] = wt
-        for ref in refs:
-            c = subprocess.run(["git", "-C", wt, "checkout", "--detach", "--force", ref],
+        for ref, rev, surcharge in arms:
+            c = subprocess.run(["git", "-C", wt, "checkout", "--detach", "--force", rev],
                                capture_output=True, text=True, timeout=timeout_s)
             if c.returncode != 0:
                 for n in nodes:
                     res[ref][n] = "unknown"
                 info["error"] = (c.stderr or "checkout-echec").strip().splitlines()[-1][:160]
+                continue
+            try:
+                for rel, texte in (surcharge or {}).items():
+                    with open(os.path.join(wt, rel), "w", encoding="utf-8") as f:
+                        f.write(texte)
+            except OSError as exc:
+                for n in nodes:
+                    res[ref][n] = "unknown"
+                info["error"] = ("surcharge: %s" % exc)[:160]
                 continue
             a_jouer = []
             for n in nodes:
@@ -402,6 +418,101 @@ def registry_at(root: str, ref: str, rel: str) -> str | None:
     except (OSError, subprocess.SubprocessError):
         return None
     return r.stdout if r.returncode == 0 else None
+
+
+# ========================== NE D'UN GESTE ETRANGER A L'ESSAI : REJOUE AVEC ET SANS LUI (23/09) ==
+# MARQUEUR : GESTE-ETRANGER/rejeu
+# harness-owner-gesture-not-imputed-to-running-item. Le 23/09 a 11:01, l'essai 2 de
+# harness-invisible-item-comment-has-no-capture-boilerplate est REFUSE pour deux tests de
+# `test_backlog.py` « VERTS a la base de CET essai ». Ils l'etaient — et ils l'etaient aussi a
+# `HEAD` : le rouge ne venait d'aucun commit. Il venait de JAK-265, un ticket que l'owner venait
+# d'ouvrir, adopte dans le `backlog.yaml` de l'arbre livre par la synchro Linear PENDANT l'essai.
+# La porte ne distinguait que « la base » et « l'essai » ; tout le reste etait impute a l'essai.
+#
+# L'AUTEUR ET L'HEURE sont dans le journal des gestes (`backlog.record_gesture`) : chaque ecriture
+# du backlog par la synchro Linear ou par le superviseur, avec l'etat AVANT/APRES des items touches.
+# LA CAUSE, elle, est MESUREE : le rouge est rejoue dans l'arbre jetable, a la base de l'essai et a
+# `HEAD`, avec le backlog de chaque revision SANS puis AVEC ces gestes. Il n'est « ne d'un geste »
+# que si, aux DEUX revisions, il est vert sans les gestes et rouge avec : les gestes suffisent a le
+# fabriquer sans le travail de l'essai (base), et le travail de l'essai ne le fabrique pas sans eux
+# (`HEAD`). Tout le reste reste NEUF et refuse — un geste qui tombe PENDANT qu'un essai casse
+# lui-meme le test n'efface pas ce que l'essai a casse. Un geste NON journalise (edition a la main
+# du backlog) reste impute : sans auteur, pas d'excuse.
+GESTURE_ARMS = ("sans", "avec")
+
+
+def _backlog_module():
+    try:
+        from lib import backlog as B                                   # type: ignore
+    except ImportError:
+        try:
+            import backlog as B                                        # type: ignore
+        except ImportError:
+            return None
+    return B
+
+
+def gesture_window(root: str, rbase: str, since: float = 0.0) -> float:
+    """Depuis quand un geste peut-il etre absent de la base : le plus tot de l'instant de depart de
+    l'essai et de la date du commit de base. Un geste pose avant le depart mais jamais commite est
+    dans l'arbre livre et pas dans la base : il compte."""
+    ct = _git(root, "show", "-s", "--format=%ct", rbase).strip()
+    cands = [x for x in (float(since or 0), float(ct) if ct.isdigit() else 0.0) if x > 0]
+    return min(cands) if cands else 0.0
+
+
+def gesture_reds(root: str, autoport: str, nodes: list[str], rbase: str, tete: str,
+                 since: float = 0.0, gestes: list | None = None) -> tuple[list[str], dict]:
+    """Parmi `nodes` (des rouges NEUFS), ceux que les gestes etrangers suffisent a fabriquer.
+
+    `gestes` : lus dans le journal (`backlog.read_gestures`) depuis `gesture_window` ; un banc qui
+    rejoue un cas d'ARCHIVE, anterieur au journal, les passe lui-meme."""
+    info = {"gesture_since": 0, "gesture_writes": 0, "gesture_authors": [],
+            "gesture_items": [], "gesture_replay_ran": 0, "gesture_replay_seconds": 0.0,
+            "gesture_replay_error": "-", "gesture_replay": []}
+    B = _backlog_module()
+    if B is None or not hasattr(B, "read_gestures"):
+        info["gesture_replay_error"] = "module-backlog-sans-journal-des-gestes"
+        return [], info
+    bl_abs = os.path.join(autoport, "backlog.yaml")
+    rel = os.path.relpath(bl_abs, root)
+    t = gesture_window(root, rbase, since)
+    info["gesture_since"] = int(t)
+    if gestes is None:
+        gestes = B.read_gestures(bl_abs, t)
+    info["gesture_writes"] = len(gestes)
+    if not gestes or not nodes:
+        return [], info
+    info["gesture_authors"] = sorted({str(g.get("author")) for g in gestes})
+    info["gesture_items"] = sorted({str(x.get("id")) for g in gestes
+                                    for x in (g.get("items") or []) if isinstance(x, dict)})
+    import yaml
+    revs = [("base", rbase)] + ([("head", tete)] if tete != rbase else [])
+    arms = []
+    for nom, rev in revs:
+        texte = registry_at(root, rev, rel)
+        try:
+            doc = yaml.load(texte, Loader=getattr(B, "_Loader", yaml.SafeLoader)) if texte else None
+        except yaml.YAMLError:
+            doc = None
+        if not isinstance(doc, dict):
+            info["gesture_replay_error"] = "backlog-illisible-a-%s" % nom
+            return [], info
+        for sens in GESTURE_ARMS:
+            variante, touches = B.apply_gestures(doc, gestes, reverse=(sens == "sans"))
+            arms.append(("%s-%s" % (nom, sens), rev, {rel: texte if not touches else B._dump(variante)}))
+    vus, rinfo = replay(root, [], nodes, arms=arms)
+    info["gesture_replay_ran"] = rinfo["ran"]
+    info["gesture_replay_seconds"] = rinfo["seconds"]
+    info["gesture_replay_error"] = rinfo["error"]
+    info["gesture_replay"] = ["%s:%s" % (n, "/".join("%s=%s" % (a[0], vus.get(a[0], {}).get(n, "unknown"))
+                                                    for a in arms)) for n in nodes]
+    if not rinfo["ran"]:
+        return [], info
+    nes = [n for n in nodes
+           if all(vus.get("%s-sans" % nom, {}).get(n) == "passed"
+                  and vus.get("%s-avec" % nom, {}).get(n) == "failed" for nom, _r in revs)]
+    return nes, info
 
 
 # ============================================================================== le journal ===
@@ -469,6 +580,9 @@ def judge(repo_root, autoport_dir, item_id: str = "", *, budget_s: int | None = 
         "inherited_named": -1, "inherited_unnamed": [],
         "inherited_filed": -1, "inherited_unfiled": [], "findings_read": 0,
         "journal_unseen": -1, "journal_unseen_list": [],
+        "owner_gesture": -1, "owner_gesture_list": [], "gesture_since": 0, "gesture_writes": -1,
+        "gesture_authors": [], "gesture_items": [], "gesture_replay_ran": 0,
+        "gesture_replay_seconds": 0.0, "gesture_replay_error": "-", "gesture_replay": [],
         "previous_at": "-", "previous_runs": len(read_journal(autoport)),
         "verdict": "refuse", "reason": "", "refused_for": [],
     }
@@ -651,6 +765,16 @@ def judge(repo_root, autoport_dir, item_id: str = "", *, budget_s: int | None = 
                     herites = [n for n in non_couverts
                                if vbase.get(n) == "failed" and vtete.get(n) == "failed"]
                     neufs = [n for n in non_couverts if n not in herites]
+            # NE D'UN GESTE DE L'OWNER OU DU SUPERVISEUR (GESTE-ETRANGER/rejeu, voir plus haut) :
+            # retire des NEUFS, ni impute ni exige en signalement — l'essai ne pouvait pas le voir.
+            # Publie et journalise : il ne disparait pas pour autant.
+            gestes = []
+            if neufs:
+                gestes, ginfo = gesture_reds(root, autoport, neufs, rbase, tete, rsince)
+                d.update(ginfo)
+                neufs = [n for n in neufs if n not in gestes]
+            d["owner_gesture"] = len(gestes)
+            d["owner_gesture_list"] = gestes
             d["unwaived_known"] = len(herites)
             d["unwaived_known_list"] = herites
             d["unwaived_new"] = len(neufs)
@@ -710,6 +834,7 @@ def judge(repo_root, autoport_dir, item_id: str = "", *, budget_s: int | None = 
             "verdict": d["verdict"], "red_base": d["red_base_ref"],
             "red_base_kind": d["red_base_kind"],
             "inherited": d["unwaived_known_list"], "introduced": d["unwaived_new_list"],
+            "gesture": d["owner_gesture_list"],
             "refused_for": d["refused_for"],
         })
     return d
@@ -737,6 +862,9 @@ def publish(d: dict, prefix: str = "suite_") -> list[str]:
              "replay_base", "replay_head",
              "inherited_named", "inherited_unnamed", "inherited_filed", "inherited_unfiled",
              "findings_read", "journal_unseen", "journal_unseen_list",
+             "owner_gesture", "owner_gesture_list", "gesture_since", "gesture_writes",
+             "gesture_authors", "gesture_items", "gesture_replay_ran", "gesture_replay_seconds",
+             "gesture_replay_error", "gesture_replay",
              "previous_at", "previous_runs", "verdict", "refused_for", "suite_dir")
     out = ["%s%s=%s" % (prefix, k, _plat(d.get(k, "-"))) for k in ordre]
     out.append("%sreason=%s" % (prefix, _plat(d.get("reason") or "-")[:400]))

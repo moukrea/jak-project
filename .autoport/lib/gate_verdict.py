@@ -109,12 +109,18 @@ SCOPE_FIELD = "code_scope"
 # perimetre, il est COMPTE a part et on retombe sur ce qui decidait avant lui.
 SCOPE_SANS_CODE = ("none", "aucun", "harness", "harnais", "no-code", "no_code", "sans-code")
 SCOPE_AVEC_CODE = ("engine", "moteur", "jeu", "game", "portage", "code")
+# 23/09 (harness-owner-gesture-not-imputed-to-running-item) — PAS ENCORE UN PERIMETRE. Un ticket de
+# l'owner adopte par `linear_sync.adopt_owner_issues` arrive ainsi : il recevait `jeu` en dur, et
+# JAK-265 (profils de modeles, un sujet de HARNAIS) est entre classe « jeu ». `next_open` ne prend
+# pas un item `a-cadrer` ; la porte, si on la lui montrait quand meme, exige le code (sens severe).
+SCOPE_A_CADRER = ("a-cadrer", "a cadrer", "a_cadrer")
 
 SRC_FIELD = "champ-explicite"        # `code_scope` : la seule source qui ne se devine pas
 SRC_FLAG = "drapeau-no_code"         # la parole du superviseur, dans un seul sens
 SRC_PROSE = "prose-devinee"          # LE REPLI : une tournure reconnue dans une phrase
 SRC_SILENT = "perimetre-muet"        # rien ne le dit : on exige le code, comme avant
 SRC_BAD = "champ-illisible"          # `code_scope` present, valeur inconnue
+SRC_UNFRAMED = "a-cadrer"            # `code_scope: a-cadrer` : ticket adopte, pas encore cadre
 
 
 def scope_decision(item) -> dict:
@@ -143,6 +149,9 @@ def scope_decision(item) -> dict:
                     "reason": "%s: %s" % (SCOPE_FIELD, valeur), "field_unreadable": False}
         if valeur in SCOPE_AVEC_CODE:
             return {"code_free": False, "source": SRC_FIELD,
+                    "reason": "%s: %s" % (SCOPE_FIELD, valeur), "field_unreadable": False}
+        if valeur in SCOPE_A_CADRER:
+            return {"code_free": False, "source": SRC_UNFRAMED,
                     "reason": "%s: %s" % (SCOPE_FIELD, valeur), "field_unreadable": False}
         illisible = True
     if item.get("no_code", False):
