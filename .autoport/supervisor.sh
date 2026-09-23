@@ -129,6 +129,11 @@ with open(path, "a", encoding="utf-8") as fh:
     fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
 ' "$SUP_MODEL" "$SUP_EFFORT" "$AUTOCOMPACT" "$_COMMIT" "$$" "$AUTOPORT_LAUNCH_LOG"
 
+# PREUVE POSITIVE D'ETRE LE SUPERVISEUR (23/09) : ce pid sera la session claude apres `exec`
+# (meme processus, meme starttime). Seule une identite declaree ici — ou par le registre, ou par
+# un reveil — peut tamponner `.supervisor-seen.json`.
+python3 .autoport/lib/supervisor_alive.py declare-launcher "$$" || true
+
 exec claude \
     --model "$SUP_MODEL" \
     --effort "$SUP_EFFORT" \

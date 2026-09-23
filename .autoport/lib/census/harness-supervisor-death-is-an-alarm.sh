@@ -210,22 +210,52 @@ try:
     nr["texte-non-inscrit"] = ("aucune session ne s'est signalee" in corps
                                and "arretee" not in corps)
 
-    sess = subprocess.Popen(["sleep", "120"])
-    time.sleep(0.2)
-    def crochet(seen_path, worker):
-        env = {k: v for k, v in os.environ.items()
-               if k not in ("AUTOPORT_ATTEMPT_ID", "AUTOPORT_PHASE_ID")}
-        env.update({"AUTOPORT_SUPERVISOR_TERMINAL": ABS, "AUTOPORT_SUPERVISOR_SEEN": seen_path,
-                    "CLAUDE_PID": str(sess.pid)})
-        if worker:
-            env["AUTOPORT_ATTEMPT_ID"] = "temoin@1#0"
-        return subprocess.run([sys.executable, ".autoport/lib/wake_gate.py"],
-                              input=json.dumps({"prompt": "question de l'owner",
-                                                "session_id": "temoin-hors-registre"}),
-                              env=env, capture_output=True, text=True, timeout=60).returncode
+    # LA SESSION EST UN VRAI PROCESSUS `claude` DONT LE CROCHET DESCEND, ET ELLE PROUVE ETRE LE
+    # SUPERVISEUR (23/09, harness-supervisor-reader-must-be-the-supervisor). Le crochet trouve sa
+    # session par l'ASCENDANCE (`CLAUDE_PID` s'herite : l'orchestrateur portait celui du
+    # superviseur de la veille), et « pas un worker » ne suffit plus a tamponner : la session
+    # hors registre se fait reconnaitre par sa conversation deja prouvee (declaration semee).
     seen_s = os.path.join(TMP, "seen-session.json")
     seen_w = os.path.join(TMP, "seen-worker.json")
-    rc_s, rc_w = crochet(seen_s, False), crochet(seen_w, True)
+    DECL = os.path.join(TMP, "declare-hors-registre.json")
+    with open(DECL, "w") as fh:
+        json.dump([{"ts": 0, "pid": 0, "start": -1, "session": "temoin-hors-registre",
+                    "via": "reveil"}], fh)
+    BINC = os.path.join(TMP, "bin-claude")
+    os.makedirs(BINC, exist_ok=True)
+    os.symlink(os.path.realpath(sys.executable), os.path.join(BINC, "claude"))
+    def env_crochet(seen_path, worker):
+        env = {k: v for k, v in os.environ.items()
+               if k not in ("AUTOPORT_ATTEMPT_ID", "AUTOPORT_PHASE_ID", "CLAUDE_PID")}
+        env.update({"AUTOPORT_SUPERVISOR_TERMINAL": ABS, "AUTOPORT_SUPERVISOR_SEEN": seen_path,
+                    "AUTOPORT_SUPERVISOR_DECLARED": DECL,
+                    "AUTOPORT_SUPERVISOR_SEEN_LOG": os.path.join(TMP, "seen-temoin.jsonl")})
+        if worker:
+            env["AUTOPORT_ATTEMPT_ID"] = "temoin@1#0"
+        return env
+    RCF = os.path.join(TMP, "rc-hors-registre.json")
+    ARGF = os.path.join(TMP, "arg-hors-registre.json")
+    with open(ARGF, "w") as fh:
+        json.dump({"py": os.path.realpath(sys.executable), "rc": RCF,
+                   "in": json.dumps({"prompt": "question de l'owner",
+                                     "session_id": "temoin-hors-registre"}),
+                   "envs": [env_crochet(seen_s, False), env_crochet(seen_w, True)]}, fh)
+    PROG = ("import json, os, subprocess, sys, time\n"
+            "a = json.load(open(sys.argv[1]))\n"
+            "rc = [subprocess.run([a['py'], '.autoport/lib/wake_gate.py'], input=a['in'], env=e,"
+            " capture_output=True, text=True, timeout=60).returncode for e in a['envs']]\n"
+            "json.dump(rc, open(a['rc'] + '.tmp', 'w'))\n"
+            "os.replace(a['rc'] + '.tmp', a['rc'])\n"
+            "time.sleep(120)\n")
+    sess = subprocess.Popen([os.path.join(BINC, "claude"), "-c", PROG, ARGF])
+    for _ in range(1200):
+        if os.path.exists(RCF):
+            break
+        time.sleep(0.05)
+    try:
+        rc_s, rc_w = json.load(open(RCF))
+    except (OSError, ValueError):
+        rc_s, rc_w = -1, -1
     tamp = SA.read_seen_record(seen_s)
     rs = SA.probe(state_file=ABS, seen_file=seen_s, launches=NOL)
     rw = SA.probe(state_file=ABS, seen_file=seen_w, launches=NOL)

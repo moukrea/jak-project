@@ -34,6 +34,13 @@ def main():
                 'CLAUDE_EFFORT', 'CLAUDE_CODE_SUBAGENT_MODEL'):
         os.environ.pop(key, None)
     os.chdir(ROOT)
+    # Preuve positive d'etre le superviseur (23/09) : ce pid sera la session codex apres exec.
+    try:
+        sys.path.insert(0, str(ROOT / '.autoport'))
+        from lib import supervisor_alive
+        supervisor_alive.declare(pid=os.getpid(), via='lanceur')
+    except Exception:  # noqa: BLE001 — un lanceur ne meurt pas d'un fichier illisible
+        pass
     os.execvp(cmd[0], cmd)
 
 

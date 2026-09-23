@@ -65,6 +65,7 @@ ABSENT_FICHIER = ABSENT_REGISTRE          # ancien nom, garde pour les appelants
 VIVANT_HORS_REGISTRE = "vivant-hors-registre"
 HORS_REGISTRE_MORT = "hors-registre-mort"
 HORS_REGISTRE_GELE = "hors-registre-gele"
+HORS_REGISTRE_SANS_PREUVE = "hors-registre-sans-preuve"
 ILLISIBLE = "json-illisible"
 SANS_PID = "pid-absent-du-fichier"
 PID_MORT = "pid-mort"
@@ -191,6 +192,10 @@ def in_supervisor_tree(pid=None, state_file=None, proc_root="/proc", record=None
     d'une heure, un superviseur que l'owner pilote a la main par messages courts. L'alarme
     partirait alors sur le ticket de l'owner pendant qu'il est en train d'y ecrire.
     L'ascendance, elle, ne depend d'aucune heuristique de texte.
+
+    PLUS UTILISE POUR LE TAMPON depuis le 23/09 (`stamp_reader`) : un juge lance depuis le
+    terminal du superviseur DESCEND de lui, et l'ascendance seule le prenait pour lui. Garde pour
+    les temoins d'ascendance de harness-supervisor-death-is-an-alarm.
     """
     state_file = state_file_path() if state_file is None else state_file
     data = record
@@ -238,48 +243,200 @@ SESSION_COMMS = ("claude", "codex")
 
 
 def session_process(pid=None, env=None, proc_root="/proc"):
-    """Le processus de la SESSION qui a declenche ce crochet : `CLAUDE_PID` s'il est vivant,
-    sinon le plus proche ascendant dont le `comm` est celui d'une CLI d'agent. Le pid du crochet
-    lui-meme ne vaut rien : il meurt dans la seconde. Rend le releve /proc, ou None."""
+    """Le processus de la SESSION qui a declenche ce crochet : le plus PROCHE ascendant dont le
+    `comm` est celui d'une CLI d'agent ; a defaut, `CLAUDE_PID` s'il est vivant ET ascendant.
+    Le pid du crochet lui-meme ne vaut rien : il meurt dans la seconde. Rend le releve /proc,
+    ou None.
+
+    L'ORDRE COMPTE (harness-supervisor-reader-must-be-the-supervisor, 23/09). `CLAUDE_PID` s'HERITE :
+    l'orchestrateur du 23/09 portait encore celui du superviseur du 22 (3057237). Une session
+    lancee depuis le terminal du superviseur (un juge `claude -p`, un codex) qui croirait la
+    variable d'abord se ferait passer pour le superviseur lui-meme. L'ascendant le plus proche,
+    lui, ne s'herite pas."""
     env = os.environ if env is None else env
+    cur = os.getpid() if pid is None else int(pid)
+    chaine = []
+    for _ in range(64):
+        if cur <= 1:
+            break
+        st = read_proc_stat(cur, proc_root=proc_root)
+        if st is None:
+            break
+        if st["comm"] in SESSION_COMMS and st["state"] != "Z":
+            return st
+        chaine.append(cur)
+        cur = _as_int(st["ppid"]) or 0
     dit = _as_int(env.get("CLAUDE_PID"))
-    if dit and dit > 1:
+    if dit and dit > 1 and dit in chaine:
         st = read_proc_stat(dit, proc_root=proc_root)
         if st is not None and st["state"] != "Z":
             return st
-    cur = os.getpid() if pid is None else int(pid)
-    for _ in range(64):
-        if cur <= 1:
-            return None
-        st = read_proc_stat(cur, proc_root=proc_root)
-        if st is None:
-            return None
-        if st["comm"] in SESSION_COMMS and st["state"] != "Z":
-            return st
-        cur = _as_int(st["ppid"]) or 0
     return None
 
 
-def self_declare(env=None, path=None, now=None, proc_root="/proc", session_id="-"):
-    """« Je suis une session qui LIT les retours, meme si aucun lanceur ne m'a inscrite. »
+# LA PREUVE POSITIVE D'ETRE LE SUPERVISEUR (harness-supervisor-reader-must-be-the-supervisor).
+# Jusqu'au 23/09, « pas de variable de worker » valait « superviseur » : toute session Claude du
+# depot — l'owner a la main, un juge lance sans AUTOPORT_ATTEMPT_ID — tamponnait et eteignait
+# l'alarme « superviseur mort » sans avoir lu un seul retour. Quatre preuves, et rien d'autre :
+#   registre  la session EST le pid inscrit par `supervisor_terminal.py` (ou la premiere session
+#             sous lui, sans autre session entre les deux) ;
+#   lanceur   son (pid, starttime) a ete declare par `supervisor.sh` / `codex/supervisor.py`
+#             juste avant leur `exec` ;
+#   session   son identifiant de conversation a deja ete prouve (un `--resume` a la main du
+#             superviseur reste le superviseur) ;
+#   reveil    elle traite un reveil de supervision (`wake_gate.est_un_reveil`).
+PREUVES = ("registre", "lanceur", "session", "reveil")
+NON_DECLARE = "non-declare"
+DECLARED_FILE = os.path.join(AP, ".supervisor-declared.json")
+SEEN_LOG = os.path.join(AP, "logs", "supervisor-seen.jsonl")
+DECLARED_MAX = 64
 
-    Appele par `wake_gate.py` quand la session n'est PAS dans l'arbre du superviseur inscrit.
-    Rend un jeton qui dit ce qui a ete fait : `worker` (session d'essai : on ne date rien),
-    `sans-session` (aucun processus de session trouve), `tamponne`, ou `echec-ecriture`.
-    """
+
+def declared_file_path():
+    return _chemin("AUTOPORT_SUPERVISOR_DECLARED", DECLARED_FILE)
+
+
+def seen_log_path():
+    return _chemin("AUTOPORT_SUPERVISOR_SEEN_LOG", SEEN_LOG)
+
+
+def read_declared(path=None):
+    path = declared_file_path() if path is None else path
+    try:
+        with open(path, "r") as fh:
+            data = json.load(fh)
+    except (OSError, ValueError):
+        return []
+    return [d for d in data if isinstance(d, dict)] if isinstance(data, list) else []
+
+
+def declare(pid=None, start=None, session="-", via="lanceur", path=None, now=None,
+            proc_root="/proc"):
+    """Inscrit une identite de superviseur. `start` absent = lu dans /proc (le starttime survit
+    a `exec` : le shell du lanceur et la CLI qu'il remplace sont le MEME processus)."""
+    path = declared_file_path() if path is None else path
+    pid = int(os.getpid() if pid is None else pid)
+    if start is None:
+        st = read_proc_stat(pid, proc_root=proc_root)
+        start = -1 if st is None else st["starttime"]
+    session = str(session or "-").replace(" ", "_") or "-"
+    rec = {"ts": int(time.time() if now is None else now), "pid": pid, "start": int(start),
+           "session": session, "via": str(via)}
+    garde = [d for d in read_declared(path)
+             if not (d.get("pid") == pid and d.get("start") == int(start))
+             and not (session != "-" and d.get("session") == session)]
+    garde.append(rec)
+    try:
+        tmp = "%s.tmp.%d" % (path, os.getpid())
+        with open(tmp, "w") as fh:
+            json.dump(garde[-DECLARED_MAX:], fh)
+        os.replace(tmp, path)
+        return True
+    except OSError:
+        return False
+
+
+def registry_proves(st, state_file=None, proc_root="/proc"):
+    """La session `st` est-elle LE superviseur inscrit ? Egalite (pid + starttime) avec le pid
+    inscrit, ou premiere session sous lui : entre elle et lui, aucun processus — lui compris —
+    ne doit etre une session. Un juge `claude -p` lance depuis le terminal du superviseur
+    DESCEND du superviseur : c'est exactement ce que l'ascendance seule laissait passer."""
+    state_file = state_file_path() if state_file is None else state_file
+    try:
+        with open(state_file, "r") as fh:
+            data = json.load(fh)
+    except (OSError, ValueError):
+        return False
+    if not isinstance(data, dict):
+        return False
+    cible = _as_int(data.get("pid"))
+    attendu = _as_int(data.get("start"))
+    if attendu is None:
+        attendu = _as_int(data.get("starttime"))
+    if not cible:
+        return False
+    st_cible = read_proc_stat(cible, proc_root=proc_root)
+    if st_cible is None or st_cible["state"] == "Z":
+        return False
+    if attendu is not None and attendu >= 0 and attendu != st_cible["starttime"]:
+        return False
+    if st["pid"] == cible:
+        return True
+    cur = _as_int(st["ppid"]) or 0
+    for _ in range(64):
+        if cur <= 1:
+            return False
+        up = read_proc_stat(cur, proc_root=proc_root)
+        if up is None or up["comm"] in SESSION_COMMS:
+            return False
+        if cur == cible:
+            return True
+        cur = _as_int(up["ppid"]) or 0
+    return False
+
+
+def supervisor_proof(env=None, reveil=False, session_id="-", proc_root="/proc",
+                     state_file=None, declared=None):
+    """Rend (jeton, releve de session). Jeton dans PREUVES = superviseur prouve ; sinon le
+    REFUS nomme : `worker`, `sans-session`, `non-declare`."""
     env = os.environ if env is None else env
     if is_worker(env):
-        return "worker"
+        return "worker", None
     st = session_process(env=env, proc_root=proc_root)
     if st is None:
-        return "sans-session"
-    ok = stamp_seen(path=path, now=now, pid=st["pid"], start=st["starttime"],
-                    via="hors-registre", session=session_id or "-", comm=st["comm"])
-    return "tamponne" if ok else "echec-ecriture"
+        return "sans-session", None
+    if registry_proves(st, state_file=state_file, proc_root=proc_root):
+        return "registre", st
+    sid = str(session_id or "-").replace(" ", "_") or "-"
+    liste = read_declared() if declared is None else declared
+    for d in liste:
+        if d.get("pid") == st["pid"] and d.get("start") == st["starttime"]:
+            return "lanceur", st
+    if sid != "-" and any(d.get("session") == sid for d in liste):
+        return "session", st
+    if reveil:
+        return "reveil", st
+    return NON_DECLARE, st
+
+
+def _journal_seen(rec, path=None):
+    path = seen_log_path() if path is None else path
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "a") as fh:
+            fh.write(json.dumps(rec, sort_keys=True) + "\n")
+    except OSError:
+        pass
+
+
+def stamp_reader(env=None, reveil=False, session_id="-", now=None, proc_root="/proc"):
+    """Appele par `wake_gate.py` a CHAQUE prompt de CHAQUE session du depot. Tamponne seulement
+    sur preuve positive ; journalise la decision (tampon ou refus) dans `logs/supervisor-seen.jsonl`
+    pour que la porte compte une population, pas une croyance. Rend le jeton de `supervisor_proof`.
+    """
+    env = os.environ if env is None else env
+    now = int(time.time() if now is None else now)
+    preuve, st = supervisor_proof(env=env, reveil=reveil, session_id=session_id,
+                                  proc_root=proc_root)
+    sid = str(session_id or "-").replace(" ", "_") or "-"
+    rec = {"ts": now, "proof": preuve, "session": sid,
+           "pid": st["pid"] if st else 0, "start": st["starttime"] if st else -1,
+           "comm": st["comm"] if st else "-", "decision": "refus"}
+    if preuve in PREUVES:
+        ok = stamp_seen(now=now, pid=st["pid"], start=st["starttime"],
+                        via="registre" if preuve == "registre" else "hors-registre",
+                        session=sid, comm=st["comm"], proof=preuve)
+        # Une preuve acquise se RETIENT : le prochain prompt court de l'owner dans cette session,
+        # ou un `--resume` de cette conversation, reste le superviseur sans attendre un reveil.
+        if preuve != "lanceur" or sid != "-":
+            declare(pid=st["pid"], start=st["starttime"], session=sid, via=preuve, now=now)
+        rec["decision"] = "tampon" if ok else "echec-ecriture"
+    _journal_seen(rec)
+    return preuve
 
 
 def stamp_seen(path=None, now=None, pid=None, start=None, via="registre", session="-",
-               comm="-"):
+               comm="-", proof="-"):
     """« Le superviseur a REELLEMENT traite un reveil a cet instant. »
 
     Appele par `wake_gate.py` depuis le processus de la session elle-meme, au moment ou elle
@@ -296,7 +453,8 @@ def stamp_seen(path=None, now=None, pid=None, start=None, via="registre", sessio
             json.dump({"ts": now, "pid": int(pid or os.getpid()),
                        "start": -1 if start is None else int(start), "via": str(via),
                        "session": str(session).replace(" ", "_") or "-",
-                       "comm": str(comm).replace(" ", "_") or "-"}, fh)
+                       "comm": str(comm).replace(" ", "_") or "-",
+                       "proof": str(proof)}, fh)
         os.replace(tmp, path)
         return True
     except OSError:
@@ -326,6 +484,9 @@ def _self_declared_verdict(seen, now, stale_s, proc_root="/proc"):
     (why, pid) ; why vaut '-' s'il n'y a pas de tel tampon."""
     if not seen or seen.get("via") != "hors-registre":
         return "-", 0
+    if seen.get("proof") not in PREUVES:
+        # Tampon d'AVANT le 23/09 (ou d'une session qui n'a rien prouve) : il ne rallume rien.
+        return HORS_REGISTRE_SANS_PREUVE, _as_int(seen.get("pid")) or 0
     pid = _as_int(seen.get("pid")) or 0
     start = _as_int(seen.get("start"))
     ts = _as_int(seen.get("ts")) or 0
@@ -523,6 +684,11 @@ def one_line(rel):
 
 if __name__ == "__main__":
     import sys
+    if sys.argv[1:2] == ["declare-launcher"]:
+        # `supervisor.sh` / `codex/supervisor.py`, juste avant leur `exec` : « ce pid-la sera le
+        # superviseur ». Jamais bloquant : un lanceur ne meurt pas d'un fichier illisible.
+        declare(pid=int(sys.argv[2]) if len(sys.argv) > 2 else os.getppid(), via="lanceur")
+        sys.exit(0)
     r = probe()
     json.dump(r, sys.stdout, indent=1, sort_keys=True)
     sys.stdout.write("\n")

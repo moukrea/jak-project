@@ -202,13 +202,10 @@ def decide(prompt, maintenant=None, ecrire=True):
         try:
             sys.path.insert(0, AP)
             from lib import supervisor_alive as _sa     # noqa: PLC0415
-            if _sa.in_supervisor_tree():
-                _sa.stamp_seen()
-            else:
-                # HORS REGISTRE (22/09) : une session superviseur ouverte sans
-                # `run-supervisor.sh` lisait les retours et passait pour MORTE. Elle se declare
-                # ici, par son propre pid de session ; un worker ne se declare jamais.
-                _sa.self_declare(session_id=_SESSION_ID)
+            # PREUVE POSITIVE (23/09) : le registre, le lanceur, une conversation deja prouvee
+            # ou un reveil de supervision. « Pas un worker » ne suffit plus : l'owner a la main
+            # ou un juge sans variables d'essai eteignaient l'alarme sans rien lire.
+            _sa.stamp_reader(reveil=est_un_reveil(prompt), session_id=_SESSION_ID)
         except Exception:                               # noqa: BLE001 — jamais bloquant
             pass
     if not est_un_reveil(prompt):
