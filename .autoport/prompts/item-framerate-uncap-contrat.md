@@ -36,6 +36,9 @@ Options : un reglage de cadence qui monte au-dela de 60 (90, 120, illimite) et u
 ### 2026-09-17
 > Heuuuuu… C'est fini ce sujet non ? Je vois pas pouquroi il est "bloqué" !
 
+### 2026-09-17
+> Mhhh vérifies si on a pas des tickets qui supplantent ça, c'est bizarre ! Parce que j'ai déjà un menu "Max framerate" avec pour choix 30 / 45 / 60 / 75 / 90 / 120 / 240 / illimité qui fonctionne !
+
 ## Pourquoi ce fichier existe
 
 Owner, 2026-09-11 : « faudrait pas perdre des infos, sinon justement le principe

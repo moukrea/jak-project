@@ -2,6 +2,7 @@
 
 ## Defaut cite
 - 2026-09-05 : « Alors j'ai supprimé les assets sur le HONOR pour mettre ceux de la dernière release sortie et mis à jour l'APK... Instant crash au startup »
+- 2026-09-06 : « Validé »
 
 ## Cause connue
 MESURE SUR LE HONOR DE L'OWNER (AREE026206000788, 2026-09-05 19:35, capture complete dans reports/honor-boot-crash/honor-logcat-2026-09-05.log). Le jeu boote CORRECTEMENT : packs a jour (CGO cfd93a73779c5, custom c1a5d489139ca), assets-v0.3.0 15 fichiers gardes, KERNEL.CGO charge, InitMachine retourne 0, niveau `title` charge et lie, « kernel: machine started », le rendu demarre. Puis SIGSEGV a la QUATRIEME IMAGE (`A36-TREE at-crash frame=4`).

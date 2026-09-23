@@ -1,7 +1,7 @@
 # Des materiaux au niveau des moteurs modernes
 
 ## Defaut cite
-- (aucun retour de l'owner enregistre sur cet item)
+- 2026-09-17 : « Bah s'il est couvert par la refonte, on peut même l'archiver non ? »
 
 ## Cause connue
 Aucun cycle n'a encore etabli de cause sur cet item.

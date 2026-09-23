@@ -1,7 +1,7 @@
 # Un drapeau de preuve ne doit pas decider du comportement du jeu
 
 ## Defaut cite
-- 2026-09-10 : « bah c'est debile, c'est des choses a traiter ! OK pas par lui, mais s'il fait que les mentionner et on en fait jamais rien, ca va rester la, et on va potentiellement se trainer cette merde pendant des mois pour rien, pour qu'un jour quelqu'un retrouve l'erreur par hasard et la corrige... DEBILE !!! Si ce que remonte le worker n'est jamais traite par qui que ce soit, ca sert a rien, quel gaspillage… »
+- 2026-09-10 : « bah c'est debile, c'est des choses a traiter ! OK pas par lui, mais s'il fait que les mentionner et on en fait jamais rien, ca va rester la, et on va potentiellement se trainer cette merde pendant des mois pour rien, pour qu'un jour quelqu'un retrouve l'erreur par hasard et la corrige... DEBILE !!! Si ce que remonte le worker n'est jamais traite par qui que ce soit, ca sert a rien, quel gaspillage ! Donc si, a traiter ! Et c'est exactement le genre de choses que tu devrais me remonter pour que je te dise si c'est pertinent ou pas, a faire ou pas ! Donc si, ces choses sont a traiter, je dirais juste apres meme ! »
 
 ## Cause connue
 Signale par le worker de perf-ocean-idle et LAISSE EN L'ETAT : `jak-hd.gc:3386` teste `(zero? (__pc-autoport-armed-for "hd-skin-origin-stretch"))`. Un drapeau du HARNAIS de preuve pilote donc du code de JEU, et il est desarme sur l'appareil : le jeu s'y comporte autrement que sous l'instrument. Defaut latent, jamais corrige.

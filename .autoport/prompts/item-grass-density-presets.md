@@ -3,6 +3,8 @@
 ## Defaut cite
 - 2026-08-30 : « on s'en fiche de changer la densite au poil de cul, on veut juste plus ou moins dense — very low / low / medium / high / very high c'est assez, donc on peut pre-calculer le tout et eviter le chemin lourd »
 - 2026-08-30 : « sur la plage [...] ca n'a jamais ete visible, tu peux completement dismiss »
+- 2026-09-05 : « C'est déjà fait ça non ? C'est plus à faire il me semble »
+- 2026-09-05 : « Les palliers d'herbe, j'ai déjà validé ! »
 
 ## Cause connue
 Aucun cycle n'a tourne. L'owner a deja tranche la forme : cinq paliers nommes, pas un curseur continu.
@@ -13,7 +15,7 @@ Cinq paliers nommes very low / low / medium / high / very high dans les options,
 ## Preuve exigee
 Aucun critere machine n'est encore ecrit pour cet item. Ecris-le d'abord (une seule ligne `CLE=VALEUR` emise par le moteur), pose-le dans `backlog.yaml`, puis prouve-le.
 Le proof se produit par `lib/proof_run.sh grass-density-presets x86` — jamais a la main, jamais recopie dans le rapport.
-Ou l'owner regardera : Options > Recharged > densite d'herbe : cinq paliers.
+Ou l'owner regardera : Options > Recharged > densite d'herbe : cinq paliers nommes (tres bas a tres haut) au lieu d'un curseur.
 
 ## Hors perimetre
 Tout ce qui n'est pas ce defaut. Ne touche a aucune feature deja validee (`./.autoport/autoport status` ne les liste plus). Pas de mesure visuelle : seule la ligne du moteur compte.

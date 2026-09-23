@@ -1,9 +1,13 @@
+> LIS D'ABORD `prompts/item-hd-skin-origin-stretch-contrat.md` — OBLIGATOIRE. Ce qui suit est un RESUME plafonne a 2560 octets ;
+> le contrat complet, tous les verdicts et TOUS les refus de l'owner, mot pour mot,
+> sont dans ce fichier.
+
 # Les modeles HD qui s'etirent vers un point lointain
 
 ## Defaut cite
-- 2026-09-02 : « pas les transitions, le MOUVEMENT ; comparer l'os RENDU a l'os COMMANDE »
 - 2026-09-02 : « ça arrive un peu at random en bougeant beaucoup, courant, faisant des demis tours, des sauts, des coups de poing, etc »
 - 2026-09-03 : « en effet il s'étire plus, mais j'ai l'impression que maintenant c'est le modèle qui (en glitch) est transposé visuellement dans la direction ou l'étirement se faisait (voir, c'est difficile à constater parce que ça glitch, t-pose dans cette direction) »
+- 2026-09-04 : « Ça m'a l'air réglé ! Enfin ! »
 
 ## Cause connue
 L'etirement vaut (1 - w3) x distance camera-origine : la ligne de translation des os du PILOTE porte w3 = 0,9982, que `bones-mtx-calc` multiplie par l'origine du monde en camera. Le correctif `hd-mat-affine!` est ecrit et debrayable. Le residu Redmi est attribue au squelette du pilote, pas a la chaine HD.

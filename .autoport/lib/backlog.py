@@ -1159,9 +1159,17 @@ def _fp_load(ap_dir=None):
 def _stamp_prompt(path, texte, ap_dir=None):
     fp = _fp_path(ap_dir)
     try:
-        d = _fp_load(ap_dir)
-        d[os.path.basename(path)] = hashlib.sha256(texte.encode("utf-8")).hexdigest()
-        _atomic_write(fp, json.dumps(d, indent=0, sort_keys=True))
+        # 2026-09-23 — SOUS VERROU, relire-fusionner-ecrire. Sans lui, orchestrateur + linear_sync +
+        # superviseur relisaient le meme magasin et le dernier a ecrire effacait l'empreinte des autres :
+        # la consigne repassait « a-la-main », plus jamais refabriquee (harness-prompt-fingerprint-store-locked).
+        with _Lock(fp):
+            if os.path.exists(fp):
+                with open(fp, encoding="utf-8") as fh:
+                    d = json.load(fh)   # illisible : on LEVE, jamais un {} qui effacerait tout le magasin
+            else:
+                d = {}
+            d[os.path.basename(path)] = hashlib.sha256(texte.encode("utf-8")).hexdigest()
+            _atomic_write(fp, json.dumps(d, indent=0, sort_keys=True))
     except Exception as e:  # noqa: BLE001 — l'empreinte est un confort, jamais un blocage...
         # ...mais jamais muette : sans elle, la consigne passera « a-la-main » au prochain changement.
         print("backlog: empreinte NON ecrite pour %s dans %s : %s" % (os.path.basename(path), fp, e),

@@ -1,7 +1,11 @@
+> LIS D'ABORD `prompts/item-anim-interp-low-fps-contrat.md` — OBLIGATOIRE. Ce qui suit est un RESUME plafonne a 2560 octets ;
+> le contrat complet, tous les verdicts et TOUS les refus de l'owner, mot pour mot,
+> sont dans ce fichier.
+
 # Les animations saccadees quand le jeu descend vers 20 images/s
 
 ## Defaut cite
-- 2026-09-05 : « Les animations jitter toujours sur des framerates inattendus par le jeu (genre 45 FPS) à 30 ça roule nickel, à 60 pareil (les deux framerates attendus par l'App, car sur PS2 ça oscillait entre ces deux là et le jeu était… »
+- 2026-09-06 : « Validé je pense »
 
 ## Cause connue
 Owner 2026-09-05 : propre a 30 et 60, jitter a 45. Ce sont exactement les cadences ou les 60 ticks/s de la logique tombent en compte ENTIER par image (2 ticks a 30, 1 a 60). A 45 il en faudrait 1,333 : la suite reelle est 1,2,1,1,2... et le reste doit etre absorbe par l'alpha d'interpolation. `*fixed-tick-alpha*` n'a que DEUX consommateurs (cam-update.gc:246 et drawable.gc:1107) ; si le retimage d'animation ne le consomme pas, la pose saute d'un tick entier certaines images et pas d'autres — invisible aux ratios entiers, visible a 45. | 2026-09-05, essai 7 : le residu est concentre dans UN canal d'animation immobile (16 606 us). La porte precedente lisait un modele C++ au lieu de la pose dessinee.

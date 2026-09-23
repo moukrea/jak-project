@@ -1,3 +1,7 @@
+> LIS D'ABORD `prompts/item-pbr-per-material-contrat.md` — OBLIGATOIRE. Ce qui suit est un RESUME plafonne a 2560 octets ;
+> le contrat complet, tous les verdicts et TOUS les refus de l'owner, mot pour mot,
+> sont dans ce fichier.
+
 # Des proprietes PBR par matiere, pas deux curseurs globaux
 
 ## Defaut cite

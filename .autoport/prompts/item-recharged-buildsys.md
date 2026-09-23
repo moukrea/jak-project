@@ -2,6 +2,7 @@
 
 ## Defaut cite
 - 2026-07-17 : « je pense 217 en premier … en autonomie »
+- 2026-09-11 : « TERMINÉ, À IGNORER »
 
 ## Cause connue
 Aucun cycle n'a encore etabli de cause sur cet item.
@@ -11,7 +12,7 @@ Le defaut ci-dessus corrige dans le moteur, livre dans un build, et une garde de
 
 ## Preuve exigee
 Aucun critere machine n'est encore ecrit pour cet item. Ecris-le d'abord (une seule ligne `CLE=VALEUR` emise par le moteur), pose-le dans `backlog.yaml`, puis prouve-le.
-Le proof se produit par `lib/proof_run.sh recharged-buildsys device` — jamais a la main, jamais recopie dans le rapport.
+Le proof se produit par `lib/proof_run.sh recharged-buildsys x86` — jamais a la main, jamais recopie dans le rapport.
 Ou l'owner regardera : l'installation elle-meme : telecharge l'APK et l'archive d'assets, installe par-dessus, verifie que tes sauvegardes sont la.
 
 ## Hors perimetre

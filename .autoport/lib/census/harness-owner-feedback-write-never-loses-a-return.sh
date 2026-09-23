@@ -191,7 +191,7 @@ for seeded in (False, True):
     side = "seeded" if seeded else "shipped"
     for name, fn in SCEN + [("status_kept", None)]:
         tmp, T = fresh_copy()
-        os.chdir(tmp)                       # _FINGERPRINTS de write_prompt est relatif au cwd
+        os.chdir(tmp)                       # l'empreinte de write_prompt suit l'ap_dir de la consigne (backlog._fp_path), plus le cwd
         try:
             if fn is None:
                 res[(side, name)] = ("status", status_kept(T))

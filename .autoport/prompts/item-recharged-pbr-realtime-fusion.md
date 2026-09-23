@@ -1,7 +1,7 @@
 # Les matieres PBR eclairees par la lumiere temps reel
 
 ## Defaut cite
-- (aucun retour de l'owner enregistre sur cet item)
+- 2026-09-17 : « Bah s'il est supplanté par la refonte, on peut même l'archiver non ? »
 
 ## Cause connue
 25 rounds archives dans prompts/archive-Grecharged-pbr-realtime-fusion-rounds1-25.md. La branche rt-lighting du shader ignore encore les cartes PBR ; le chemin autonome u_pbr_mode est le repli faible. Jamais accepte par l'owner.

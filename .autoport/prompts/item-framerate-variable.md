@@ -1,7 +1,7 @@
 # Le jeu tourne a la cadence de l'ecran, sans verrou 30/60
 
 ## Defaut cite
-- (aucun retour de l'owner enregistre sur cet item)
+- 2026-09-11 : « TERMINÉ »
 
 ## Cause connue
 Aucun cycle n'a encore etabli de cause sur cet item.
@@ -11,7 +11,7 @@ Le defaut ci-dessus corrige dans le moteur, livre dans un build, et une garde de
 
 ## Preuve exigee
 Aucun critere machine n'est encore ecrit pour cet item. Ecris-le d'abord (une seule ligne `CLE=VALEUR` emise par le moteur), pose-le dans `backlog.yaml`, puis prouve-le.
-Le proof se produit par `lib/proof_run.sh framerate-variable device` — jamais a la main, jamais recopie dans le rapport.
+Le proof se produit par `lib/proof_run.sh framerate-variable x86` — jamais a la main, jamais recopie dans le rapport.
 Ou l'owner regardera : n'importe ou en jeu : la cadence doit flotter librement et la vitesse du jeu ne doit pas changer.
 
 ## Hors perimetre

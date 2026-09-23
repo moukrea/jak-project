@@ -5,9 +5,9 @@
 # Debrider la cadence au-dela de 60 images/s
 
 ## Defaut cite
-- 2026-09-07 : « pour le framerate, plutôt qu'un slider faudrait des choix comme 30, 45, 60, 75, 90, 120, 240, Illimité. Mais j'ai l'impression qu'on est cap à 90FPS car en désactivant tout, framerate set à 240, sur la scène d'intro naughty god hauteur 90FPS constant, pas plus c'est étrange. Et le FPS cible du Dynamic résolution scaling devrait ajuster les options de son slider en fonction du max fps, aucun sens d… »
 - 2026-09-07 : « demerdes toi pour HDR/Blanc brûlés, c'est la top priorité, la brise et la cadence c'est sensé être tout en bas de la pile, je t'ai jamais dit de reprendre ça ! La top priorité c'est la refonte du lighting, commençant par reprendre le HDR/blancs brûlés ! »
 - 2026-09-17 : « Heuuuuu… C'est fini ce sujet non ? Je vois pas pouquroi il est "bloqué" ! »
+- 2026-09-17 : « Mhhh vérifies si on a pas des tickets qui supplantent ça, c'est bizarre ! Parce que j'ai déjà un menu "Max framerate" avec pour choix 30 / 45 / 60 / 75 / 90 / 120 / 240 / illimité qui fonctionne ! »
 
 ## Cause connue
 srpc.cpp:491 : `(s32)(1024/target_fps)` — a 120 Hz l'horloge de scene tourne a 93,75 % du reel. Trouve par cutscene-npc-flicker le 2026-09-05.

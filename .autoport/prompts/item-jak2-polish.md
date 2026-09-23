@@ -1,7 +1,9 @@
 # Les finitions de Jak II (mapping L1/R1, cadrage, menus, particules)
 
 ## Defaut cite
-- (aucun retour de l'owner enregistre sur cet item)
+- 2026-09-17 : « En vrai c'est toujours pertinent qu'il soit là ce ticket ? On s'en cogne un peu non ? On a fait rouler Jak II, ça marchottais un peu mais bof.. et on a parké ça… Mais de toutes façons on est all in sur Jak 1, donc bon… »
+- 2026-09-17 : « Bah du coup la colonne a arbitrer ne contient plus rien du tout, si ? »
+- 2026-09-17 : « Bah du coup comment ça se fait que tu m'a dit le contraire… à éviter ce genre de conneries ! »
 
 ## Cause connue
 Aucun cycle n'a encore etabli de cause sur cet item.

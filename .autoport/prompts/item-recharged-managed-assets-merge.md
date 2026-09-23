@@ -3,6 +3,7 @@
 ## Defaut cite
 - 2026-08-26 : « d'abord la branche dont je viens de parler à absorber nickel (dans le framework, pas toi tout seul en autonomie) »
 - 2026-08-26 : « le logo apparait bien apres le son qui est sense etre la au moment de son apparition [...] C'est je crois le pire truc honnetement »
+- 2026-09-04 : « Pas testable facilement, drop cet item »
 
 ## Cause connue
 Aucun cycle n'a encore etabli de cause sur cet item.
@@ -12,7 +13,7 @@ Le defaut ci-dessus corrige dans le moteur, livre dans un build, et une garde de
 
 ## Preuve exigee
 Aucun critere machine n'est encore ecrit pour cet item. Ecris-le d'abord (une seule ligne `CLE=VALEUR` emise par le moteur), pose-le dans `backlog.yaml`, puis prouve-le.
-Le proof se produit par `lib/proof_run.sh recharged-managed-assets-merge device` — jamais a la main, jamais recopie dans le rapport.
+Le proof se produit par `lib/proof_run.sh recharged-managed-assets-merge x86` — jamais a la main, jamais recopie dans le rapport.
 Ou l'owner regardera : l'installation des assets : coupe-la en cours et relance-la, elle doit reprendre.
 
 ## Hors perimetre

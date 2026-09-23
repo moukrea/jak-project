@@ -1,7 +1,11 @@
+> LIS D'ABORD `prompts/item-cutscene-npc-flicker-contrat.md` — OBLIGATOIRE. Ce qui suit est un RESUME plafonne a 2560 octets ;
+> le contrat complet, tous les verdicts et TOUS les refus de l'owner, mot pour mot,
+> sont dans ce fichier.
+
 # Les PNJ clignotent pendant les cinematiques
 
 ## Defaut cite
-- 2026-09-05 : « tu peux en profiter pour le soucis du maire qui disparaît et réaparaît dans la cinématique (ça doit toucher d'autres acteurs mais tu vois le problème dont je parle) »
+- 2026-09-06 : « Validé »
 
 ## Cause connue
 LE DEFAUT EST ENFIN CAPTURE SUR L'APPAREIL DE L'OWNER. Fichier tire de son Honor le 2026-09-05 : reports/cutscene-npc-flicker/owner-honor/npc_flicker-honor-2026-09-05.txt (1044 lignes, sa session de 14h44).

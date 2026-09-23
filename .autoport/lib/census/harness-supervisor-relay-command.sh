@@ -58,7 +58,7 @@ tmp = tempfile.mkdtemp(prefix="relay-census-")
 try:
     T = os.path.join(tmp, "backlog.yaml")
     shutil.copyfile(os.path.join(AP, "backlog.yaml"), T)
-    os.makedirs(os.path.join(tmp, ".autoport"))   # _FINGERPRINTS est relatif au cwd
+    os.makedirs(os.path.join(tmp, ".autoport"))   # vestige : l'empreinte suit l'ap_dir (backlog._fp_path), plus le cwd
     os.makedirs(os.path.join(tmp, "prompts"))
     cli = [sys.executable, os.path.join(AP, "autoport"), "--file", T, "feedback"]
     run = lambda args: subprocess.run(cli + args, cwd=tmp, capture_output=True, text=True, timeout=120)

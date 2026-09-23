@@ -1,8 +1,12 @@
+> LIS D'ABORD `prompts/item-foliage-wind-contrat.md` — OBLIGATOIRE. Ce qui suit est un RESUME plafonne a 2560 octets ;
+> le contrat complet, tous les verdicts et TOUS les refus de l'owner, mot pour mot,
+> sont dans ce fichier.
+
 # La brise dans les arbres et les buissons
 
 ## Defaut cite
-- 2026-09-07 : « demerdes toi pour HDR/Blanc brûlés, c'est la top priorité, la brise et la cadence c'est sensé être tout en bas de la pile, je t'ai jamais dit de reprendre ça ! La top priorité c'est la refonte du lighting, commençant par reprendre le HDR/blancs brûlés ! »
 - 2026-09-10 : « je suis alle dans forbidden jungle... les plateformes sur des troncs oscillent au vent c'est debile, c'est pas des troncs fins et febriles qui sont senses bouger au vent, ce sont des arbres epais ! et les arbres du niveau pareil, tout leur tronc bouge, a la limite les petites branches OK, mais les t… »
+- 2026-09-13 : « les shrubs qui bougent au vent, c'est "bien" (validé dans l'idée d'y revenir un jour car le vent simulé est nul) »
 
 ## Cause connue
 Deux refus complets de l'owner. Le 03/09 : « on dirait une ondulation bizarre [...] sous l'eau ». Le 06/09 : « les feuilles de palmiers meriteraient de bouger plus a leur extremites qu'a leur bases [...] ca doit varier en amplitude, distorsion, direction ». Les deux extremes sont refuses : ni sinusoide pure, ni basculement sec. Le critere tronc/cime ne jugeait que DEUX points d'un arbre entier, d'ou les verdicts 8 et 9.

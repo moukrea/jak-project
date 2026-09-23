@@ -2,6 +2,8 @@
 
 ## Defaut cite
 - 2026-08-31 : « je vois que des options sont un peu chelou ou carrement inutilisées... recharged assets VS HD texture pack ? WTF. Modern Materials c'est quoi ? PBR test preset et PBR isolate c'est quoi ? »
+- 2026-09-04 : « Encore faudrait-il savoir quelles sont les lignes qui ne servaient à rien mais j'ai bien l'impression que c'est nettoyé, en revanche tous les éléments sont en majuscule dans les réglages rechargées, et pas tous sont localisés correctement. »
+- 2026-09-04 : « j'ai bien l'impression que c'est nettoyé »
 
 ## Cause connue
 Aucun cycle n'a encore etabli de cause sur cet item.

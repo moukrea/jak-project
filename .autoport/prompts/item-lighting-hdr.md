@@ -1,9 +1,11 @@
+> LIS D'ABORD `prompts/item-lighting-hdr-contrat.md` — OBLIGATOIRE. Ce qui suit est un RESUME plafonne a 2560 octets ;
+> le contrat complet, tous les verdicts et TOUS les refus de l'owner, mot pour mot,
+> sont dans ce fichier.
+
 # Le rendu passe en HDR avec un seul tone map
 
 ## Defaut cite
-- 2026-09-09 : « mais si t'as pas de téléphone branché... Tu peux quand même faire sous x86 ! Putain tu me saoules ! »
-- 2026-09-09 : « J'ai testé un peu sur le Redmi, ça a pas l'air dégueu en vrai, tu peux vérifier mais je pense qu'on est pas mal (à première vue, j'ai pas check tous les niveaux et compagnie) »
-- 2026-09-09 : « J'ai l'impression que quand il fait les captures il les fait même si c'est sur un écran de chargement... Et pas en pleine résolution parce que le jeu à le dynamic resolution scaling activé (en tout cas sous x86) du coup ça doit un peu tout casser... »
+- 2026-09-09 : « j'ai pris le dernier build sur jak-builds, activé le realtime lighting et parcouru quelques niveaux... et franchement ça m'a l'air bon [...] j'ai plus de blancs brûlés, j'ai l'impression que ça "pop" un peu plus que sur… »
 
 ## Cause connue
 REPRISE 09/09 (Claude apres Codex, essai52 x86 : 4 defauts, hutte et ciels manquants). Le REDMI EST BRANCHE : preuve device en premier. Mecanisme des blancs : SPEC §8 item 2. INSTRUMENT SUSPECT (owner 09/09) : captures prises sur ecran de chargement, et sous echelle de rendu dynamique donc pas en pleine resolution — la preuve ne publie ni l'un ni l'autre.
