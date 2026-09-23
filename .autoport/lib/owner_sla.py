@@ -111,6 +111,8 @@ def collect(rows, fetch_comments, is_owner, is_harness, now=None, ts_of=None):
             "answer_auto": "",
             "auto_after": 0,
             "harness_after": 0,
+            "comment_id": "",
+            "thread": "",
         }
         via = row.get("via") or {}
         rec["origin"] = _origin(via)
@@ -127,6 +129,9 @@ def collect(rows, fetch_comments, is_owner, is_harness, now=None, ts_of=None):
                 mine = _match_owner_comment(comments, rec["text"], is_owner, rec["date"])
                 how = "text"
             if mine is not None:
+                # LE FIL ou repondre (23/09) : `linear_sync.py --comment` y poste par defaut.
+                rec["comment_id"] = mine.get("id") or ""
+                rec["thread"] = _parent_of(mine) or rec["comment_id"]
                 rec["ts"] = ts_of(mine)
                 rec["dated"] = 1 if rec["ts"] else 0
                 rec["match"] = how if rec["dated"] else ""
@@ -167,7 +172,8 @@ def collect(rows, fetch_comments, is_owner, is_harness, now=None, ts_of=None):
 # eteignaient le compteur : l'owner n'avait recu aucune reponse a SA question et le delai
 # s'arretait. Une reponse est desormais un message qui VISE ce retour :
 #   reply   un commentaire du harnais poste DANS LE FIL du commentaire de l'owner (`parentId`).
-#           Seul `linear_sync.py --comment <id> --reply-to <commentaire>|last` le pose ; aucun
+#           Seul `linear_sync.py --comment <id>` le pose (`--reply-to <commentaire>|last`, et PAR
+#           DEFAUT le dernier retour ouvert de l'item : `default_reply`, 23/09) ; aucun
 #           message automatique ne passe par la : l'adresse est portee par le SERVEUR, aucun
 #           corps de message ne peut l'imiter, et un nouveau producteur automatique ne peut pas
 #           la poser par megarde.
@@ -364,6 +370,68 @@ def open_records(records):
     reveil du superviseur (`wake_gate.retours_sans_reponse`) et l'avertissement de `--comment`
     lisent CETTE fonction : deux listes qui la recopieraient finiraient par diverger."""
     return [r for r in records or () if r.get("dated") and r.get("open")]
+
+
+# ================================================= LA REPONSE PART DANS LE FIL PAR DEFAUT (23/09) ==
+# Depuis REPLY_SINCE, seule une reponse DANS LE FIL eteint un retour ; mais `--comment` postait hors
+# fil tant que le worker n'ajoutait pas `--reply-to`, et la consigne des DIRECTIVES ne le nomme pas.
+# Les reponses des workers partaient donc a cote et le retour restait ouvert. L'adresse est desormais
+# posee par l'OUTIL : sans `--reply-to`, `--comment` repond au dernier retour OUVERT de l'item, lu par
+# `open_records` — la meme definition que le compteur, le reveil et l'avertissement.
+
+# L'instant ou l'outil a commence a adresser seul : un message hors fil pose AVANT est la dette
+# d'avant (publiee a part), un message hors fil pose APRES est un defaut du code en place.
+THREAD_DEFAULT_SINCE = "2026-09-23T03:43:00+00:00"
+
+
+def default_reply(records, item):
+    """(ticket, fil, retour) du retour OUVERT le plus recent de `item` qu'on sait adresser, ou None."""
+    ouverts = [r for r in open_records(records)
+               if r.get("item") == item and r.get("thread") and r.get("ticket")]
+    if not ouverts:
+        return None
+    r = max(ouverts, key=lambda x: x.get("ts") or 0)
+    return r["ticket"], r["thread"], r
+
+
+def open_at(records, ticket, t):
+    """Les retours de `ticket` qui attendaient une reponse a l'instant `t` (poses avant, repondus
+    au plus tot a `t` : la reponse elle-meme ne ferme pas le retour qu'elle vise)."""
+    return [r for r in records or () if r.get("ticket") == ticket and r.get("dated")
+            and 0 < (r.get("ts") or 0) < t and (not r.get("answered") or (r.get("answered_ts") or 0) >= t)]
+
+
+def off_thread_replies(records, fetch_comments, is_harness, since, until=None, ts_of=None):
+    """Les messages REDIGES du harnais postes HORS FIL alors qu'un retour de l'owner attendait.
+
+    Population (le denominateur `examined`) : commentaires du harnais du ticket d'un retour, rediges
+    (`auto_kind` vide : ni etat, ni verdict, ni alerte), crees dans [since, until[, pendant qu'au
+    moins un retour du ticket etait ouvert (`open_at`). Parmi eux, `off` = ceux sans fil (`parentId`
+    vide) : la reponse que l'owner n'a pas recue dans son fil. Chacun est NOMME (ticket, id, item)."""
+    ts_of = _created_at if ts_of is None else ts_of
+    until = float("inf") if until is None else until
+    out = {"examined": 0, "in_thread": 0, "off": [], "tickets": 0, "fetch_failed": 0}
+    for ticket in dict.fromkeys(r.get("ticket") for r in records or () if r.get("dated") and r.get("ticket")):
+        try:
+            comments = list(fetch_comments(ticket) or [])
+        except Exception:  # noqa: BLE001 — un ticket illisible est COMPTE, jamais lu comme vide
+            out["fetch_failed"] += 1
+            continue
+        out["tickets"] += 1
+        for c in sorted(comments, key=ts_of):
+            t = ts_of(c)
+            if not (since <= t < until) or not is_harness(c) or auto_kind(c.get("body")):
+                continue
+            attente = open_at(records, ticket, t)
+            if not attente:
+                continue
+            out["examined"] += 1
+            if _parent_of(c):
+                out["in_thread"] += 1
+            else:
+                out["off"].append({"ticket": ticket, "comment": c.get("id") or "?", "at": c.get("createdAt") or "",
+                                   "items": sorted({r.get("item") or "?" for r in attente})})
+    return out
 
 
 def cost_summary(records, sla_s, now=None):

@@ -805,7 +805,8 @@ def post_comment(L, issue_id, body, parent=None, capture_failed=""):
     L'identite elle-meme ne se pose pas ici : elle est portee par le JETON (`Linear.__init__`),
     donc par toutes les ecritures a la fois, commentaires compris.
 
-    `parent` : le fil ou le message REPOND a l'owner. Seul `--comment --reply-to` le passe ; c'est
+    `parent` : le fil ou le message REPOND a l'owner. Seul `--comment` le passe (`--reply-to`, ou par
+    defaut le dernier retour ouvert : `default_reply_target`) ; c'est
     ce fil, et lui seul, qui compte comme reponse a son retour (`lib/owner_sla.answer_how`)."""
     i = {"issueId": issue_id, "body": body}
     if parent:
@@ -844,6 +845,30 @@ def reply_target(L, bl, iid, ref):
         raise SystemExit("--reply-to %s : ce n'est pas un commentaire de l'owner" % ref)
     # Linear n'a qu'un niveau de fil : un retour poste en reponse a un message y reste.
     return (c.get("issue") or {}).get("id"), (c.get("parentId") or c["id"])
+
+
+def default_reply_target(L, bl, mp, iid):
+    """(ticket, fil, retour) : le dernier retour de l'owner encore OUVERT sur `iid`, ou None.
+
+    Les workers postent leur fin d'essai par `--comment` sans `--reply-to` : hors fil, leur reponse
+    n'eteignait aucun retour (`owner_sla.answer_how`, 23/09). Le fil est donc choisi ICI, au point de
+    production, par la definition du compteur (`owner_sla.open_records`), relue EN DIRECT sur le
+    ticket : le releve de la veille a jusqu'a 10 min de retard. Linear illisible -> ce releve."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from lib import owner_sla as O                             # noqa: PLC0415
+    it = bl.get(iid)
+    if it is None:
+        return None
+    try:
+        rows = O.rows_from_backlog([it], mp)
+        if not rows:
+            return None
+        fetch, is_own, is_har = O.linear_sources(L, owner_user_id(L, mp), tickets=[r["ticket"] for r in rows])
+        records = O.collect(rows, fetch, is_own, is_har)
+    except Exception as e:  # noqa: BLE001
+        print("fil de reponse non relu en direct (%s) : releve de la veille" % str(e)[:160])
+        records = O.load_cache()[0]
+    return O.default_reply(records, iid)
 
 
 def _say(L, rec, text):
@@ -1671,7 +1696,7 @@ def main():
     ap.add_argument("--delivery", action="store_true", help="dire, verifie, quel build est sur jak-builds (a lire AVANT d'ecrire sur une livraison)")
     ap.add_argument("--comment", default=None, help="id d'item : poster --body comme commentaire du harnais (marque 🤖)")
     ap.add_argument("--body", default=None)
-    ap.add_argument("--reply-to", default=None, help="avec --comment : le commentaire Linear de l'owner auquel ce message REPOND (id de `owner_feedback[].via.comment`, ou `last`). Le message part dans son fil : c'est la seule forme qui compte comme reponse a son retour")
+    ap.add_argument("--reply-to", default=None, help="avec --comment : le commentaire Linear de l'owner auquel ce message REPOND (id de `owner_feedback[].via.comment`, ou `last`). Le message part dans son fil : c'est la seule forme qui compte comme reponse a son retour. SANS cette option, le message part dans le fil du dernier retour OUVERT de l'owner sur l'item, s'il y en a un")
     ap.add_argument("--identity", action="store_true", help="dire sous QUELLE identite le harnais parle, et amorcer l'application si la cle le permet")
     ap.add_argument("--attach", nargs="*", default=[], help="fichiers a joindre au commentaire (images, journaux) : illustration, jamais une preuve")
     ap.add_argument("--no-capture", default="", metavar="POURQUOI", help="avec --comment : la capture de la zone est IMPOSSIBLE, pour cette raison. Le message dit alors quel build tester ; la porte de fermeture l'accepte si un build est publie pendant l'essai")
@@ -1742,6 +1767,13 @@ def main():
         ticket, parent = rec["issue_id"], None
         if a.reply_to:
             ticket, parent = reply_target(L, B.load(), a.comment, a.reply_to)
+        else:
+            # Sans `--reply-to`, l'OUTIL adresse la reponse (23/09) : au dernier retour OUVERT de l'owner.
+            cible = default_reply_target(L, B.load(), mp, a.comment)
+            if cible:
+                ticket, parent, _r = cible
+                print("reponse postee dans le fil du retour de l'owner du %s : « %s »"
+                      % (_r.get("date") or "?", " ".join((_r.get("text") or "").split())[:80]))
         for f in a.attach:
             url, ctype = upload_file(L, f)
             body += ("\n\n![%s](%s)" if ctype.startswith("image/") else "\n\n[%s](%s)") % (Path(f).name, url)
