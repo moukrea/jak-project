@@ -20337,7 +20337,7 @@ items:
     journal: validator-001.txt
 - id: harness-linear-owner-moves-never-lost
   feature: Un deplacement de ticket fait par l'owner n'est jamais ecrase, perdu ni applique deux fois
-  status: open
+  status: validated
   priority: 20
   code_scope: harnais
   device: false
@@ -20382,9 +20382,17 @@ items:
       source: supervisor
       at: '2026-09-23T05:37:45+00:00'
       by: autoport feedback
+  no_code: true
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-23'
+    proof_sha: cf96d20e3df0dabe
+    proof_bytes: 75188
+    attempt: 1
+    journal: validator-001.txt
 - id: harness-linear-archived-structures-not-recreated
   feature: Un projet, une etiquette ou une vue Linear archives par l'owner ne sont jamais recrees en double
-  status: open
+  status: validated
   priority: 20
   code_scope: harnais
   device: false
@@ -20416,6 +20424,14 @@ items:
       source: supervisor
       at: '2026-09-23T05:37:28+00:00'
       by: autoport feedback
+  no_code: true
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-23'
+    proof_sha: 13abfa9cae52d1d0
+    proof_bytes: 76142
+    attempt: 1
+    journal: validator-001.txt
 - id: harness-linear-pull-minor-gaps
   feature: 'Petits trous du tirage Linear : pagination des tickets hors backlog, doublons d''anciens retours,
     liens bloques jamais retentes'
@@ -20552,7 +20568,7 @@ items:
 - id: harness-invisible-item-comment-has-no-capture-boilerplate
   feature: Un chantier invisible (harnais, rien a tester par l'owner) ne parle jamais de capture ni de
     build a tester dans son commentaire
-  status: in-progress
+  status: validated
   priority: 14
   code_scope: harnais
   device: false
@@ -20591,6 +20607,13 @@ items:
       at: '2026-09-23T05:39:00+00:00'
       by: autoport feedback
   no_code: true
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-23'
+    proof_sha: e41dba45e59378a9
+    proof_bytes: 75669
+    attempt: 3
+    journal: validator-003.txt
 - id: hud-eco-gauge-yellow-red-orb
   feature: Dans la jauge d'eco, l'orbe JAUNE et l'orbe ROUGE gardent la meme taille que la bleue (validee)
     au lieu de s'evanouir par moments
@@ -20857,7 +20880,7 @@ items:
 - id: harness-prompt-fingerprint-store-locked
   feature: 'Le magasin d''empreintes des consignes s''ecrit sous verrou : deux ecrivains simultanes ne
     font plus passer une consigne « a la main » en silence'
-  status: open
+  status: in-progress
   priority: 20
   code_scope: harnais
   device: false
@@ -20891,3 +20914,488 @@ items:
 
     CONTROLE POSITIF (course fabriquee sans verrou -> perte) + CONTROLE NEGATIF (les 6 manuelles intactes
     a l''octet).'
+  no_code: true
+- id: owner-attention-aux-profils-opus-5-5-bouscule-tout
+  status: open
+  game: jak1
+  priority: 10
+  feature: Plus rien ne tourne sous Opus 5 ni Fable 5.1 ; le choix de modele et d'effort par role est
+    reglable en un seul endroit et mesure en continu
+  gate:
+    key: banned_model_paths
+    op: ==
+    value: 0
+  depends_on: []
+  device: false
+  owner_test: false
+  owner_ok: null
+  code_scope: harnais
+  max_turns: 600
+  max_retries: 5
+  proof_timeout: 420
+  no_code: true
+  known_cause: 'Ticket cree par l''owner dans Linear le 2026-09-23. Son texte : ![image.png](https://uploads.linear.app/a0a96fbe-70d3-4d8d-9350-9c6c972f09b2/8c3ff3e0-321a-4999-8f69-66781cd85cf0/87a7a1da-7140-4e0e-973e-e765357b87ff)
+
+
+    ![image.png](https://uploads.linear.app/a0a96fbe-70d3-4d8d-9350-9c6c972f09b2/da45f037-9f07-4b31-b314-47204c7470b8/6eaae378-5924-4d40-a5c3-a7b009f02597)
+
+
+    ![image.png](https://uploads.linear.app/a0a96fbe-70d3-4d8d-9350-9c6c972f09b2/c7f214dd-fe92-4e92-a96a-fe1d14cea2ee/c5173c58-d024-4492-b2a6-795e61f007a7)
+
+
+    Alors Claude Opus 5 est à bannir, Fable 5.1 aussi, Opus 5.5 vient de sortir et il éclate tous les
+    modèles de Claude pour un cout inférieur et un ration performance X perf encore meilleur, j''ai demandé
+    à Astra de faire une repasse sur la distribution, mais je te laisse évaluer, l''orchestrateur a été
+    basculé sur Opus 5.5 (comme tu dois savoir) mais faut être sûrs que rien ne tourne ni sous Opus 5,
+    ni sous Fable 5.1 car inutile ! L''utilité même de Sonnet est à remetre en question d''ailleurs… Attention
+    on sait comment les modèles font… Quand ça vient de sortir la perf est insane et ça change deux jours
+    après, donc faut que ce soit facilement ajustable pour la suite si on remarque que la perf / usage
+    / cost / effort et compagnie se casse la gueule. Voici l''addendum de Astra, à prendre avec des pincettes
+    of course car il est biaisé puis il a pas forcément les infos mais ça peut t''aider dans la réflexion
+    (tout ce qui a après les deux points est à prendre avec des pincettes car retour d''Astra) :
+
+
+    # Addendum — Actualiser le routage par phase après la sortie d’Opus 5.5
+
+
+    **Date : 23 septembre 2026**
+
+
+    **Ticket concerné :** « Adapter le modèle et l’effort aux phases de planification et d’implémentation
+    des tickets Linear ».
+
+
+    ## Objet et priorité
+
+
+    Poursuivre l’implémentation en cours en remplaçant la politique de sélection initiale par celle ci-dessous.
+    Ne pas recommencer l’intégration et ne pas modifier son architecture uniquement pour cette actualisation.
+
+
+    Cet addendum prévaut sur les correspondances modèle/effort contradictoires du ticket initial et des
+    anciens prompts. Le besoin fonctionnel reste identique : orchestrateur du board, évaluation avant
+    le plan, approbation humaine, puis évaluation du travail restant avant implémentation. La surveillance
+    programmatique, les contrôles existants et la liberté d’implémentation sont conservés.
+
+
+    Le changement n’est pas un simple remplacement du nom « Opus 5 » par « Opus 5.5 » à effort constant.
+    Il faut recalibrer les profils, retirer Fable du sommet automatique de la grille Claude et adapter
+    également les références Codex.
+
+
+    ## Fondement et limites
+
+
+    Opus 5.5 est sorti le 22 septembre. Les évaluations publiées motivent cette révision sans démontrer
+    les résultats de Jaunt : Terminal-Bench ne mesure pas notre triage et le graphique fourni ne compare
+    pas Sonnet 5. \[S1\]
+
+
+    Les tarifs API standard d’Opus 5.5 sont de 4 $ en entrée non cachée et 20 $ en sortie par million
+    de tokens, contre 5 $ / 25 $ pour Opus 5. Il faut distinguer ces tarifs du coût total par tâche et
+    de la consommation d’un abonnement. \[S2\]
+
+
+    Anthropic recommande de partir de `medium` sur Opus 5.5 et de réévaluer les efforts, plutôt que de
+    reprendre ceux d’Opus 5. Les noms d’effort ne représentent pas la même quantité de raisonnement entre
+    modèles. \[S3\]
+
+
+    GPT-6 Sol et GPT-6 Luna ont également été annoncés le 22 septembre et sont proposés dans Codex selon
+    le déploiement et les accès. Les références nouvelles ci-dessous les intègrent ; ne pas confondre
+    GPT-6 Sol avec GPT-5.6 Sol dans le graphique. \[S4, S5\]
+
+
+    **Les règles suivantes constituent une politique de démarrage choisie pour Jaunt, pas un optimum mesuré
+    ni une promesse d’économie.** Les recommandations des fournisseurs motivent une révision ; elles ne
+    démontrent pas la justesse de chaque seuil de routage.
+
+
+    ## 1. Configuration des rôles
+
+
+    | Rôle | Claude Code | Codex |
+
+    | -- | -- | -- |
+
+    | Orchestrateur du board | **Opus 5.5 —** `medium` | **GPT-6 Sol —** `high` |
+
+    | Classifier avant le plan | **Sonnet 5 —** `medium` | **GPT-6 Sol —** `medium` |
+
+    | Classifier avant l’implémentation | **Sonnet 5 —** `medium` | **GPT-6 Sol —** `medium` |
+
+
+    Pour l’orchestrateur Claude, `high` est autorisé pour une analyse globale où plusieurs causes racines,
+    dépendances ou ordres de travail plausibles et contradictoires doivent réellement être départagés,
+    ou après une insuffisance de raisonnement constatée en `medium` avec le contexte nécessaire. Un board
+    volumineux ou la présence d’un ticket complexe ne suffit pas. Ne pas conserver `high` systématiquement
+    par héritage de l’ancien réglage.
+
+
+    Le maintien de Sonnet pour les classifiers est délibéré : les résultats d’exécution ne prouvent pas
+    qu’Opus 5.5 serait un meilleur choix économique pour ces évaluations courtes. Opus 5.5 `low` devient
+    un candidat de comparaison, pas une seconde évaluation systématique. Côté Codex, Sol 6 remplace Terra
+    5.6 comme référence de diagnostic ; Luna 6 peut être comparé ultérieurement pour ce rôle, sans présumer
+    qu’il suffit à une investigation ouverte du dépôt.
+
+
+    La configuration d’un classifier reste distincte de celle qu’il recommande. Il n’augmente pas sa propre
+    capacité simplement parce qu’il sélectionne un worker exigeant.
+
+
+    ## 2. Sélection du modèle des workers
+
+
+    Conserver les catégories de difficulté du ticket initial et leur ordre **D → C → A → B**. Leur signification
+    reste liée au travail restant, pas à un nom de modèle :
+
+
+    * **A : mécanique démontré.** Transformation explicite, cibles connues, recette applicable, aucune
+    décision sémantique restante, validation directe, impact limité et fin de phase routinière. Toutes
+    ces conditions doivent être établies.
+
+    * **B : développement courant.** Travail suffisamment défini, sans déclencheur C/D, mais ne satisfaisant
+    pas toutes les preuves de A.
+
+    * **C : complexe.** Invariants inter-composants, véritable arbitrage d’architecture, diagnostic inter-systèmes,
+    raisonnement spécialisé substantiel ou invariant critique, selon les définitions du ticket initial.
+
+    * **D : exceptionnel.** Conjonction des difficultés définies initialement, ou échec technique qualifié.
+    Une cause inconnue, un problème d’accès ou une panne d’environnement ne suffisent pas.
+
+
+    Appliquer ces nouvelles correspondances :
+
+
+    | Catégorie | Claude Code | Codex |
+
+    | -- | -- | -- |
+
+    | A | **Sonnet 5** | **GPT-6 Luna** |
+
+    | B | **Opus 5.5** | **GPT-6 Sol** |
+
+    | C | **Opus 5.5** | **GPT-6 Sol** |
+
+    | D | **Opus 5.5** | **GPT-6 Astra** |
+
+
+    L’élargissement d’Opus 5.5 au développement courant est un choix initial à vérifier face à Sonnet
+    `medium`, pas la conclusion qu’Opus coûte toujours moins cher. Il vise à tester un modèle plus capable
+    à effort réduit plutôt qu’un modèle intermédiaire poussé systématiquement en `high`.
+
+
+    **D ne signifie plus « utiliser Fable » côté Claude.** Les distinctions B/C/D restent utiles pour
+    l’effort, le risque et les conditions de validation, même lorsque le modèle retenu est identique.
+
+
+    ## 3. Effort côté Claude Code
+
+
+    Ces règles remplacent l’ancienne règle d’effort commune à tous les modèles. Choisir dans cet ordre
+    :
+
+
+    ### `xhigh` — exception justifiée
+
+
+    Utiliser Opus 5.5 `xhigh` seulement lorsque :
+
+
+    1. un problème concret impose plusieurs chaînes de raisonnement qui se contraignent mutuellement,
+    avec au moins deux difficultés parmi logique subtile, hypothèses à départager et validation difficile
+    ;
+
+    2. une évaluation locale comparable montre un bénéfice de `xhigh`, **ou** une tentative de cette même
+    phase en `high` a révélé une insuffisance de profondeur ou de persistance, avec contexte et outils
+    suffisants ;
+
+    3. cette dépense est autorisée.
+
+
+    Sans cet élément supplémentaire, retenir `high` plutôt que `xhigh`. La catégorie D seule ne suffit
+    pas. Il n’est pas nécessaire de provoquer un échec préalable lorsqu’une calibration pertinente autorise
+    déjà ce profil ; inversement, un premier échec n’autorise pas automatiquement une escalade.
+
+
+    ### `high` — difficultés importantes restantes
+
+
+    Utiliser Opus 5.5 `high` si la phase relève de D, touche un invariant critique, comporte un arbitrage
+    d’architecture réellement ouvert, exige de départager des causes entre plusieurs sous-systèmes, ou
+    présente une validation difficile susceptible de masquer un défaut important.
+
+
+    Retenir également `high` lorsqu’une logique subtile et plusieurs hypothèses plausibles se combinent
+    dans le même problème, même local, ou lorsqu’une insuffisance de raisonnement en `medium` est objectivée
+    avec les informations nécessaires.
+
+
+    Un invariant critique de sécurité, d’autorisation, d’isolement ou d’intégrité des données conserve
+    donc le minimum **Opus 5.5** `high`. Une mention de sécurité dans le titre ne déclenche pas cette
+    règle à elle seule.
+
+
+    ### `low` — phase véritablement bornée
+
+
+    Utiliser **Sonnet 5** `low` pour une phase A courte.
+
+
+    Utiliser **Opus 5.5** `low` pour une phase B dont le périmètre est connu, les décisions ordinaires,
+    les conventions applicables établies et la validation directe, sans difficulté diagnostique non résolue,
+    logique d’état subtile ni déclencheur de `high`.
+
+
+    Le faible effort ne supprime aucune vérification obligatoire. Une information manquante ne constitue
+    pas une preuve permettant de sélectionner `low`.
+
+
+    ### `medium` — référence dans les autres cas
+
+
+    Utiliser **Sonnet 5** `medium` pour une phase A plus longue ou volumineuse.
+
+
+    Utiliser **Opus 5.5** `medium` pour les autres phases B/C : diagnostic local circonscrit, logique
+    locale demandant de l’attention, ou travail inter-composants dont les contrats et l’approche sont
+    suffisamment établis, sans déclencheur supérieur.
+
+
+    Ainsi, la présence de plusieurs composants ou d’une difficulté locale ne force plus systématiquement
+    `high`. `medium` devient la référence pour une large partie du travail non mécanique.
+
+
+    ## 4. Effort côté Codex
+
+
+    Ne pas transposer automatiquement la baisse d’effort d’Opus 5.5 aux modèles OpenAI. Pour cette actualisation,
+    conserver les règles initiales d’effort de Codex, avec les nouveaux modèles :
+
+
+    | Condition, par ordre de priorité | Effort |
+
+    | -- | -- |
+
+    | Problème concret avec chaînes de raisonnement interdépendantes et au moins deux difficultés parmi
+    logique subtile, hypothèses à départager et validation difficile | `xhigh` |
+
+    | Catégorie D, invariant critique, logique subtile, hypothèses à départager ou validation difficile
+    | `high` |
+
+    | Catégorie A et phase courte | `low` |
+
+    | Autres cas | `medium` |
+
+
+    Le modèle vient de la catégorie : Luna 6 pour A, Sol 6 pour B/C, Astra pour D. Les noms d’effort ne
+    constituent pas une équivalence de capacités avec Claude. Cette partie est une continuité prudente
+    de la politique Codex, pas une validation expérimentale des seuils sur GPT-6.
+
+
+    ## 5. Exemples de décisions attendues
+
+
+    | Travail restant | Claude Code | Codex |
+
+    | -- | -- | -- |
+
+    | Correction mécanique courte et vérifiable | Sonnet 5 `low` | Luna 6 `low` |
+
+    | Nombreuses modifications uniformes, sans décision restante | Sonnet 5 `medium` | Luna 6 `medium`
+    |
+
+    | Développement local courant, bien borné et directement vérifiable | Opus 5.5 `low` | Sol 6 `medium`
+    |
+
+    | Diagnostic local avec plusieurs hypothèses, sans autre difficulté | Opus 5.5 `medium` | Sol 6 `high`
+    |
+
+    | Cohérence inter-composants, contrats explicites, approche connue | Opus 5.5 `medium` | Sol 6 `medium`
+    |
+
+    | Diagnostic inter-systèmes ou modification d’un invariant critique | Opus 5.5 `high` | Sol 6 `high`
+    |
+
+    | Difficulté D sans justification supplémentaire pour `xhigh` | Opus 5.5 `high` | Astra `high` |
+
+
+    Ces exemples n’annulent pas les règles prioritaires. Appliquer les difficultés restantes de la phase
+    évaluée, pas celles déjà résolues pendant le plan. Une migration explicitée dans un plan peut rester
+    critique à implémenter.
+
+
+    ## 6. Modèles sortant des choix automatiques par défaut
+
+
+    **Opus 5 et Fable 5.1** ne doivent plus être choisis automatiquement par cette politique Claude. Un
+    échec d’Opus 5.5 ne prouve pas que Fable sera un meilleur exécutant. Conserver leurs usages historiques
+    ou explicitement configurés lorsqu’ils sont nécessaires ; ne pas les supprimer globalement ni en faire
+    un secours silencieux.
+
+
+    **GPT-5.6 Luna, Terra et Sol** sortent des nouveaux choix automatiques lorsque leurs remplaçants sont
+    effectivement accessibles. Une disponibilité insuffisante doit être signalée ; utiliser une ancienne
+    configuration exige un choix explicite, pas une substitution présentée comme conforme à la nouvelle
+    sélection.
+
+
+    Aucun « GPT-6 Terra » n’est introduit dans cette politique. Une annonce de modèle ne vaut pas disponibilité
+    dans un compte donné.
+
+
+    `max`, `ultra` et `ultracode` restent hors du routage automatique initial. La légère baisse du point
+    `max` dans le graphique ne prouve pas que ce niveau serait toujours inférieur ; elle ne justifie simplement
+    pas d’en faire le choix par défaut.
+
+
+    ## 7. Application à l’implémentation en cours
+
+
+    Actualiser les instructions, réglages, décisions et vérifications concernés, sans conserver des clauses
+    anciennes qui réintroduiraient indirectement Fable en D ou appliqueraient le même barème d’effort
+    aux deux fournisseurs.
+
+
+    **Ne pas interrompre ni redémarrer automatiquement une exécution déjà active.** Appliquer la nouvelle
+    politique à une frontière sûre avant la prochaine phase concernée. Une décision de routage antérieure
+    non encore exécutée doit être réexaminée, mais une approbation technique valide ne devient pas caduque
+    au seul motif que le modèle sélectionné change. Si le plan ou ses hypothèses changent matériellement,
+    les protections initiales continuent à s’appliquer.
+
+
+    Préserver l’approbation du plan exact, le travail restant, le contexte utile, les dépendances, les
+    arrêts, les permissions, les travaux parallèles et les préférences des autres sessions. Ne pas déclencher
+    de migration Claude Code ↔ Codex à partir de cette seule comparaison de benchmarks.
+
+
+    Vérifier la disponibilité réelle et l’application effective du couple demandé dans le runtime natif.
+    Claude Code expose des niveaux propres aux modèles et des réglages qui peuvent prévaloir sur leur
+    défaut ; ne pas déduire l’effort réellement utilisé du seul nom du modèle. \[S6\]
+
+
+    Respecter les replis ou refus de sûreté du fournisseur. Lorsqu’un modèle effectif différent est observable,
+    le distinguer du modèle demandé ; ne pas contourner ces restrictions pour satisfaire la politique.
+    \[S6\]
+
+
+    Les éventuelles différences d’API sous-jacente ne prescrivent aucune refonte de Jaunt : adapter uniquement
+    ce que l’intégration réelle nécessite.
+
+
+    ## 8. Validation et mesure
+
+
+    Vérifier que les nouveaux couples sont réellement appliqués, que D ne force plus Fable, que les règles
+    d’effort Claude/Codex sont distinctes et que les décisions anciennes ne sont pas utilisées à tort
+    pour une phase nouvelle. Les scénarios doivent aussi couvrir le couple indisponible et la conservation
+    d’un travail en cours.
+
+
+    Continuer à mesurer le coût total du travail correctement terminé : évaluations, raisonnement facturé,
+    contexte, cache, reprises et corrections. Distinguer la mesure API, l’estimation et les indicateurs
+    d’abonnement disponibles.
+
+
+    Les comparaisons prioritaires sont **Sonnet 5** `medium` **contre Opus 5.5** `low` pour les classifiers
+    et le développement courant, puis **Opus 5.5** `medium` **contre** `high` pour l’orchestration et
+    les phases complexes. Elles peuvent conduire à ajuster explicitement la politique ; elles ne demandent
+    ni une seconde exécution permanente ni une nouvelle infrastructure d’évaluation imposée.
+
+
+    La calibration peut être poursuivie après cette mise à jour ; la livraison ne doit pas annoncer des
+    économies ou une qualité démontrées par les seuls tests de règles.
+
+
+    ## Liberté d’implémentation
+
+
+    Cet addendum prescrit les modèles, les efforts, leurs conditions de sélection et les garanties à conserver.
+    Le harnais choisit l’intégration, les formats, la persistance, le découpage, les mécanismes de reprise
+    et les vérifications adaptées après inspection de son état réel. Aucun emplacement de fichier, nouveau
+    composant ou mécanisme technique particulier n’est imposé.
+
+
+    ## Sources vérifiées le 23 septembre 2026
+
+
+    Ces sources établissent les annonces, capacités exposées et recommandations générales. Les correspondances
+    de routage ci-dessus sont la politique proposée pour Jaunt, non une recommandation officielle des
+    fournisseurs.
+
+
+    * **\[S1\] Anthropic — Introducing Claude Opus 5.5**, annonce et évaluations du 22 septembre 2026.
+    `https://www.anthropic.com/claude-opus-5-5`
+
+    * **\[S2\] Anthropic — What''s new in Claude Opus 5.5**, tarifs et différences de comportement. `https://platform.claude.com/docs/en/models/opus-5-5/whats-new-opus-5-5`
+
+    * **\[S3\] Anthropic — Prompting Claude Opus 5.5**, section « Calibrate effort ». `https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5-5`
+
+    * **\[S4\] OpenAI — Introducing GPT-6 Sol and Luna**, annonce du 22 septembre 2026. `https://openai.com/index/introducing-gpt-6-sol-and-luna/`
+
+    * **\[S5\] OpenAI — Models**, modèles et accès dans Codex. `https://learn.chatgpt.com/docs/models`
+
+    * **\[S6\] Anthropic — Model configuration**, modèles, efforts et replis dans Claude Code. `https://code.claude.com/docs/en/model-config`
+
+    * **\[S7\] OpenAI — GPT-6 Sol**, capacités et tarifs API. `https://developers.openai.com/api/docs/models/gpt-6-sol`
+
+    * **\[S8\] OpenAI — GPT-6 Luna**, capacités et tarifs API. `https://developers.openai.com/api/docs/models/gpt-6-luna`
+
+
+    CADRAGE DU SUPERVISEUR (23/09) — releve de terrain, pas une supposition :
+
+    * CE QUI TOURNE ENCORE SOUS OPUS 5 : `.autoport/supervisor.sh:89` `SUP_MODEL=${SUP_MODEL:-claude-opus-5}`
+    et `:91` `SUB_MODEL=${SUB_MODEL:-claude-opus-5}` -> tout superviseur relance par ./run-supervisor.sh
+    demarre sur Opus 5 avec des sous-agents Opus 5. La session actuelle est sur Opus 5.5 seulement parce
+    que l''owner l''a choisi a la main (/model).
+
+    * `.autoport/orchestrator.py:128-129` : profil de REPLI code en dur sur claude-fable-5-1[1m] (refuse
+    au lancement par lib/model_profile.py, mais le nom reste).
+
+    * `.autoport/model-profiles.json` : 6 profils sur 7 nomment Opus 5 ou Fable 5.1 (fable51-high, opus5-secours,
+    fable51-sobre, opus5-sobre, panel-sobre, panel-fable) ; actif = panel-sobre-opus55 (manager claude-opus-5-5
+    effort high, sous-agents claude-sonnet-5 : researcher medium, implementer low, tester low).
+
+    * `.autoport/lib/supervisor_cost.py:63-73` : AUCUN tarif pour claude-opus-5-5 -> le cout du superviseur
+    sous 5.5 est mal compte. Tarif officiel (skill claude-api, 23/09) : entree 4 $, sortie 20 $, lecture
+    de cache 0,20 $ par million ; ecriture de cache 1,25x (5 min) / 2x (1 h) de l''entree ; effort par
+    defaut `medium`.
+
+    * MESURE sur 7 jours (logs/*/attempt-*.jsonl, total_cost_usd) : Opus 5 = 27 essais, mediane 6,74 $,
+    moyenne 7,77 $ ; Opus 5.5 = 34 essais, mediane 2,25 $, moyenne 2,55 $. ATTENTION : populations differentes
+    (5.5 a surtout fait des items de harnais) ; le taux de reussite n''est PAS encore compare.
+
+    * L''addendum d''Astra (routage par phase, Codex GPT-6) vise un AUTRE projet (Jaunt) : l''owner dit
+    de le prendre avec des pincettes. Ce qui s''applique ici : Opus 5.5 recommande `medium` par defaut
+    ; comparer Sonnet 5 contre Opus 5.5 `low` pour les sous-agents, et Opus 5.5 `medium` contre `high`
+    pour le manager.'
+  notes: '23/09 : cadre par le superviseur (harnais, priorite 10).'
+  where: ''
+  deliverable: '1. INTERDICTION STRUCTURELLE : une liste de modeles bannis (claude-opus-5, claude-fable-5-1,
+    claude-fable-5) dans UN fichier de config ; une porte (lint + lancement) refuse tout chemin vivant
+    qui peut lancer un modele banni : defauts de supervisor.sh, profil actif, repli code en dur, frontmatter
+    .claude/agents/*.md, toute ligne de commande `claude --model`. `banned_model_paths` = nombre de ces
+    chemins ; doit valoir 0. Le superviseur et ses sous-agents lisent leur modele dans model-profiles.json,
+    plus dans une constante du script.
+
+    2. REGLABLE EN UN SEUL ENDROIT : changer le modele ou l''effort d''un role = une commande (`autoport
+    profile ...`) ou une ligne de model-profiles.json, applique a la frontiere d''item suivante, avec
+    la banniere qui le prouve. Les profils bannis sont retires ou marques inutilisables.
+
+    3. TARIFS : ajouter claude-opus-5-5 a supervisor_cost.py (4 / 5 / 8 / 0,20 / 20).
+
+    4. MESURE CONTINUE (l''owner : « ça change deux jours après ») : un rapport par modele et par role
+    sur 7 jours glissants — cout par essai, cout par item VALIDE, taux de reussite au premier essai, tours
+    — lisible par `autoport cost` ; une alerte quand le cout par item valide d''un role monte de plus
+    de 50 %.
+
+    5. EFFORT ET SONNET, MESURES, PAS SUPPOSES : sur des items de harnais comparables, alterner manager
+    Opus 5.5 `medium` / `high`, et sous-agents Sonnet 5 / Opus 5.5 `low` ; publier les deux bras (cout
+    par item valide, reussite). Ne changer le profil actif que si la mesure le justifie, et le dire a
+    l''owner avec les chiffres.
+
+    CONTROLE POSITIF : poser claude-opus-5 dans une copie de supervisor.sh -> la porte rougit et nomme
+    le fichier. CONTROLE NEGATIF : l''etat corrige a 0.'
+  out_of_scope: ''
+  spec: null
+  prompt: prompts/item-owner-attention-aux-profils-opus-5-5-bouscule-tout.md
