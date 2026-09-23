@@ -1076,6 +1076,40 @@ def adopt_owner_issues(L, bl, mp, team, todo_id, dry):
     return n
 
 
+def relink_closed_tickets(L, bl, mp, team, dry):
+    """Le ticket PERDU d'un item, quel que soit son etat : Done, Canceled, archive. `adopt_owner_issues` ne lit que les
+    ouverts et `ensure_ticket` ne repasse plus sur un item clos (il n'est plus miroite) : un ticket clos sorti de la carte
+    n'etait jamais relie, et un « ca marche toujours pas » de l'owner dessus jamais tire (23/09). Ne demande que les
+    tickets a cle ABSENTS de la carte : en regime normal, une page vide. Appele AVANT `pull_owner` : le retour de l'owner
+    est lu dans le meme passage."""
+    known = [v["issue_id"] for k, v in mp.items() if not k.startswith("_") and isinstance(v, dict) and v.get("issue_id")]
+    nodes, after = [], None
+    while True:
+        d = L.q('query($t:ID!,$k:String!,$n:[ID!],$a:String){ issues(first:100, after:$a, includeArchived:true, filter:{team:{id:{eq:$t}}, '
+                'description:{contains:$k}, id:{nin:$n}}){ pageInfo { hasNextPage endCursor } nodes { id identifier url title '
+                'description createdAt archivedAt creator { id app } state { name type } } } }',
+                t=team, k=KEY_FMT.split("`")[0], n=known, a=after)
+        page = d["issues"]
+        nodes += page["nodes"]
+        if not page["pageInfo"]["hasNextPage"]:
+            break
+        after = page["pageInfo"]["endCursor"]
+    n = 0
+    for iss in nodes:
+        if not issue_key(iss) or iss["id"] in {v.get("issue_id") for k, v in mp.items() if not k.startswith("_") and isinstance(v, dict)}:
+            continue
+        how = "%s%s" % (iss["state"]["name"], ", archive" if iss.get("archivedAt") else "")
+        kind, what = classify_unmapped(iss, bl, mp)
+        if kind != "relink":
+            print("TICKET PERDU NON RELIE : %s (%s) — %s" % (iss["identifier"], how, what))
+            continue
+        print("TICKET PERDU RELIE : %s (%s) -> item %s (ses retours de l'owner seront lus)" % (iss["identifier"], how, what))
+        if not dry:
+            mp[what] = relinked_rec(iss); save_map(mp)
+        n += 1
+    return n
+
+
 def adopt_owner_order(L, bl, mp, states, dry, skip=()):
     """Le pendant natif du rang = l'ordre manuel de la colonne Todo (sortOrder). Si l'owner reordonne
     a la main, le backlog adopte cet ordre : les rangs des eligibles sont permutes, rien d'autre ne bouge
@@ -1969,7 +2003,8 @@ def main():
     if guard("documents", lambda: sync_docs(L, mp, projects, a.dry_run)):
         MAP_DOCS.update(mp.get("_docs") or {})
     if mp and not a.no_pull:
-        guard("retours de l'owner", lambda: pull_owner(L, bl, mp, {v: k for k, v in states.items()}, a.dry_run, label, todo))
+        guard("tickets clos perdus", lambda: relink_closed_tickets(L, bl, mp, team, a.dry_run), 0)
+        guard("retours de l'owner",lambda: pull_owner(L, bl, mp, {v: k for k, v in states.items()}, a.dry_run, label, todo))
         bl = B.load()
         _CTX["bl"] = bl
         # ------------------------------------------- LA FILE A-T-ELLE ENCORE UN LECTEUR ?
