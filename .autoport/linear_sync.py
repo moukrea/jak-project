@@ -151,6 +151,15 @@ def find_issue_for(L, team, iid, title, taken):
     return c[0] if c else None
 
 
+def relinked_rec(iss):
+    """LA fiche d'un ticket RETROUVE apres perte de la carte (`ensure_ticket`, `adopt_owner_issues`) : le curseur repart
+    d'avant la creation du ticket, jamais de maintenant — un retour de l'owner poste pendant la perte serait saute a
+    jamais. `pull_owner` saute ceux deja recopies (par identifiant) : rien n'est recopie deux fois."""
+    return {"issue_id": iss["id"], "identifier": iss["identifier"],
+            "url": iss.get("url") or "https://linear.app/moukrea/issue/" + iss["identifier"],
+            "last_state": iss["state"]["name"], "hash": "", "pulled_at": PULL_FROM_START}
+
+
 def ensure_ticket(L, mp, team, iid, title, payload, st, h):
     """LE seul chemin qui cree un ticket. Rend (rec, cree). Linear d'abord : une carte qui a recule (git)
     ou lue depuis un worktree ne sait pas que le ticket existe. Une recherche qui echoue LEVE : jamais de
@@ -159,8 +168,7 @@ def ensure_ticket(L, mp, team, iid, title, payload, st, h):
     found = find_issue_for(L, team, iid, title, {v["issue_id"] for k, v in mp.items() if not k.startswith("_")})
     if found:
         print("TICKET EXISTANT RELIE : %s -> %s (aucune creation)" % (found["identifier"], iid))
-        mp[iid] = {"issue_id": found["id"], "identifier": found["identifier"], "url": found["url"],
-                   "last_state": found["state"]["name"], "hash": "", "pulled_at": PULL_FROM_START}
+        mp[iid] = relinked_rec(found)
         save_map(mp)
         return mp[iid], False
     r = with_room(L, lambda: L.q('mutation($i:IssueCreateInput!){ issueCreate(input:$i){ issue { id identifier url } } }',
@@ -960,8 +968,7 @@ def adopt_owner_issues(L, bl, mp, team, todo_id, dry):
         if kind == "relink":
             print("TICKET DU HARNAIS RELIE : %s -> item %s (sa correspondance avait ete perdue ; rien n'est cree)" % (iss["identifier"], what))
             if not dry:
-                mp[what] = {"issue_id": iss["id"], "identifier": iss["identifier"], "url": "https://linear.app/moukrea/issue/" + iss["identifier"],
-                            "last_state": iss["state"]["name"], "hash": "", "pulled_at": PULL_FROM_START}
+                mp[what] = relinked_rec(iss)
                 known.add(iss["id"]); save_map(mp)
             continue
         if kind == "harness":
@@ -1608,8 +1615,11 @@ def pull_owner(L, bl, mp, states_by_id, dry, label_id=None, todo_id=None):
         chunk = ids[i:i + 40]
         # 23/09 : `includeArchived` — sans lui, les 129 tickets archives (sur 209) sortaient du lot et le retour
         # que l'owner y poste n'etait jamais relu.
-        d = L.q('query($ids:[ID!]){ issues(filter:{id:{in:$ids}}, first:40, includeArchived:true){ nodes { id archivedAt state { name } labels { nodes { id } } comments { nodes { id body createdAt user { id app } botActor { id } ' + REACTION_FIELDS + ' } } } } }', ids=chunk)
+        d = L.q('query($ids:[ID!]){ issues(filter:{id:{in:$ids}}, first:40, includeArchived:true){ nodes { id archivedAt state { name } labels { nodes { id } } comments(first:50){ pageInfo { hasNextPage endCursor } nodes { id body createdAt user { id app } botActor { id } ' + REACTION_FIELDS + ' } } } } }', ids=chunk)
         for iss in d["issues"]["nodes"]:
+            # 23/09 : sans suite, Linear ne rend que les 50 commentaires les plus RECENTS (JAK-176 en porte 142, JAK-177 89) :
+            # un ticket relie repart du debut, et le retour de l'owner enfoui sous 50 messages du harnais etait saute.
+            iss["comments"]["nodes"] += OSLA._rest(L, iss["id"], iss["comments"].get("pageInfo"))
             iid = next((k for k, v in mp.items() if not k.startswith("_") and v["issue_id"] == iss["id"]), None)
             if not iid:
                 continue
