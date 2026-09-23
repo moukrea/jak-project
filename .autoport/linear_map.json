@@ -36,7 +36,7 @@
    "url": "https://linear.app/moukrea/document/e1fe9500339a"
   }
  },
- "_gen": 78,
+ "_gen": 82,
  "_ids": {
   "labels": {
    "ok": "000e105b-24ba-4fa3-a579-bc3bf0869242",
@@ -881,10 +881,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-130/une-preuve-perimee-se-voit-avant-la-course-pas-au-validateur-une-heure"
  },
  "harness-status-says-when-linear-cache-is-stale": {
-  "hash": "95fbfe8fe0b915c5e30ac2fc4f7e9991a6b5e5dd",
+  "hash": "35d0e4841354162a3a00857d989c1920136b641d",
   "identifier": "JAK-200",
   "issue_id": "477a9522-4b09-4f59-ad65-05f7a1bab4b6",
-  "last_state": "In Progress",
+  "last_state": "Done",
   "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-22T22:24:54.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-200/si-la-synchro-linear-est-morte-le-rapport-detat-le-dit-au-lieu"
@@ -955,10 +955,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-198/seul-le-vrai-superviseur-compte-comme-lecteur-vivant-une-autre-session"
  },
  "harness-supervisor-relay-command": {
-  "hash": "35584980253d8fa110491312e1c373f81991c9b3",
+  "hash": "c2c9c64ccf4c91accb4b4d5c3c225540efbe1e7a",
   "identifier": "JAK-238",
   "issue_id": "f5a7bf52-4100-4911-9ade-0d927e06629f",
-  "last_state": "Todo",
+  "last_state": "In Progress",
+  "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-23T00:56:17.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-238/les-mots-que-lowner-dit-au-superviseur-dans-le-terminal-sont-recopies"
  },
