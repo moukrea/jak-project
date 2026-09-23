@@ -19489,6 +19489,14 @@ items:
     CONTROLE POSITIF : un commentaire owner fabrique portant un faux secret -> masque partout, commit
     refuse. CONTROLE NEGATIF : un commentaire ordinaire (hash de commit, md5 d''APK) n''est pas masque.'
   no_code: true
+  owner_feedback:
+  - date: '2026-09-23'
+    text: Pour le secret on fera plus tard
+    via:
+      source: supervisor
+  notes: '23/09 (superviseur) : la ROTATION du Client Secret Linear (seul geste qui neutralise la fuite
+    publique) est REPORTEE par l''owner. Ne pas relancer a chaque tour ; le rappeler une fois quand ce
+    chantier ferme.'
 - id: harness-linear-pull-reads-archived-tickets
   feature: Un commentaire de l'owner sur un ticket archive est lu, et un chantier ouvert qu'il archive
     lui-meme est pris comme sa decision
