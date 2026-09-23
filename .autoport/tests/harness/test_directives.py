@@ -136,3 +136,15 @@ if __name__ == "__main__":
                 print("ECHEC", name, "->", type(exc).__name__, exc)
     print(("%d échec(s)" % fails) if fails else "tous les tests passent")
     sys.exit(1 if fails else 0)
+
+
+def test_capture_paragraph_is_rendered_only_for_a_visible_item():
+    """INVISIBLE-CAPTURE/ : le paragraphe capture ne va qu'a un chantier que l'owner regardera."""
+    inv = {"id": "h", "owner_test": False}
+    vis = {"id": "g", "owner_test": True, "where": "Sandover"}
+    bi = directives.block("h", record=False, item=inv)
+    bv = directives.block("g", record=False, item=vis)
+    assert "--no-capture" not in bi and "CLOSE-GATE/capture" not in bi
+    assert "--no-capture" in bv and "CLOSE-GATE/capture" in bv
+    assert "<!--" not in bi and "<!--" not in bv
+    assert directives.version("h", inv) != directives.version("h", vis)

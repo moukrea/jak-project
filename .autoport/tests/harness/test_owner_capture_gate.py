@@ -98,3 +98,35 @@ def test_post_comment_writes_the_ledger_at_the_point_of_production(gate, monkeyp
     assert rows[-1]["item"] == ID and rows[-1]["image"] is True
     assert rows[-1]["comment_id"] == "cmt-9"
     assert gate["close"]() == ("awaiting-owner", "")
+
+
+# ------------------------------------------------ INVISIBLE-CAPTURE/ (harness-invisible-item-comment-has-no-capture-boilerplate)
+import sys as _sys  # noqa: E402
+from pathlib import Path as _P  # noqa: E402
+_sys.path.insert(0, str(_P(__file__).resolve().parents[2] / "lib"))
+import owner_capture as oc  # noqa: E402
+_INV = {"id": "h-invisible", "feature": "ne parle jamais de capture ni de build a tester", "owner_test": False}
+_VIS = {"id": "g-visible", "feature": "herbe", "owner_test": True, "where": "Sandover"}
+
+
+def test_invisible_refuses_no_capture_image_and_boilerplate():
+    assert "INVISIBLE-CAPTURE" in oc.invisible_comment_refusal(_INV, "ok", (), "rien a l'ecran")
+    assert "shot.png" in oc.invisible_comment_refusal(_INV, "ok", ("/tmp/shot.png",), "")
+    assert oc.invisible_comment_refusal(_INV, "Capture impossible : x. Build a tester : y", (), "")
+    assert oc.invisible_comment_refusal(_INV, "ok", ("/tmp/journal.txt",), "") == ""
+    # le titre de l'item, cite par le harnais, n'est pas « parler de capture »
+    assert oc.invisible_comment_refusal(_INV, "Critère : « ne parle jamais de capture ni de build a tester »", (), "") == ""
+
+
+def test_visible_is_never_refused_here():
+    assert oc.invisible_comment_refusal(_VIS, "Capture impossible", ("/tmp/shot.png",), "ecran") == ""
+
+
+def test_scrub_removes_image_and_capture_lines_only_on_invisible():
+    body = "Essai 2 : porte tenue.\nCapture impossible : x. Build a tester : y\n![a.png](https://u/a.png)"
+    out, n = oc.scrub_invisible(_INV, body)
+    assert out == "Essai 2 : porte tenue." and n == 2
+    assert oc.scrub_invisible(_VIS, body) == (body, 0)
+    # par phrase : le reste de la ligne relayee survit
+    out, n = oc.scrub_invisible(_INV, "**Ce que dit l'agent** : Porte tenue. Pas de capture : rien a voir. Reste : rien.")
+    assert out == "**Ce que dit l'agent** : Porte tenue. Reste : rien." and n == 1

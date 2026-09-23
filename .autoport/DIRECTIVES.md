@@ -83,17 +83,19 @@ poste UN commentaire court sur le ticket, en français courant, sans identifiant
 en une phrase, ce que l'owner verra ou ne verra pas, ce qui reste. Les retours de l'owner arrivent
 dans ton prompt (« owner_feedback ») : réponds-y dans ce commentaire quand ils te concernent.
 
-    python3 .autoport/linear_sync.py --comment <id-de-l-item> --body "…" [--attach capture.png]
+    python3 .autoport/linear_sync.py --comment <id-de-l-item> --body "…" [--attach fichier]
 
 Les images que l'owner poste sur le ticket sont dans `owner-feedback/<id>/` : regarde-les. Une pièce
 jointe illustre, elle ne prouve rien (règle 2).
 
+<!-- chantier-visible -->
 Quand ton item touche quelque chose de VISIBLE et qu'il part au test de l'owner, JOINS une capture de
 la zone concernée à ton commentaire (`--attach`). Owner 18/09 02:50 : « t'aurais pu joindre un screen
 ça aurait accéléré les choses… ». Ce n'est pas une preuve, c'est ce qui lui évite de rallumer le
 téléphone pour comprendre de quoi tu parles. C'est une PORTE (`CLOSE-GATE/capture`) : sans image
 postée pendant l'essai, l'item ne part pas au test. Capture impossible : livre un build à tester et
 poste `--no-capture "pourquoi"` avec ce qu'il faut regarder ; jamais une mesure visuelle à la place.
+<!-- /chantier-visible -->
 
 ## Signalements
 

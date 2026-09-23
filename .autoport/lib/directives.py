@@ -69,9 +69,48 @@ def parts(item_id=None):
     return _dtext(), scope_path(item_id), _scope_text(item_id)
 
 
-def _body(item_id=None):
-    """Exactly the contract text inlined for this item — what version() hashes."""
+# INVISIBLE-CAPTURE/ (harness-invisible-item-comment-has-no-capture-boilerplate, 23/09) : le
+# paragraphe capture de DIRECTIVES ne vaut que pour un chantier que l'owner va regarder. Rendu a
+# tous, il a fait ecrire « Capture impossible ... Build a tester » sur un chantier de harnais
+# (JAK-240) — owner : « gaspillage d'énergie ». Il est borne par ces deux lignes dans DIRECTIVES.md.
+VISIBLE_ONLY_RX = re.compile(r"^<!-- chantier-visible -->\n(.*?)^<!-- /chantier-visible -->\n", re.M | re.S)
+
+
+def _item(item_id):
+    """L'item du backlog, ou None (backlog illisible : le paragraphe est rendu, comme avant)."""
+    if not item_id:
+        return None
+    try:
+        if str(AUTOPORT / "lib") not in sys.path:
+            sys.path.insert(0, str(AUTOPORT / "lib"))
+        import backlog as _bl   # noqa: PLC0415
+        return _bl.load().get(item_id)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def is_visible(item):
+    """Meme juge que la porte CLOSE-GATE/capture (`owner_capture.is_visible`). Inconnu : visible."""
+    if not item:
+        return True
+    try:
+        import owner_capture as _oc   # noqa: PLC0415
+        return _oc.is_visible(item)[0]
+    except Exception:  # noqa: BLE001
+        return True
+
+
+def standing_orders(txt, visible):
+    """DIRECTIVES.md tel qu'il est rendu : le bloc « chantier-visible » garde son texte (sans ses
+    bornes) pour un chantier visible, disparait pour un chantier hors champ."""
+    return VISIBLE_ONLY_RX.sub((lambda m: m.group(1)) if visible else "", txt)
+
+
+def _body(item_id=None, item=None):
+    """Exactly the contract text inlined for this item — what version() hashes.
+    `item` : le dict du backlog (sinon relu par son id)."""
     txt, spath, stext = parts(item_id)
+    txt = standing_orders(txt, is_visible(item if item is not None else _item(item_id)))
     out = [txt.strip()]
     if stext:
         out += ["", "---", "",
@@ -79,9 +118,9 @@ def _body(item_id=None):
     return "\n".join(out)
 
 
-def version(item_id=None):
+def version(item_id=None, item=None):
     h = hashlib.sha256()
-    for chunk in (str(serial()), item_id or "", _body(item_id)):
+    for chunk in (str(serial()), item_id or "", _body(item_id, item)):
         h.update(chunk.encode("utf-8"))
         h.update(b"\0")
     return "v" + h.hexdigest()[:10]
@@ -110,9 +149,11 @@ def _record(ver):
         pass
 
 
-def block(item_id=None, record=True):
+def block(item_id=None, record=True, item=None):
     """The contract, inlined. Raises DirectivesTooLarge past MAX_BLOCK_BYTES."""
-    ver = version(item_id)
+    if item is None:
+        item = _item(item_id)
+    ver = version(item_id, item)
     if record:
         _record(ver)
     out = [
@@ -125,7 +166,7 @@ def block(item_id=None, record=True):
         "",
         "Chaque prompt de sous-agent commence par le périmètre de sa tâche et cette ligne.",
         "",
-        _body(item_id),
+        _body(item_id, item),
         "",
         "---",
         "",

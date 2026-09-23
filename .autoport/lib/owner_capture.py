@@ -61,6 +61,80 @@ def has_image(body: str) -> bool:
     return bool(IMAGE_RX.search(body or ""))
 
 
+# INVISIBLE-CAPTURE/ (harness-invisible-item-comment-has-no-capture-boilerplate, 23/09). Owner, sur
+# JAK-240 : « c'est le genre de chantier qui nécessite pas de capture, donc c'est attendu qu'il n'y
+# ait pas de capture, gaspillage d'énergie là ! ». Le worker d'un item `owner_test: false` avait
+# ecrit « Capture impossible : ... Build a tester : ... » par habitude (paragraphe capture de
+# DIRECTIVES, alors rendu a TOUS les items). Un chantier hors champ ne parle ni de capture ni de
+# build a tester : `--comment` le REFUSE (le worker l'apprend), `post_comment` le RETIRE (filet du
+# point de production, pour les messages que le harnais compose lui-meme).
+TALK_RX = re.compile(r"\bcaptures?\b|build a tester|screenshot|screencap|--no-capture")
+IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp")
+
+
+def _flat(text) -> str:
+    return " ".join(plain(text).split())
+
+
+def capture_talk(item: dict, body: str) -> list[str]:
+    """Ce qui, dans `body`, parle de capture ou de build a tester — hors le TITRE et l'id de l'item,
+    que le harnais cite (« Critère : « ... » ») sans que personne n'en parle. Une image jointe compte."""
+    t = _flat(body)
+    for s in (item.get("feature"), item.get("id")):
+        s = _flat(s)
+        if s:
+            t = t.replace(s, " ")
+    hits = [m.group(0) for m in TALK_RX.finditer(t)]
+    if has_image(body):
+        hits.append("image")
+    return hits
+
+
+def invisible_comment_refusal(item: dict, body="", attach=(), no_capture="") -> str:
+    """Motif du refus d'un `--comment` sur un chantier hors champ, ou "" s'il peut partir.
+    Un item visible n'est jamais refuse ici : sa capture reste exigee (`judge`)."""
+    vis, why = is_visible(item or {})
+    if vis:
+        return ""
+    bad = []
+    if (no_capture or "").strip():
+        bad.append("--no-capture")
+    imgs = [Path(str(f)).name for f in (attach or ()) if Path(str(f)).suffix.lower() in IMAGE_SUFFIXES]
+    if imgs:
+        bad.append("image jointe (%s)" % ", ".join(imgs))
+    talk = sorted(set(capture_talk(item, body)))
+    if talk:
+        bad.append("le message parle de : %s" % ", ".join(talk))
+    if not bad:
+        return ""
+    return ("REFUS INVISIBLE-CAPTURE : %s est un chantier hors champ (%s) : l'owner n'a rien a regarder, "
+            "donc ni capture ni build a tester (owner 23/09 : « gaspillage d'énergie »). En cause : %s. "
+            "Poste le verdict sans en parler." % (item.get("id", "?"), why, " ; ".join(bad)))
+
+
+def scrub_invisible(item: dict, body: str) -> tuple[str, int]:
+    """Filet de `post_comment` : sur un chantier hors champ, retire les images et les LIGNES qui parlent
+    de capture ou de build a tester. -> (corps, nombre de passages retires). Visible : inchange."""
+    if not item or is_visible(item)[0]:
+        return body, 0
+    out, n = [], 0
+    for ln in (body or "").split("\n"):
+        bare = IMAGE_RX.sub("", ln)
+        if bare != ln:
+            n += 1
+            if not bare.strip():
+                continue
+        if capture_talk(item, bare):
+            # par PHRASE : l'annonce de verdict relaie le rapport de l'agent sur UNE ligne
+            keep = [x for x in re.split(r"(?<=[.!?;])\s+", bare) if not capture_talk(item, x)]
+            n += 1
+            if not "".join(keep).strip():
+                continue
+            bare = " ".join(keep)
+        out.append(bare)
+    return "\n".join(out).strip("\n"), n
+
+
 def published_build(ap_dir) -> dict:
     """Le build publié tel que `.published_build_info.txt` le décrit : {tag, date, epoch} ou {}."""
     try:
@@ -78,7 +152,7 @@ def published_build(ap_dir) -> dict:
 
 
 def record(ap_dir, item_id, body, *, issue_id="", comment_id="", capture_failed="",
-           when=None) -> dict:
+           when=None, visible=None, talk=None, stripped=0) -> dict:
     """Une ligne du registre. Appelée par `linear_sync.post_comment` APRÈS le succès de Linear."""
     build = published_build(ap_dir) if capture_failed else {}
     rec = {
@@ -91,6 +165,8 @@ def record(ap_dir, item_id, body, *, issue_id="", comment_id="", capture_failed=
         "build_tag": build.get("tag", ""),
         "build_epoch": build.get("epoch", 0.0),
     }
+    if visible is not None:   # INVISIBLE-CAPTURE/ : lu par le recensement de l'item, apres le correctif
+        rec.update(visible=bool(visible), talk=list(talk or []), stripped=int(stripped or 0))
     p = Path(ap_dir) / LEDGER
     p.parent.mkdir(parents=True, exist_ok=True)
     with p.open("a") as f:

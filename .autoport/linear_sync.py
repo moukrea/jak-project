@@ -866,6 +866,22 @@ def post_comment(L, issue_id, body, parent=None, capture_failed=""):
     `parent` : le fil ou le message REPOND a l'owner. Seul `--comment` le passe (`--reply-to`, ou par
     defaut le dernier retour ouvert : `default_reply_target`) ; c'est
     ce fil, et lui seul, qui compte comme reponse a son retour (`lib/owner_sla.answer_how`)."""
+    # INVISIBLE-CAPTURE/ filet du point de production (23/09) : un chantier hors champ ne parle ni de
+    # capture ni de build a tester, quel que soit l'appelant (annonce de verdict qui relaie le rapport
+    # et joint les images de notes/, relances...). `--comment` a deja REFUSE ce que le worker a ecrit.
+    _iid = _rec_of(issue_id)[0] or ""
+    try:
+        _it = ((_CTX.get("bl") or B.load()).get(_iid) or {}) if _iid else {}
+    except Exception:  # noqa: BLE001 — backlog illisible : l'item est traite comme visible (rien retire)
+        _it = {}
+    _vis = OCAP.is_visible(_it)[0] if _it else None
+    body, _stripped = OCAP.scrub_invisible(_it, body)
+    if _stripped:
+        print("INVISIBLE-CAPTURE : %d passage(s) parlant de capture/build a tester retire(s) du message sur %s "
+              "(chantier hors champ)" % (_stripped, _iid))
+    if not body.strip():
+        print("INVISIBLE-CAPTURE : message vide apres retrait, rien n'est poste sur %s" % _iid)
+        return None
     i = {"issueId": issue_id, "body": body}
     if parent:
         i["parentId"] = parent
@@ -878,8 +894,8 @@ def post_comment(L, issue_id, body, parent=None, capture_failed=""):
         return r   # rien n'est parti : rien a inscrire
     try:
         cid = (((r or {}).get("commentCreate") or {}).get("comment") or {}).get("id", "") if isinstance(r, dict) else ""
-        OCAP.record(HOME, _rec_of(issue_id)[0] or "", body, issue_id=issue_id, comment_id=cid,
-                    capture_failed=capture_failed)
+        OCAP.record(HOME, _iid, body, issue_id=issue_id, comment_id=cid, capture_failed=capture_failed,
+                    visible=_vis, talk=OCAP.capture_talk(_it, body) if _it else [], stripped=_stripped)
     except Exception as e:  # noqa: BLE001
         print("REGISTRE DES COMMENTAIRES NON ECRIT : %s" % str(e)[:200])
     return r
@@ -1587,7 +1603,7 @@ def announce_verdicts(L, bl, mp, read, dry):
         else:
             lines.append("\nL'agent n'a pas laissé de rapport pour cet essai.")
         notes = AP / "reports" / it["id"] / "notes"
-        if notes.is_dir():
+        if notes.is_dir() and OCAP.is_visible(it)[0]:   # INVISIBLE-CAPTURE/ : hors champ, aucune image a televerser
             prev_t = files[-2].stat().st_mtime if len(files) > 1 else 0
             imgs = sorted([p for p in notes.iterdir() if p.suffix.lower() in (".png", ".jpg", ".jpeg") and p.stat().st_mtime > prev_t and p.stat().st_size < 8_000_000], key=lambda p: p.stat().st_mtime)[-3:]
             attach += imgs
@@ -1880,8 +1896,14 @@ def main():
     ap.add_argument("--reply-to", default=None, help="avec --comment : le commentaire Linear de l'owner auquel ce message REPOND (id de `owner_feedback[].via.comment`, ou `last`). Le message part dans son fil : c'est la seule forme qui compte comme reponse a son retour. SANS cette option, le message part dans le fil du dernier retour OUVERT de l'owner sur l'item, s'il y en a un")
     ap.add_argument("--identity", action="store_true", help="dire sous QUELLE identite le harnais parle, et amorcer l'application si la cle le permet")
     ap.add_argument("--attach", nargs="*", default=[], help="fichiers a joindre au commentaire (images, journaux) : illustration, jamais une preuve")
-    ap.add_argument("--no-capture", default="", metavar="POURQUOI", help="avec --comment : la capture de la zone est IMPOSSIBLE, pour cette raison. Le message dit alors quel build tester ; la porte de fermeture l'accepte si un build est publie pendant l'essai")
+    ap.add_argument("--no-capture", default="", metavar="POURQUOI", help="avec --comment, chantier VISIBLE seulement : la capture de la zone est IMPOSSIBLE, pour cette raison. Le message dit alors quel build tester ; la porte de fermeture l'accepte si un build est publie pendant l'essai. REFUSE sur un chantier hors champ (owner_test: false) : il n'a rien a capturer")
     a = ap.parse_args()
+    if a.comment:
+        # INVISIBLE-CAPTURE/ : AVANT tout reseau et tout televersement. Un chantier hors champ
+        # (owner_test: false...) ne parle ni de capture ni de build a tester (owner 23/09).
+        refus = OCAP.invisible_comment_refusal(B.load().get(a.comment) or {}, a.body or "", a.attach, a.no_capture)
+        if refus:
+            raise SystemExit(refus)
     SM.install_hooks(quiet=True)  # le refus de commit d'un secret connu ne depend d'aucune installation a la main
     ident = LI.resolve()
     if a.identity:
