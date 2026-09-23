@@ -441,13 +441,21 @@ def _etat_lecteur(supervisor):
     return "non-inscrit" if supervisor.get("why") == "absent-du-registre" else "mort"
 
 
-def status_lines(alert, supervisor):
-    """La rubrique, en tete de `autoport status`. Vide quand il n'y a rien a dire."""
+def status_lines(alert, supervisor, at=None):
+    """La rubrique, en tete de `autoport status`. Vide quand il n'y a rien a dire.
+
+    `at` = horodatage du releve : l'age en est publie (en palier) des que la rubrique parle."""
     if not alert.get("raise"):
         return []
     age_h = alert["oldest_age_s"] / 3600.0
+    releve = ""
+    if at is not None:
+        _age, _etat = cache_age(at)
+        releve = (" (releve Linear de moins de %d min)" % (cache_stale_s() // 60)
+                  if _etat == "frais" else " (releve Linear PERIME, %s)" % age_palier(_age)
+                  if _etat == "perime" else " (aucun releve Linear)")
     lignes = [
-        "!! %s !!" % RUBRIQUE,
+        "!! %s !!%s" % (RUBRIQUE, releve),
         "   %d retour(s) de l'owner sans reponse ; le plus vieux attend %.1f h (%s)."
         % (alert["overdue_n"], age_h, alert["oldest_item"]),
         ("   Aucun superviseur inscrit ni aucune session declaree ne les lit : %s "
@@ -647,6 +655,89 @@ def load_cache(path=None):
     if not isinstance(data, dict):
         return [], 0
     return list(data.get("records") or []), int(data.get("at") or 0)
+
+
+# ================================================================ L'AGE DU RELEVE ==
+# Le releve est la MEMOIRE de la synchro, pas son pouls. Quand linear_watch.sh meurt (ou que
+# chaque passage echoue sur le reseau), `.owner_sla.json` cesse d'etre reecrit et tout ce qu'on
+# en tire — la rubrique de `autoport status`, le bloc de reveil du superviseur — decrit un etat
+# FIGE : un retour poste depuis n'y figure pas, une reponse donnee depuis n'y compte pas. Le
+# silence de la rubrique y vaut « tout va bien » alors qu'il ne vaut plus rien (FINDINGS de
+# harness-supervisor-death-is-an-alarm, ligne 6). UNE definition du perime, ici, lue par
+# `backlog.status_report` ET `wake_gate.retours_sans_reponse` : deux seuils recopies finiraient
+# par se contredire sur le meme fichier.
+#
+# SEUIL : trois periodes de redatation. Le releve n'est reecrit que toutes les `periode_s()`
+# (10 min) : son age oscille normalement entre 0 et une periode, plus la duree d'un passage.
+PALIERS_RELEVE = ((3600, "plus de 30 min"), (7200, "plus d'1 h"), (6 * 3600, "plus de 2 h"),
+                  (24 * 3600, "plus de 6 h"), (None, "plus d'un jour"))
+VEILLE_PID = os.path.join(AP, ".linear_watch.pid")
+
+
+def cache_stale_s():
+    return 3 * max(periode_s(), 60)
+
+
+def cache_age(at, now=None):
+    """(age en s, etat) — etat : `absent` (aucun releve lisible), `frais` ou `perime`."""
+    now = time.time() if now is None else now
+    if not at:
+        return -1, "absent"
+    age = max(0, int(now - at))
+    return age, ("perime" if age > cache_stale_s() else "frais")
+
+
+def age_palier(age_s):
+    """L'age en PALIER : ce texte est relu en boucle par watch.py, qui reveille le superviseur
+    des qu'il change (feedback_polled_status_text_must_not_carry_a_live_duration)."""
+    for borne, nom in PALIERS_RELEVE:
+        if borne is None or age_s < borne:
+            return nom
+    return PALIERS_RELEVE[-1][1]
+
+
+def veille_vivante(pid_path=None):
+    """(pid declare par linear_watch.sh ou 0, vivant ?) — lu sur /proc : un zombie repond a kill -0."""
+    try:
+        with open(pid_path or VEILLE_PID) as fh:
+            pid = int(fh.read().split()[0])
+    except (OSError, ValueError, IndexError):
+        return 0, False
+    try:
+        from . import supervisor_alive as _sa
+    except ImportError:
+        import supervisor_alive as _sa
+    st = _sa.read_proc_stat(pid)
+    return pid, bool(st) and st.get("state") != "Z"
+
+
+def _veille_etat(pid_path=None):
+    """Sur un releve qui ne bouge plus : la synchro est-elle MORTE, ou ECHOUE-t-elle ?"""
+    pid, vivante = veille_vivante(pid_path)
+    if not pid:
+        return "aucun pid declare (.linear_watch.pid absent) : la veille ne tourne pas"
+    if not vivante:
+        return "la veille declaree (pid %d) ne tourne plus" % pid
+    return ("la veille tourne (pid %d) mais ses passages n'aboutissent plus : "
+            "voir .autoport/logs/linear_sync.txt" % pid)
+
+
+def cache_lines(at, now=None, pid_path=None):
+    """L'en-tete de la rubrique quand le releve ne decrit plus le present. Vide s'il est frais."""
+    age, etat = cache_age(at, now)
+    if etat == "frais":
+        return []
+    if etat == "absent":
+        return ["!! SYNCHRO LINEAR : AUCUN RELEVE (%s absent ou illisible) !!"
+                % os.path.basename(cache_path()),
+                "   Les retours de l'owner ne sont pas surveilles : le silence de cette rubrique "
+                "ne dit PAS qu'aucun retour n'attend.",
+                "   " + _veille_etat(pid_path) + "."]
+    return ["!! SYNCHRO LINEAR ARRETEE DEPUIS %s (dernier releve le %s) !!"
+            % (age_palier(age).upper(), time.strftime("%d/%m a %H:%M", time.localtime(at))),
+            "   Ce qui suit est l'etat FIGE de ce releve : un retour de l'owner poste depuis n'y "
+            "figure pas, une reponse donnee depuis n'y compte pas.",
+            "   " + _veille_etat(pid_path) + ". Relancer : ./.autoport/linear_watch.sh"]
 
 
 FENETRE_JOURS = 7

@@ -713,19 +713,24 @@ class Backlog:
         # le seul defaut de ce rapport dont l'owner lui-meme est la victime. Le releve des
         # DELAIS vient du cache pose par la synchro (30 s) — aucun reseau ici — mais le
         # LECTEUR est remesure a l'instant, sur /proc : c'est la grandeur qui bascule.
+        # L'AGE DU RELEVE passe AVANT l'alerte et hors de son `try` : si la synchro est morte, ce
+        # qui suit decrit un etat fige, et une rubrique muette y vaudrait « tout va bien ».
         orphelin = ""
+        _age_releve = []
         try:
             try:
                 from . import owner_sla as _osla, supervisor_alive as _sa
             except ImportError:
                 import owner_sla as _osla, supervisor_alive as _sa
             _recs, _at = _osla.load_cache()
+            _age_releve = _osla.cache_lines(_at)
             if _recs:
                 _rel = _sa.probe()
                 _al = _osla.evaluate(_recs, _rel)
-                orphelin = "\n".join(_osla.status_lines(_al, _rel))
+                orphelin = "\n".join(_osla.status_lines(_al, _rel, at=_at))
         except Exception:                                  # noqa: BLE001 — jamais fatal
             orphelin = ""
+        orphelin = "\n".join(_age_releve + ([orphelin] if orphelin else []))
 
         text = "\n\n".join(b for b in (orphelin, degrade, en_cours, empeche, a_tester, bloque,
                                        dette, cout) if b)

@@ -217,7 +217,7 @@ def retours_sans_reponse(records=None, at=None, maintenant=None):
                 % os.path.basename(_osla.cache_path()), [])
     ouverts = sorted(_osla.open_records(records), key=lambda r: r.get("ts") or 0)
     age_min = int(max(0, maintenant - at) / 60)
-    perime = age_min * 60 > 3 * max(_osla.periode_s(), 60)
+    perime = _osla.cache_age(at, maintenant)[1] == "perime"   # LA definition, partagee avec status
     if not ouverts and not perime:
         return "", []
     tk = _tickets()

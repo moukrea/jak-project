@@ -43,6 +43,18 @@ def bpath(tmp_path):
     return tmp_path / "backlog.yaml"
 
 
+@pytest.fixture(autouse=True)
+def _releve_linear_frais(tmp_path, monkeypatch):
+    """`status_report` lit l'age du releve Linear (`.owner_sla.json`, gitignore). Un test ne
+    doit pas dependre de la synchro qui tourne — ni de son absence dans un worktree : releve
+    FRAIS et vide, semé par defaut ; les tests d'age le remplacent."""
+    import time as _t
+    releve = tmp_path / "owner_sla.json"
+    releve.write_text(json.dumps({"at": int(_t.time()), "records": []}), encoding="utf-8")
+    monkeypatch.setenv("AUTOPORT_OWNER_SLA_CACHE", str(releve))
+    return releve
+
+
 # ---------------------------------------------------------------------------- chargement
 def test_load_reads_items_and_version(bpath):
     _write(bpath, [_item("a"), _item("b", status="validated",
@@ -254,6 +266,27 @@ def test_status_report_tells_where_to_look_and_which_build(bpath):
     assert "Le saut de cinematique" in text
     assert "v9 APK" in text
     assert "maintiens Cercle" in text
+
+
+@pytest.mark.parametrize("age_s, attendu", [
+    (60, None),                                   # frais : la rubrique se tait
+    (2 * 3600 + 5, "ARRETEE DEPUIS PLUS DE 2 H"),  # synchro morte : dit, avec son palier
+    (None, "AUCUN RELEVE"),                       # releve absent : dit aussi
+])
+def test_status_report_says_when_the_linear_cache_is_stale(bpath, _releve_linear_frais,
+                                                            age_s, attendu):
+    import time as _t
+    if age_s is None:
+        _releve_linear_frais.unlink()
+    else:
+        _releve_linear_frais.write_text(json.dumps({"at": int(_t.time()) - age_s,
+                                                    "records": []}), encoding="utf-8")
+    _write(bpath, [_item("encours", status="in-progress", feature="Les PNJ qui clignotent")])
+    text = bl.load(bpath).status_report()
+    if attendu is None:
+        assert text.startswith("## En cours") and "SYNCHRO LINEAR" not in text
+    else:
+        assert text.startswith("!! SYNCHRO LINEAR") and attendu in text, text
 
 
 def test_status_report_says_why_an_item_is_blocked(bpath):
