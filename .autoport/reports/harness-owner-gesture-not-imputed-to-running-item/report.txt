@@ -1,0 +1,37 @@
+DIRECTIVES v0cadf140cd
+
+Verdict : un rouge de la suite ne d'un geste de l'owner ou du superviseur pendant un essai n'est plus
+impute au chantier qui tourne, et un ticket adopte arrive `code_scope: a-cadrer`, hors de la file tant
+qu'il n'est pas cadre. owner_gesture_misimputed=0 sur 8 fermetures jugees.
+
+Ce qui a change (commit 9952f2d735) :
+- lib/backlog.py : journal des gestes etrangers (.backlog_gestures.jsonl, gitignore) — auteur, instant,
+  etat AVANT/APRES de chaque item touche ; ecrit par set_status/set_scope/update/set_feedback_via et
+  relay quand l'auteur est `linear_sync` ou `superviseur`. `apply_gestures` (champ par champ, reversible).
+  `awaiting_framing` lit `code_scope: a-cadrer` : une consigne seule ne libere plus l'item.
+- linear_sync.py : `adopted_item` pose `a-cadrer` (plus `jeu` en dur) ; l'adoption journalise sous
+  `linear_sync` ; `main` pose l'auteur (aucun sous un essai). autoport : auteur `superviseur` hors essai.
+- lib/suite_gate.py (GESTE-ETRANGER/rejeu) : un rouge NEUF est rejoue a la base de l'essai et a HEAD
+  avec le backlog SANS puis AVEC les gestes ; « ne d'un geste » seulement si vert sans / rouge avec aux
+  DEUX revisions. Publie suite_owner_gesture*, suite_gesture_*.
+- lib/gate_verdict.py : valeur `a-cadrer` (source `a-cadrer`, sens severe) ; sonde build_leftovers a jour.
+
+Preuve (proof.txt) :
+  owner_gesture_misimputed=0
+  owner_gesture_closures_judged=8
+  owner_gesture_misimputed_before=4
+  reel_classes_geste=2
+  reel_avant_impute=2
+  banc_conformite_ecarts=0
+  adopt_ecarts=0
+  crash=0
+
+Controles : positif fabrique = la VRAIE adoption pendant l'essai (ferme apres, refuse avant) + le cas reel
+du 23/09 rejoue sur a18246d727/3336c0fcbb (les 2 rouges : verts sans geste, rouges avec, aux deux
+revisions). Negatifs = l'essai casse le test (refuse), l'essai casse le test PENDANT un geste (refuse,
+head-sans rouge), meme adoption ecrite sans journal (refuse). Suite du harnais complete : verte.
+
+A regarder par l'owner : rien a voir de ton cote (harnais seulement).
+
+Non prouve : une edition du backlog a la main par le superviseur (outil d'edition) n'est pas journalisee
+et reste imputee ; les consignes prompts/*.md ecrites pendant l'essai ne sont pas rejouees (FINDINGS).
