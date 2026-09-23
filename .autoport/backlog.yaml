@@ -20136,7 +20136,7 @@ items:
 - id: harness-archived-census-controls-are-alive
   feature: 'Les garde-fous de lecture des tickets archives redetectent reellement : leurs controles ne
     visent plus un code reecrit depuis'
-  status: in-progress
+  status: validated
   priority: 12
   code_scope: harnais
   device: false
@@ -20182,6 +20182,13 @@ items:
       at: '2026-09-23T05:37:43+00:00'
       by: autoport feedback
   no_code: true
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-23'
+    proof_sha: afa6c4f596bfd9db
+    proof_bytes: 76330
+    attempt: 1
+    journal: validator-001.txt
 - id: harness-prompt-fingerprints-absolute-path
   feature: 'L''empreinte des consignes s''ecrit toujours au meme endroit, d''ou que l''outil soit lance
     : une consigne n''est plus gelee en silence'
@@ -20556,7 +20563,7 @@ items:
 - id: hud-eco-gauge-yellow-red-orb
   feature: Dans la jauge d'eco, l'orbe JAUNE et l'orbe ROUGE gardent la meme taille que la bleue (validee)
     au lieu de s'evanouir par moments
-  status: open
+  status: blocked
   priority: 15
   code_scope: jeu
   device: true
@@ -20598,10 +20605,21 @@ items:
       source: supervisor
       at: '2026-09-23T06:08:02+00:00'
       by: autoport feedback
+  - date: '2026-09-23'
+    text: J'ai jamais demandé ça, on a validé la jauge et j'ai dit que j'y reviendrai plus tard, pourquoi
+      remonter ce nouveau chantier ?
+    via:
+      comment: 6ff07936-a01c-4863-a90f-3a7d0a94e569
+      ticket: f6f0d498-7cf5-4c93-89c8-e4ad68df959c
+      at: '2026-09-23T06:13:34.640Z'
+  block_reason: 'EN ATTENTE DE L''OWNER : il reviendra lui-meme sur le jaune et le rouge plus tard. Ne
+    pas prendre, ne pas relancer.'
+  notes: '23/09 (superviseur) : ouvert a tort (l''owner n''avait pas demande de chantier maintenant).
+    Gare avec la mesure de l''acquis pour le jour ou il y revient.'
 - id: harness-linear-owner-move-reads-fresh-item
   feature: 'Quand l''owner deplace un ticket, la synchro decide sur l''etat FRAIS de l''item : aucune
     note ni statut ecrit entre-temps n''est ecrase'
-  status: open
+  status: in-progress
   priority: 13
   code_scope: harnais
   device: false
@@ -20627,6 +20645,7 @@ items:
     3. `linear_sync_stale_item_writes` ; doit valoir 0.
 
     CONTROLE POSITIF fabrique + CONTROLE NEGATIF. Publier le denominateur.'
+  no_code: true
 - id: harness-backlog-write-cost
   feature: Une ecriture du backlog ne tient plus le verrou pendant pres d'une seconde
   status: open
