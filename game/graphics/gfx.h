@@ -310,6 +310,21 @@ struct GfxGlobalSettings {
   // is the dominant/only sun above the horizon, i.e. night) the cast-shadow direction. Zero
   // until the first push (renderer treats a below-horizon / zero green sun as no contribution).
   float recharged_pbr_green_sun[3] = {0.f, 0.f, 0.f};
+  // lighting-regimes (SPEC §3.2, §4.11) : le REGIME des lumieres de creneau, LU DANS LA TABLE de
+  // mood (pc-set-mood-regime!, kmachine.cpp). Quatre lumieres : dir0/dir1 (creneaux 1 et 2 de
+  // `update-mood-palette`) de CHACUNE des deux humeurs de niveau que `update-time-of-day` melange
+  // par `current-interp`. `w` = poids total (poids du niveau x levels.x du creneau). `matched` dit
+  // si la lumiere a ete retrouvee a l'identique dans la table de son niveau.
+  // ATTENTION AU SIGNE : `direction` d'un mood-lights pointe VERS la lumiere (village1 midi :
+  // y = +0,966 ; l'outil de bake la prend telle quelle et sa decomposition tient, art p50 0,954).
+  bool recharged_regime_valid = false;
+  unsigned char recharged_regime[4] = {0, 0, 0, 0};
+  bool recharged_regime_matched[4] = {false, false, false, false};
+  float recharged_regime_w[4] = {0.f, 0.f, 0.f, 0.f};
+  float recharged_regime_slot_dir[4][3] = {};  // brut, vers la lumiere
+  float recharged_regime_slot_lgt[4][3] = {};  // lgt-color brut (0..2)
+  float recharged_sun_fade = 1.f;  // *time-of-day-context* sun-fade
+  bool recharged_sky = true;       // *time-of-day-context* sky (un niveau actif a un ciel)
   // lighting-legacy-purge (2026-09-11) : MODERN MATERIALS est SUPPRIME. La rangee livrait OFF,
   // donc la pile moderne n'a jamais touche un pixel : son absence EST la valeur livree. Ses
   // morceaux de GLSL partent avec elle.

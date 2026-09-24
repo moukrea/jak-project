@@ -39,6 +39,7 @@
 #include "game/graphics/opengl_renderer/prop_cache.h"
 #include "game/graphics/opengl_renderer/lighting_census.h"
 #include "game/graphics/opengl_renderer/Shader.h"
+#include "game/graphics/opengl_renderer/SkyCapture.h"
 #include "game/graphics/pipelines/opengl.h"
 #include "game/system/autoport_proof.h"
 AUTOPORT_FEATURE_SITE("gl-uniforms-off-cost");
@@ -889,6 +890,276 @@ bool pbr_shadow_bind_actor_tile(int tile) {
 // SPEC §3.4/§4.8 : deux astres, deux ombres, AUCUNE attribution ni fondu — chacun a sa propre
 // tuile (les cascades pour le dominant, la tuile 3 pour le second), active selon sa hauteur et
 // son poids, sans jamais fondre l'un dans l'autre.
+// ── lighting-regimes (SPEC §3.2, §3.3, §4.11) : LA CLE N'EST PAS TOUJOURS UN SOLEIL ────────────
+// LE DEFAUT. La direction de la lumiere cle etait ECRASEE, a chaque image ou le soleil du ciel est
+// au-dessus de l'horizon, par la position de ce soleil (`recharged_pbr_sky_sun`) — sans regarder
+// si le niveau en MONTRE un. Dans 16 niveaux de jeu sur 20 (pas de ciel, ou `sun-fade = 0` : le
+// sprite n'est jamais cree, time-of-day.gc:45), la lumiere venait d'un astre que le joueur ne voit
+// pas. Et hors de l'ecrasement, la clé prenait `-direction` du creneau, c'est-a-dire l'OPPOSE de la
+// lumiere (`direction` pointe VERS elle : village1 a midi y = +0,966 ; l'outil de bake la prend
+// telle quelle et sa decomposition tient) — faute invisible tant que l'ecrasement la recouvrait.
+// LA REGLE (SPEC §4.11, a la lettre). La cle est la direction du CRENEAU, interpolee entre les
+// deux creneaux actifs par leur poids de morph. Elle n'est remplacee par la position de l'astre
+// QUE SI (a) sun-fade > 0, (b) l'astre est au-dessus de l'horizon, (c) l'angle entre les deux est
+// sous 30°. Le passage se fait en fondu (t de 0 a 1 entre 30° et 20°, et sur 0,02..0,08 de
+// sinus d'elevation) : t > 0 exige les trois conditions, donc aucun ecrasement hors regle, et la
+// cle ne saute jamais d'une image a l'autre.
+// LE REGIME PILOTE LE DIRECT (§4.11, tableau) : poids direct, rayon de penombre, speculaire, par
+// regime, melanges par les poids des deux creneaux ; sun-fade multiplie la part de l'ASTRE.
+// L'AUDIT (`regime_sun_override_wrong`) tourne dans les DEUX bras : il recalcule (a)(b)(c) depuis
+// les memes entrees et compte les images ou la cle a ete prise a l'astre sans elles. Bras arme :
+// zero par la regle ; bras `--off` : l'ancien ecrasement, compte tel qu'il est.
+namespace regime {
+constexpr const char* kItem = "lighting-regimes";
+AUTOPORT_FEATURE_SITE(kItem);
+
+//                             cle   dome  amb.  basse seule source
+constexpr float kDirect[6]   = {1.0f, 0.45f, 0.25f, 1.0f, 0.0f, 1.0f};
+constexpr float kPenumbra[6] = {1.0f, 4.0f, 3.0f, 2.0f, 1.0f, 1.0f};
+constexpr float kSpec[6]     = {1.0f, 0.25f, 0.4f, 1.0f, 0.0f, 1.0f};
+constexpr float kCos30 = 0.8660254f;
+constexpr float kCos20 = 0.9396926f;
+
+struct Frame {
+  u64 frame = ~0ull;
+  bool armed = false;         // `armed_for(kItem)` ET un regime pousse par GOAL
+  PbrV3 slot_key = {0.f, 1.f, 0.f};  // cle du creneau, vers la lumiere
+  PbrV3 key = {0.f, 1.f, 0.f};       // cle retenue
+  float t = 0.f;              // part de la cle prise a l'astre
+  float direct_w = 1.f, penumbra = 1.f, spec_w = 1.f;
+  float sun_fade = 1.f;
+  float slot_lgt[3] = {1.f, 1.f, 1.f};
+  int dominant = 0;
+  bool matched = false;       // au moins un creneau retrouve dans la table
+  // entrees de l'audit, calculees independamment de `t`
+  bool cond_a = false, cond_b = false, cond_c = false;
+  float slot_sun_cos = -2.f;
+};
+Frame g_frame;
+
+struct Audit {
+  u64 frame = ~0ull;
+  u64 audited = 0, wrong = 0, from_astre = 0, from_slot = 0, fade_applied = 0;
+  u64 hist[6] = {0, 0, 0, 0, 0, 0};
+  u64 hits = 0;
+  double cos_sum = 0.0;
+  u64 cos_n = 0;
+};
+Audit g_audit;
+
+const Frame& frame(u64 frame_idx) {
+  Frame& f = g_frame;
+  if (f.frame == frame_idx) {
+    return f;
+  }
+  f = Frame();
+  f.frame = frame_idx;
+  const auto& gs = Gfx::settings();
+  f.sun_fade = std::max(0.f, std::min(1.f, gs.recharged_sun_fade));
+  // La cle du creneau : les directions de creneau posees par `update-mood-palette` dans l'humeur de
+  // chacun des deux niveaux, ponderees par leur morph et par `current-interp`. Une direction de
+  // creneau est constante ; seuls les poids avancent (avec l'heure, avec la distance aux niveaux),
+  // donc la somme est continue sans lissage.
+  float w[4];
+  float ws = 0.f;
+  for (int i = 0; i < 4; i++) {
+    w[i] = std::max(0.f, gs.recharged_regime_w[i]);
+    ws += w[i];
+  }
+  if (gs.recharged_regime_valid && ws > 1e-6f) {
+    PbrV3 k = {0.f, 0.f, 0.f};
+    float dom_w[6] = {0.f, 0.f, 0.f, 0.f, 0.f, 0.f};
+    f.direct_w = f.penumbra = f.spec_w = 0.f;
+    f.slot_lgt[0] = f.slot_lgt[1] = f.slot_lgt[2] = 0.f;
+    f.matched = true;
+    for (int i = 0; i < 4; i++) {
+      if (w[i] <= 0.f) {
+        continue;
+      }
+      const float wi = w[i] / ws;
+      const float* d = gs.recharged_regime_slot_dir[i];
+      k.x += wi * d[0];
+      k.y += wi * d[1];
+      k.z += wi * d[2];
+      const u8 r = std::min<u8>(gs.recharged_regime[i], 5);
+      f.direct_w += wi * kDirect[r];
+      f.penumbra += wi * kPenumbra[r];
+      f.spec_w += wi * kSpec[r];
+      dom_w[r] += wi;
+      for (int j = 0; j < 3; j++) {
+        f.slot_lgt[j] += wi * gs.recharged_regime_slot_lgt[i][j];
+      }
+      f.matched = f.matched && gs.recharged_regime_matched[i];
+    }
+    if (pv_dot(k, k) > 1e-8f) {
+      f.slot_key = pv_norm(k);
+    }
+    for (int r = 1; r < 6; r++) {
+      if (dom_w[r] > dom_w[f.dominant]) {
+        f.dominant = r;
+      }
+    }
+    f.armed = autoport_proof::armed_for(kItem);
+  }
+  // L'astre et les trois conditions.
+  const float* ss = gs.recharged_pbr_sky_sun;
+  const float ssl = std::sqrt(ss[0] * ss[0] + ss[1] * ss[1] + ss[2] * ss[2]);
+  PbrV3 sun = {0.f, 1.f, 0.f};
+  float sun_up = -1.f;
+  if (ssl > 1e-3f) {
+    sun = {ss[0] / ssl, ss[1] / ssl, ss[2] / ssl};
+    sun_up = sun.y;
+  }
+  f.slot_sun_cos = pv_dot(f.slot_key, sun);
+  f.cond_a = f.sun_fade > 0.f;
+  f.cond_b = ssl > 1e-3f && sun_up > 0.02f;
+  f.cond_c = f.slot_sun_cos > kCos30;
+  if (f.armed) {
+    f.t = (f.cond_a && f.cond_b && f.cond_c)
+              ? rt_smoothstep(0.02f, 0.08f, sun_up) * rt_smoothstep(kCos30, kCos20, f.slot_sun_cos)
+              : 0.f;
+    const PbrV3 m = {f.slot_key.x + (sun.x - f.slot_key.x) * f.t,
+                     f.slot_key.y + (sun.y - f.slot_key.y) * f.t,
+                     f.slot_key.z + (sun.z - f.slot_key.z) * f.t};
+    f.key = pv_dot(m, m) > 1e-8f ? pv_norm(m) : f.slot_key;
+    // sun-fade multiplie la part directe de l'ASTRE, et seulement elle.
+    f.direct_w *= 1.f + (f.sun_fade - 1.f) * f.t;
+  }
+  return f;
+}
+
+// Une fois par image, sur le chemin eclaire : `from_astre` dit si la cle retenue vient de l'astre.
+void audit(u64 frame_idx, bool from_astre) {
+  Audit& a = g_audit;
+  if (a.frame == frame_idx) {
+    return;
+  }
+  a.frame = frame_idx;
+  const Frame& f = frame(frame_idx);
+  a.audited++;
+  if (from_astre) {
+    a.from_astre++;
+    if (!(f.cond_a && f.cond_b && f.cond_c)) {
+      a.wrong++;
+    }
+    if (f.armed && f.sun_fade < 1.f) {
+      a.fade_applied++;
+    }
+  } else {
+    a.from_slot++;
+  }
+  if (f.cond_b && f.slot_sun_cos > -1.5f) {
+    a.cos_sum += f.slot_sun_cos;
+    a.cos_n++;
+  }
+  if (f.armed) {
+    a.hist[f.dominant]++;
+    if (f.matched) {
+      a.hits++;
+      autoport_proof::note_hit_for(kItem);
+    }
+  }
+  autoport_proof::publish("regime_sun_override_wrong", a.wrong);
+  autoport_proof::publish("regime_audited_frames", a.audited);
+  autoport_proof::publish("regime_key_from_astre_frames", a.from_astre);
+  autoport_proof::publish("regime_key_from_slot_frames", a.from_slot);
+  autoport_proof::publish("key_dir_source", from_astre ? 1 : 0);
+  autoport_proof::publish("sun_fade_applied", a.fade_applied);
+  autoport_proof::publish("regime_read_frames", a.hits);
+  for (int i = 0; i < 6; i++) {
+    static const char* kHist[6] = {"regime_hist_0", "regime_hist_1", "regime_hist_2",
+                                   "regime_hist_3", "regime_hist_4", "regime_hist_5"};
+    autoport_proof::publish(kHist[i], a.hist[i]);
+  }
+  // Temoin de SIGNE : cosinus moyen creneau/astre quand l'astre est leve, decale de +1 (x1000).
+  // Un signe faux sur la direction du creneau le ferait tomber franchement sous 1000.
+  if (a.cos_n) {
+    autoport_proof::publish("regime_slot_sun_cos_p1000",
+                            (u64)std::lround((a.cos_sum / a.cos_n + 1.0) * 1000.0));
+  }
+  autoport_proof::publish("regime_sun_fade_x1000", (u64)std::lround(f.sun_fade * 1000.f));
+  autoport_proof::publish("regime_sky", Gfx::settings().recharged_sky ? 1 : 0);
+  autoport_proof::publish("regime_dominant", (u64)f.dominant);
+}
+
+// SPEC §4.10 : la FORME vient du ciel capture (SkyCapture), le NIVEAU et la TEINTE de l'amb-color
+// du creneau. Sans ciel (ou avant la premiere capture) : une SH ISOTROPE sur l'amb-color, c'est-a-
+// dire aucune forme — les sondes du §4.12 ne sont pas encore cuites.
+inline float env_luma(const float c[3]) {
+  return (2.f * c[0] + 4.f * c[1] + c[2]) / 7.f;
+}
+void env_sh(float out[9][3], float strength, u64 frame_idx) {
+  const auto& gs = Gfx::settings();
+  const float* a = gs.recharged_pbr_lg_valid ? gs.recharged_pbr_lg_ambi : gs.recharged_pbr_ambient;
+  float tgt[3];
+  for (int k = 0; k < 3; k++) {
+    tgt[k] = std::max(0.f, a[k]) * strength;
+  }
+  constexpr float Y00 = 0.282095f;
+  bool measured = gs.recharged_sky && sky_capture::sh(out);
+  if (measured) {
+    // La DISTRIBUTION est celle de la LUMINANCE du ciel, une seule forme pour les trois canaux :
+    // chaque canal vaut forme x amb-color[canal] / moyenne. La moyenne sur la sphere tombe donc
+    // EXACTEMENT sur l'amb-color (le niveau ET la teinte sont ceux de la table), et le rapport que
+    // le shader forme (SH(N) / moyenne) est le meme sur les trois canaux : le ciel ne teinte rien.
+    float shl[9];
+    for (int i = 0; i < 9; i++) {
+      shl[i] = env_luma(out[i]);
+    }
+    const float lm = shl[0] * Y00;
+    if (lm > 1e-6f) {
+      for (int i = 0; i < 9; i++) {
+        for (int k = 0; k < 3; k++) {
+          out[i][k] = shl[i] * (tgt[k] / lm);
+        }
+      }
+    } else {
+      measured = false;
+    }
+  }
+  if (!measured) {
+    for (int i = 0; i < 9; i++) {
+      out[i][0] = out[i][1] = out[i][2] = 0.f;
+    }
+    for (int k = 0; k < 3; k++) {
+      out[0][k] = tgt[k] / Y00;
+    }
+  }
+  static u64 s_frame = ~0ull;
+  static u64 s_measured_frames = 0;
+  if (s_frame == frame_idx) {
+    return;
+  }
+  s_frame = frame_idx;
+  if (measured) {
+    s_measured_frames++;
+  }
+  float mean[3] = {out[0][0] * Y00, out[0][1] * Y00, out[0][2] * Y00};
+  const float lt = env_luma(tgt);
+  const double delta = lt > 1e-6f ? std::fabs(env_luma(mean) - lt) / lt : 0.0;
+  autoport_proof::publish("env_source", measured ? 1 : 0);
+  autoport_proof::publish("env_measured_frames", s_measured_frames);
+  autoport_proof::publish("env_amb_tone_delta_ppm", (u64)std::lround(delta * 1e6));
+  autoport_proof::publish("sky_capture_bins_seen_now", (u64)sky_capture::bins_seen());
+  // Temoin de FORME : irradiance vers le haut / vers le bas (x1000). Isotrope = 1000.
+  float up[3], dn[3];
+  for (int k = 0; k < 3; k++) {
+    const float even = out[0][k] * Y00 - out[6][k] * 0.315392f - out[8][k] * 0.546274f;
+    up[k] = even + out[1][k] * 0.488603f;
+    dn[k] = even - out[1][k] * 0.488603f;
+  }
+  const float ld = env_luma(dn);
+  if (ld > 1e-6f) {
+    autoport_proof::publish("env_sh_up_down_x1000", (u64)std::lround(std::max(0.f, env_luma(up)) / ld * 1000.f));
+  }
+}
+}  // namespace regime
+
+bool regime_sky_capture_wanted() {
+  return autoport_proof::armed_for(regime::kItem) && Gfx::settings().recharged_sky &&
+         Gfx::lighting_active(true);
+}
+
 void pbr_shadow_first_camera(SharedRenderState* rs, const GoalBackgroundCameraData& cam) {
   auto& st = pbr_shadow_state();
   const u64 frame_idx = rs->frame_idx;
@@ -1021,8 +1292,20 @@ void pbr_shadow_first_camera(SharedRenderState* rs, const GoalBackgroundCameraDa
     if (gml > 1e-4f) moon_dir = {gm.x / gml, gm.y / gml, gm.z / gml};
   }
   const float OWN_LO = -0.05f;
-  const bool sun_up = sun_dir.y > OWN_LO;
-  const bool moon_up = moon_dir.y > OWN_LO;
+  bool sun_up = sun_dir.y > OWN_LO;
+  bool moon_up = moon_dir.y > OWN_LO;
+  // lighting-regimes (SPEC §4.11) : les cascades de la cle suivent la CLE retenue — le creneau,
+  // ou l'astre quand la regle l'autorise — et non plus le soleil du ciel. Une source basse (lave,
+  // y < 0) porte des ombres vers le haut : elle est « levee » des qu'elle a un poids direct.
+  // Le soleil vert n'est un astre que la ou un astre se voit (sun-fade > 0).
+  {
+    const auto& rgs = regime::frame(frame_idx);
+    if (rgs.armed) {
+      sun_dir = rgs.key;
+      sun_up = rgs.direct_w > 0.f;
+      moon_up = moon_up && rgs.sun_fade > 0.f;
+    }
+  }
   int key = 0;
   if (sun_up && moon_up) {
     key = (st.w_moon > st.w_sun) ? 1 : 0;
@@ -2016,6 +2299,12 @@ struct LgtSetupScope {
 };
 #endif
 
+#ifndef OG_FEAT_PBR
+bool regime_sky_capture_wanted() {
+  return false;
+}
+#endif
+
 void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
                             SharedRenderState* render_state,
                             ShaderId shader) {
@@ -2190,14 +2479,25 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // above horizon), light 0's DIRECTION follows it — so N.L shading (PBR + mandate-F
   // world relight), the slope bias, and the shadow map all agree on where the sun is.
   // Colors/levels stay the mood light-group's (energy/palette unchanged).
-  {
+  // lighting-regimes (SPEC §4.11) : sous l'item arme, la cle est celle du REGIME (voir le
+  // namespace `regime` plus haut) ; l'ancien ecrasement inconditionnel ne subsiste que dans le
+  // bras desarme, et l'audit le compte dans les deux.
+  const auto& rgf = regime::frame(render_state->frame_idx);
+  if (rgf.armed) {
+    light_dir[0] = rgf.key.x;
+    light_dir[1] = rgf.key.y;
+    light_dir[2] = rgf.key.z;
+    regime::audit(render_state->frame_idx, rgf.t > 0.f);
+  } else {
     const float* ss = gs.recharged_pbr_sky_sun;
     float ssl = std::sqrt(ss[0] * ss[0] + ss[1] * ss[1] + ss[2] * ss[2]);
-    if (ssl > 1e-3f && ss[1] / ssl > 0.02f) {
+    const bool overridden = ssl > 1e-3f && ss[1] / ssl > 0.02f;
+    if (overridden) {
       light_dir[0] = ss[0] / ssl;
       light_dir[1] = ss[1] / ssl;
       light_dir[2] = ss[2] / ssl;
     }
+    regime::audit(render_state->frame_idx, overridden);
   }
   }  // lighting-off-math-still-runs : fin du bloc `kLightGroup`
 
@@ -2282,9 +2582,20 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
       msc[0] = msc[1] = msc[2] = 1.f;
       mx = 1.f;
     }
+    float hue[3] = {msc[0] / mx, msc[1] / mx, msc[2] / mx};
+    // lighting-regimes : quand la cle est celle du creneau, sa teinte est celle du creneau
+    // (lgt-color, la table donne le ton) ; fondu vers celle de l'astre avec la cle elle-meme.
+    const auto& rgc = regime::frame(render_state->frame_idx);
+    if (rgc.armed) {
+      float sm = std::max(rgc.slot_lgt[0], std::max(rgc.slot_lgt[1], rgc.slot_lgt[2]));
+      for (int i = 0; i < 3; i++) {
+        const float sh = sm > 1e-3f ? rgc.slot_lgt[i] / sm : 1.f;
+        hue[i] = sh + (hue[i] - sh) * rgc.t;
+      }
+    }
     float rc[3];
     for (int i = 0; i < 3; i++) {
-      rc[i] = (0.5f + 0.5f * (msc[i] / mx)) * rt_intensity;
+      rc[i] = (0.5f + 0.5f * hue[i]) * rt_intensity;
     }
     lgt_3f(id, "u_rt_sun_color", rc[0], rc[1], rc[2]);
   }
@@ -2315,6 +2626,13 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
       // plus this small overlap; the shadow pop is killed by the owning-sun shadow fade below. Deep night
       // (sun below -0.05) still fades to EXACTLY 0 (no leak).
       rt_sun_elev = rt_smoothstep(-0.05f, 0.18f, up);
+    }
+    // lighting-regimes (SPEC §4.11) : sous l'item arme, le poids direct est celui du REGIME des
+    // creneaux (sun-fade deja applique a la part de l'astre). L'elevation du soleil n'a plus a
+    // eteindre la nuit : la cle n'est l'astre que s'il est leve, sinon c'est le creneau de nuit.
+    const auto& rge = regime::frame(render_state->frame_idx);
+    if (rge.armed) {
+      rt_sun_elev = rge.direct_w;
     }
   }
   // lighting-off-math-still-runs : la surcharge de mise au point appartient au bloc `kSunElev` —
@@ -2390,6 +2708,12 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
 #endif
   }
   float moon_scale = moon_intensity * green_elev;  // real green-sun elevation weight => day+night when up
+  // lighting-regimes (SPEC §3.3) : le soleil vert est un ASTRE — son sprite n'existe que si
+  // sun-fade > 0 (time-of-day.gc:52). Sans ciel ni astre visible, il n'eclaire plus rien.
+  const auto& rgm = regime::frame(render_state->frame_idx);
+  if (rgm.armed) {
+    moon_scale *= rgm.sun_fade;
+  }
   // OWNER PLAYTEST #4 (attempt-9b fix) — SHADOW-HANDOFF via a GRAZING-GATED elevation fade of the OWNING sun.
   // History: attempt-8's dominance formula was DEAD CODE (conf==1 always, the antiphase suns are never both
   // up). Attempt-9a tied conf to the owning sun's LIGHT weight, but that STILL left a single-frame ~14/255
@@ -2406,6 +2730,11 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   float rt_shadow_conf = 0.0f;
   if (lgtmath::block(lgtmath::kShadowConf)) {
     float owning_up = (pbr_shadow_state().key_light == 1) ? green_up_raw : sun_up_raw;
+    // lighting-regimes : quand la cle des cascades est celle du CRENEAU (t = 0), la confiance ne
+    // suit plus l'elevation d'un soleil qui ne la porte pas.
+    if (rgm.armed && pbr_shadow_state().key_light == 0) {
+      owning_up = 1.f + (owning_up - 1.f) * rgm.t;
+    }
     rt_shadow_conf = rt_smoothstep(0.05f, 0.30f, owning_up);
   }
 
@@ -2501,6 +2830,15 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
     lgtmath::g_ho.seeded = false;
   }
   lgt_1f(id, "u_rt_sun_elev", rt_sun_elev);  // moved: upload the SMOOTHED value
+  // lighting-regimes (SPEC §4.11) : le REGIME lu par le shader — x poids direct (deja dans
+  // u_rt_sun_elev), y multiplicateur du rayon de penombre des cascades de la cle, z poids
+  // speculaire (sans lecteur : le composite n'a pas de speculaire), w regime dominant. Bras
+  // desarme : (1, 1, 1, 0), la penombre d'avant a l'identique (x * 1,0 == x).
+  if (rgm.armed) {
+    lgt_4f(id, "u_rt_regime", rgm.direct_w, rgm.penumbra, rgm.spec_w, (float)rgm.dominant);
+  } else {
+    lgt_4f(id, "u_rt_regime", 1.f, 1.f, 1.f, 0.f);
+  }
 #ifdef __ANDROID__
   // Deterministic state-dump (owner prefers this to eyeballing): green-sun elevation weight, yellow-sun
   // elevation, green direction, shadow-handoff confidence, and which sun currently owns the shadow map.
@@ -2573,145 +2911,155 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // une constante enregistree pour elle-meme : le composite qu'elle gardait est parti avec elle
   // du recensement. Rien d'autre de ce bloc ne change.
   if (lgtmath::block(lgtmath::kAmbientSh)) {
-    // SKY hue: the mood ambient (light-group ambi when valid, else the mood env ambient), normalized to
-    // unit-max so the mood's *brightness* can't re-brighten night (only its HUE is used); blended 50%
-    // toward white so it reads as natural skylight. amb_scale (1/255) converts the raw GOAL 0..255 color.
-    const float* asrc =
-        gs.recharged_pbr_lg_valid ? gs.recharged_pbr_lg_ambi : gs.recharged_pbr_ambient;
-    float shue[3] = {asrc[0] * amb_scale, asrc[1] * amb_scale, asrc[2] * amb_scale};
-    float smx = shue[0];
-    if (shue[1] > smx) smx = shue[1];
-    if (shue[2] > smx) smx = shue[2];
-    if (smx < 1e-3f) {
-      shue[0] = 0.6f;
-      shue[1] = 0.7f;
-      shue[2] = 1.0f;
-      smx = 1.0f;
-    }
-    // LEVEL: strength, gently faded by sun elevation so night is calmer (never below 0.7x, never brighter
-    // than day). rt_sun_elev is 1 (day) .. 0 (night below horizon).
-    float lvl = rt_ambient_strength * (0.7f + 0.3f * rt_sun_elev);
-    const float gtint[3] = {0.65f, 0.55f, 0.45f};  // warm, darker ground bounce
-    float sky[3], ground[3];
-    // ITEM A (owner playtest #2) — MOOD-MATCH. I tried lowering the hue white-floor 0.50 -> 0.44 to carry
-    // more mood hue, but a device A/B measured it drifted the tone WARMER (rt warmth R-B +7.4) AWAY from
-    // the stock baked mood, which at this vantage/TOD is cooler/neutral (baked R-B +1.7). Reverted to the
-    // owner-ACCEPTED 0.50: the accepted-default rt ambient already tracks the baked mood/luma closely
-    // (device: rt-on luma 53.8 vs baked 54.4), so the mood is preserved without a warm drift.
-    for (int i = 0; i < 3; i++) {
-      float hue = 0.5f + 0.5f * (shue[i] / smx);  // toward white (owner-accepted mood, matches baked luma)
-      sky[i] = hue * lvl;
-      ground[i] = sky[i] * gtint[i];
-    }
-    // === ROUND 2: SH (model 1) + IBL procedural-sky (model 2) from the SAME sky, MEAN-NORMALIZED to the
-    // hemisphere mean so all 3 models carry identical average ambient energy (=> sunlit byte-identical
-    // across models: the golden rule) and differ only in DIRECTIONAL distribution (=> shadowed FORM). ===
-    float env_zenith[3], env_horizon[3], env_ground[3], sun_glow[3];
-    float gsc[3] = {gs.recharged_pbr_sun_color[0] * sun_scale, gs.recharged_pbr_sun_color[1] * sun_scale,
-                    gs.recharged_pbr_sun_color[2] * sun_scale};
-    float gmx = gsc[0];
-    if (gsc[1] > gmx) gmx = gsc[1];
-    if (gsc[2] > gmx) gmx = gsc[2];
-    if (gmx < 1e-3f) {
-      gsc[0] = 1.0f;
-      gsc[1] = 0.9f;
-      gsc[2] = 0.75f;
-      gmx = 1.0f;
-    }
-    const float GLOW_GAIN = 0.35f;
-    for (int i = 0; i < 3; i++) {
-      env_zenith[i] = sky[i];
-      env_ground[i] = ground[i];
-      float h = (sky[i] * 0.6f + ground[i] * 0.4f) * 1.4f;  // brighter warm horizon band (clear-sky look)
-      env_horizon[i] = h > 1.0f ? 1.0f : h;
-      float ghue = 0.5f + 0.5f * (gsc[i] / gmx);
-      sun_glow[i] = ghue * lvl * GLOW_GAIN * rt_sun_elev;  // elevation-faded => 0 at night (no phantom light)
-    }
-    // Project that procedural sky into L2 SH (deterministic Fibonacci-sphere Monte-Carlo, no RNG) and
-    // accumulate its spherical AVERAGE for the mean-normalization. sun_d = surface->sun (light 0).
-    float sun_d[3] = {light_dir[0], light_dir[1], light_dir[2]};
+    // lighting-regimes (SPEC §4.10, annexe D.4) : sous l'item arme, l'ambiante directionnelle est
+    // l'ENVIRONNEMENT MESURE — la forme du ciel reellement dessine, renormalisee sur l'amb-color du
+    // creneau — et plus le ciel procedural a trois bandes ci-dessous, qui ne sert plus que le bras
+    // desarme. L'uniforme change de nom (`u_rt_sh` -> `u_env_sh`) : le terme SH reporte par
+    // lighting-legacy-purge est RETIRE, son successeur est mesure.
     float shc[9][3];
-    for (int c = 0; c < 9; c++) {
-      shc[c][0] = shc[c][1] = shc[c][2] = 0.0f;
-    }
-    float avg_env[3] = {0.0f, 0.0f, 0.0f};
-    {
-      const int NS = 256;
-      const float GA = 2.399963229728653f;  // golden angle
-      const float wsphere = 4.0f * 3.14159265358979f / (float)NS;
-      for (int k = 0; k < NS; k++) {
-        float sy = 1.0f - 2.0f * ((float)k + 0.5f) / (float)NS;
-        float rr = 1.0f - sy * sy;
-        float sr = rr > 0.0f ? std::sqrt(rr) : 0.0f;
-        float phi = (float)k * GA;
-        float sx = sr * std::cos(phi);
-        float sz = sr * std::sin(phi);
-        // sky_env(dir) — MUST mirror the shader rt_ibl_ambient()
-        float uu = sy;
-        float su = uu / 0.55f;
-        su = su < 0.0f ? 0.0f : (su > 1.0f ? 1.0f : su);
-        su = su * su * (3.0f - 2.0f * su);
-        float sd = -uu / 0.45f;
-        sd = sd < 0.0f ? 0.0f : (sd > 1.0f ? 1.0f : sd);
-        sd = sd * sd * (3.0f - 2.0f * sd);
-        float g = sx * sun_d[0] + sy * sun_d[1] + sz * sun_d[2];
-        if (g < 0.0f) g = 0.0f;
-        g = g * g;
-        g = g * g;
-        float Y[9];
-        Y[0] = 0.282095f;
-        Y[1] = 0.488603f * sy;
-        Y[2] = 0.488603f * sz;
-        Y[3] = 0.488603f * sx;
-        Y[4] = 1.092548f * sx * sy;
-        Y[5] = 1.092548f * sy * sz;
-        Y[6] = 0.315392f * (3.0f * sz * sz - 1.0f);
-        Y[7] = 1.092548f * sx * sz;
-        Y[8] = 0.546274f * (sx * sx - sy * sy);
-        for (int i = 0; i < 3; i++) {
-          float band = uu >= 0.0f ? (env_horizon[i] + (env_zenith[i] - env_horizon[i]) * su)
-                                  : (env_horizon[i] + (env_ground[i] - env_horizon[i]) * sd);
-          float e = band + sun_glow[i] * g;
-          avg_env[i] += e * (1.0f / (float)NS);
-          for (int c = 0; c < 9; c++) {
-            shc[c][i] += e * Y[c] * wsphere;
+    const auto& rga = regime::frame(render_state->frame_idx);
+    if (rga.armed) {
+      regime::env_sh(shc, rt_ambient_strength, render_state->frame_idx);
+    } else {
+      // SKY hue: the mood ambient (light-group ambi when valid, else the mood env ambient), normalized to
+      // unit-max so the mood's *brightness* can't re-brighten night (only its HUE is used); blended 50%
+      // toward white so it reads as natural skylight. amb_scale (1/255) converts the raw GOAL 0..255 color.
+      const float* asrc =
+          gs.recharged_pbr_lg_valid ? gs.recharged_pbr_lg_ambi : gs.recharged_pbr_ambient;
+      float shue[3] = {asrc[0] * amb_scale, asrc[1] * amb_scale, asrc[2] * amb_scale};
+      float smx = shue[0];
+      if (shue[1] > smx) smx = shue[1];
+      if (shue[2] > smx) smx = shue[2];
+      if (smx < 1e-3f) {
+        shue[0] = 0.6f;
+        shue[1] = 0.7f;
+        shue[2] = 1.0f;
+        smx = 1.0f;
+      }
+      // LEVEL: strength, gently faded by sun elevation so night is calmer (never below 0.7x, never brighter
+      // than day). rt_sun_elev is 1 (day) .. 0 (night below horizon).
+      float lvl = rt_ambient_strength * (0.7f + 0.3f * rt_sun_elev);
+      const float gtint[3] = {0.65f, 0.55f, 0.45f};  // warm, darker ground bounce
+      float sky[3], ground[3];
+      // ITEM A (owner playtest #2) — MOOD-MATCH. I tried lowering the hue white-floor 0.50 -> 0.44 to carry
+      // more mood hue, but a device A/B measured it drifted the tone WARMER (rt warmth R-B +7.4) AWAY from
+      // the stock baked mood, which at this vantage/TOD is cooler/neutral (baked R-B +1.7). Reverted to the
+      // owner-ACCEPTED 0.50: the accepted-default rt ambient already tracks the baked mood/luma closely
+      // (device: rt-on luma 53.8 vs baked 54.4), so the mood is preserved without a warm drift.
+      for (int i = 0; i < 3; i++) {
+        float hue = 0.5f + 0.5f * (shue[i] / smx);  // toward white (owner-accepted mood, matches baked luma)
+        sky[i] = hue * lvl;
+        ground[i] = sky[i] * gtint[i];
+      }
+      // === ROUND 2: SH (model 1) + IBL procedural-sky (model 2) from the SAME sky, MEAN-NORMALIZED to the
+      // hemisphere mean so all 3 models carry identical average ambient energy (=> sunlit byte-identical
+      // across models: the golden rule) and differ only in DIRECTIONAL distribution (=> shadowed FORM). ===
+      float env_zenith[3], env_horizon[3], env_ground[3], sun_glow[3];
+      float gsc[3] = {gs.recharged_pbr_sun_color[0] * sun_scale, gs.recharged_pbr_sun_color[1] * sun_scale,
+                      gs.recharged_pbr_sun_color[2] * sun_scale};
+      float gmx = gsc[0];
+      if (gsc[1] > gmx) gmx = gsc[1];
+      if (gsc[2] > gmx) gmx = gsc[2];
+      if (gmx < 1e-3f) {
+        gsc[0] = 1.0f;
+        gsc[1] = 0.9f;
+        gsc[2] = 0.75f;
+        gmx = 1.0f;
+      }
+      const float GLOW_GAIN = 0.35f;
+      for (int i = 0; i < 3; i++) {
+        env_zenith[i] = sky[i];
+        env_ground[i] = ground[i];
+        float h = (sky[i] * 0.6f + ground[i] * 0.4f) * 1.4f;  // brighter warm horizon band (clear-sky look)
+        env_horizon[i] = h > 1.0f ? 1.0f : h;
+        float ghue = 0.5f + 0.5f * (gsc[i] / gmx);
+        sun_glow[i] = ghue * lvl * GLOW_GAIN * rt_sun_elev;  // elevation-faded => 0 at night (no phantom light)
+      }
+      // Project that procedural sky into L2 SH (deterministic Fibonacci-sphere Monte-Carlo, no RNG) and
+      // accumulate its spherical AVERAGE for the mean-normalization. sun_d = surface->sun (light 0).
+      float sun_d[3] = {light_dir[0], light_dir[1], light_dir[2]};
+      for (int c = 0; c < 9; c++) {
+        shc[c][0] = shc[c][1] = shc[c][2] = 0.0f;
+      }
+      float avg_env[3] = {0.0f, 0.0f, 0.0f};
+      {
+        const int NS = 256;
+        const float GA = 2.399963229728653f;  // golden angle
+        const float wsphere = 4.0f * 3.14159265358979f / (float)NS;
+        for (int k = 0; k < NS; k++) {
+          float sy = 1.0f - 2.0f * ((float)k + 0.5f) / (float)NS;
+          float rr = 1.0f - sy * sy;
+          float sr = rr > 0.0f ? std::sqrt(rr) : 0.0f;
+          float phi = (float)k * GA;
+          float sx = sr * std::cos(phi);
+          float sz = sr * std::sin(phi);
+          // sky_env(dir) — MUST mirror the shader rt_ibl_ambient()
+          float uu = sy;
+          float su = uu / 0.55f;
+          su = su < 0.0f ? 0.0f : (su > 1.0f ? 1.0f : su);
+          su = su * su * (3.0f - 2.0f * su);
+          float sd = -uu / 0.45f;
+          sd = sd < 0.0f ? 0.0f : (sd > 1.0f ? 1.0f : sd);
+          sd = sd * sd * (3.0f - 2.0f * sd);
+          float g = sx * sun_d[0] + sy * sun_d[1] + sz * sun_d[2];
+          if (g < 0.0f) g = 0.0f;
+          g = g * g;
+          g = g * g;
+          float Y[9];
+          Y[0] = 0.282095f;
+          Y[1] = 0.488603f * sy;
+          Y[2] = 0.488603f * sz;
+          Y[3] = 0.488603f * sx;
+          Y[4] = 1.092548f * sx * sy;
+          Y[5] = 1.092548f * sy * sz;
+          Y[6] = 0.315392f * (3.0f * sz * sz - 1.0f);
+          Y[7] = 1.092548f * sx * sz;
+          Y[8] = 0.546274f * (sx * sx - sy * sy);
+          for (int i = 0; i < 3; i++) {
+            float band = uu >= 0.0f ? (env_horizon[i] + (env_zenith[i] - env_horizon[i]) * su)
+                                    : (env_horizon[i] + (env_ground[i] - env_horizon[i]) * sd);
+            float e = band + sun_glow[i] * g;
+            avg_env[i] += e * (1.0f / (float)NS);
+            for (int c = 0; c < 9; c++) {
+              shc[c][i] += e * Y[c] * wsphere;
+            }
           }
         }
       }
-    }
-    // cosine-convolution (A_l/pi): l0=1, l1=2/3, l2=1/4 (Lambert diffuse baked into the coeffs).
-    const float Al[9] = {1.0f, 2.0f / 3.0f, 2.0f / 3.0f, 2.0f / 3.0f,
-                         0.25f, 0.25f, 0.25f, 0.25f, 0.25f};
-    for (int c = 0; c < 9; c++) {
-      for (int i = 0; i < 3; i++) {
-        shc[c][i] *= Al[c];
+      // cosine-convolution (A_l/pi): l0=1, l1=2/3, l2=1/4 (Lambert diffuse baked into the coeffs).
+      const float Al[9] = {1.0f, 2.0f / 3.0f, 2.0f / 3.0f, 2.0f / 3.0f,
+                           0.25f, 0.25f, 0.25f, 0.25f, 0.25f};
+      for (int c = 0; c < 9; c++) {
+        for (int i = 0; i < 3; i++) {
+          shc[c][i] *= Al[c];
+        }
       }
-    }
-    // MEAN-NORMALIZE SH coeffs AND IBL bands so the sky mean == hemisphere mean (sky+ground)/2 per
-    // channel (golden rule: identical average energy across models).
-    float fnorm[3];
-    for (int i = 0; i < 3; i++) {
-      float target = 0.5f * (sky[i] + ground[i]);
-      float f = avg_env[i] > 1e-5f ? target / avg_env[i] : 1.0f;
-      f = f < 0.25f ? 0.25f : (f > 4.0f ? 4.0f : f);
-      fnorm[i] = f;
-      env_zenith[i] *= f;
-      env_horizon[i] *= f;
-      env_ground[i] *= f;
-      sun_glow[i] *= f;
-    }
-    for (int c = 0; c < 9; c++) {
+      // MEAN-NORMALIZE SH coeffs AND IBL bands so the sky mean == hemisphere mean (sky+ground)/2 per
+      // channel (golden rule: identical average energy across models).
+      float fnorm[3];
       for (int i = 0; i < 3; i++) {
-        shc[c][i] *= fnorm[i];
+        float target = 0.5f * (sky[i] + ground[i]);
+        float f = avg_env[i] > 1e-5f ? target / avg_env[i] : 1.0f;
+        f = f < 0.25f ? 0.25f : (f > 4.0f ? 4.0f : f);
+        fnorm[i] = f;
+        env_zenith[i] *= f;
+        env_horizon[i] *= f;
+        env_ground[i] *= f;
+        sun_glow[i] *= f;
       }
+      for (int c = 0; c < 9; c++) {
+        for (int i = 0; i < 3; i++) {
+          shc[c][i] *= fnorm[i];
+        }
+      }
+      // lighting-legacy-purge (2026-09-11) : `u_rt_ambient_key` n'est plus pousse et son CALCUL
+      // (`amb_key`, le melange azimutal des deux soleils) part avec lui : il etait le seul des sept
+      // entrees de l'ambiante directionnelle a n'avoir aucun autre consommateur. Les six autres
+      // (sky/ground/env_*/sun_glow) restent CALCULEES : la projection L2 en tire `shc[9]`, qui est
+      // toujours poussee.
     }
-    // lighting-legacy-purge (2026-09-11) : `u_rt_ambient_key` n'est plus pousse et son CALCUL
-    // (`amb_key`, le melange azimutal des deux soleils) part avec lui : il etait le seul des sept
-    // entrees de l'ambiante directionnelle a n'avoir aucun autre consommateur. Les six autres
-    // (sky/ground/env_*/sun_glow) restent CALCULEES : la projection L2 en tire `shc[9]`, qui est
-    // toujours poussee.
     lgt_1i(id, "u_rt_flat_normal", rt_flat_normal);
-    lgt_3fv(id, "u_rt_sh[0]", 9, &shc[0][0]);
+    lgt_3fv(id, "u_env_sh[0]", 9, &shc[0][0]);
 
     // === SPEC-refonte-lumiere §2.4 — FollowProbe est SUPPRIMEE, ses uniformes sont RE-HEBERGES ICI.
     // Ce que la classe faisait vraiment, mesure a l'appui :

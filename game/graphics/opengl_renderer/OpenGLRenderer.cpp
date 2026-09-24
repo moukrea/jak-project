@@ -38,6 +38,7 @@
 #include "game/graphics/opengl_renderer/prop_cache.h"
 #include "game/graphics/opengl_renderer/RechargedHudTextures.h"
 #include "game/graphics/opengl_renderer/ShadowRenderer.h"
+#include "game/graphics/opengl_renderer/SkyCapture.h"
 #include "game/graphics/opengl_renderer/SkyRenderer.h"
 #include "game/graphics/opengl_renderer/TextureUploadHandler.h"
 #include "game/graphics/opengl_renderer/VisDataHandler.h"
@@ -1943,6 +1944,9 @@ void OpenGLRenderer::dispatch_buckets_jak1(DmaFollower dma,
 #endif
     renderer->render(dma, &m_render_state, bucket_prof);
     lighting_census::roi_after(roi, "bucket", (int)bucket_id, renderer->name_and_id().c_str());
+    // lighting-regimes (SPEC §4.10) : juste apres SKY_DRAW, le framebuffer ne porte que le ciel.
+    sky_capture::after_bucket(&m_render_state, bucket_id == (size_t)jak1::BucketId::SKY_DRAW,
+                              regime_sky_capture_wanted());
     lighting_census::pass_end();
     if (sync_after_buckets) {
       auto pp = scoped_prof("finish");

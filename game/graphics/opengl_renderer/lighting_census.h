@@ -148,6 +148,8 @@ uint64_t legacy_uniform_control();
 // seuls appelants sont partis avec la pile de matiere et personne ne l'a vu ». Zero est un SITE
 // de l'ancien monde au sens de la porte (kmachine.cpp), pas un silence.
 uint64_t sh_reader_programs();
+// lighting-regimes : programmes LIES qui lisent le successeur mesure, `u_env_sh[0]`.
+uint64_t env_sh_reader_programs();
 
 // Publie tout de suite (fin de course).
 void publish();

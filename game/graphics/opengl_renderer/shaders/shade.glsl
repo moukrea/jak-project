@@ -94,16 +94,20 @@ uniform vec3 u_rt_sun_color;
 uniform vec3 u_rt_moon_dir;
 uniform vec3 u_rt_moon_color;
 // lighting-legacy-purge (2026-09-11) : u_rt_ambient_on RETIRE, valeur livree figee a 1 (ambiante toujours active).
-// lighting-legacy-purge (2026-09-11) : entrees des tiers HEMISPHERE et IBL d'AMBIENT MODEL, retirees avec eux. La force d'ambiance atteint le tier SH par u_rt_sh.
-// Grecharged-directional-ambient ROUND 2 : entrees de l'ambiante SH. u_rt_sh[9] = coefficients SH
-// L2 deja mis a l'echelle cote C++ par la convolution cosinus A_l/pi, donc l'evaluation rend
-// directement la radiance reflechie. Lues UNIQUEMENT sous u_rt_light_on => OFF == stock.
+// lighting-legacy-purge (2026-09-11) : entrees des tiers HEMISPHERE et IBL d'AMBIENT MODEL, retirees avec eux. La force d'ambiance atteint le tier SH.
+// lighting-regimes (SPEC §4.10, annexe D.4) : l'ambiante directionnelle est l'ENVIRONNEMENT MESURE.
+// u_env_sh[9] = coefficients SH L2 de la forme du ciel reellement dessine (SkyCapture.cpp),
+// renormalises sur l'amb-color du creneau et deja convolues par le cosinus (A_l/pi) cote C++.
+// Lus UNIQUEMENT sous u_rt_light_on => OFF == stock.
 // lighting-legacy-purge (2026-09-11) : u_rt_ambient_model RETIRE, valeur livree figee a 1 (SH).
 // lighting-legacy-purge (2026-09-11) : u_rt_ambient_contrast RETIRE, il etait declare et jamais lu.
 // Grecharged-directional-ambient ROOT-CAUSE FIX: debug/A-B toggle. 0 (default) = SMOOTH per-vertex
 // normal (the fix); 1 = force the OLD flat per-face screen-derivative normal (pre-fix look, same build).
 uniform int u_rt_flat_normal;
-uniform vec3 u_rt_sh[9];
+uniform vec3 u_env_sh[9];
+// lighting-regimes (SPEC §4.11) : le REGIME des creneaux actifs. x poids direct, y multiplicateur
+// du rayon de penombre des cascades de la cle, z poids speculaire, w regime dominant (0..5).
+uniform vec4 u_rt_regime;
 // lighting-legacy-purge (2026-09-11) : u_rt_shadow_range RETIRE, valeur livree figee a 150.0.
 // lighting-legacy-purge (2026-09-11) : u_rt_shadow_res RETIRE, valeur livree figee a 2048.0.
 // lighting-legacy-purge (2026-09-11) : u_rt_shadow_residual RETIRE, valeur livree figee a 0.2
@@ -132,20 +136,20 @@ const vec2 RT_POISSON16[16] = vec2[](
 // Grecharged-directional-ambient ROUND 2 — SH (L2) ambient irradiance. Coeffs pre-scaled C++-side by
 // the Lambert cosine-convolution (A_l/pi) so this returns reflected ambient radiance directly. max()
 // guards SH ringing. Richer than the 2-color hemisphere: a smooth directional quadratic.
-vec3 rt_sh_ambient(vec3 n) {
+vec3 rt_env_ambient(vec3 n) {
   float x = n.x, y = n.y, z = n.z;
-  vec3 r = u_rt_sh[0] * 0.282095
-         + u_rt_sh[1] * (0.488603 * y)
-         + u_rt_sh[2] * (0.488603 * z)
-         + u_rt_sh[3] * (0.488603 * x)
-         + u_rt_sh[4] * (1.092548 * x * y)
-         + u_rt_sh[5] * (1.092548 * y * z)
-         + u_rt_sh[6] * (0.315392 * (3.0 * z * z - 1.0))
-         + u_rt_sh[7] * (1.092548 * x * z)
-         + u_rt_sh[8] * (0.546274 * (x * x - y * y));
+  vec3 r = u_env_sh[0] * 0.282095
+         + u_env_sh[1] * (0.488603 * y)
+         + u_env_sh[2] * (0.488603 * z)
+         + u_env_sh[3] * (0.488603 * x)
+         + u_env_sh[4] * (1.092548 * x * y)
+         + u_env_sh[5] * (1.092548 * y * z)
+         + u_env_sh[6] * (0.315392 * (3.0 * z * z - 1.0))
+         + u_env_sh[7] * (1.092548 * x * z)
+         + u_env_sh[8] * (0.546274 * (x * x - y * y));
   return max(r, vec3(0.0));
 }
-// lighting-legacy-purge (2026-09-11) : entrees des tiers HEMISPHERE et IBL d'AMBIENT MODEL, retirees avec eux. La force d'ambiance atteint le tier SH par u_rt_sh.
+// lighting-legacy-purge (2026-09-11) : entrees des tiers HEMISPHERE et IBL d'AMBIENT MODEL, retirees avec eux. La force d'ambiance atteint le tier SH.
 // SPEC-refonte-lumiere §2.4 — RETIRE : la grille de sondes de FollowProbe.
 // Douze uniformes (dont QUATRE unites de texture sampler3D et un samplerCube) et deux
 // fonctions, tous derriere la porte de sondes. Le seul ecrivain de cette porte etait
@@ -212,6 +216,12 @@ float rt_tile_vis(int t, vec3 P_rel, vec3 sN, float sndl, float dist) {
   float bias = (u_rt_light_on != 0 ? 0.0010 : 0.0012) + u_pbr_shadow_bias;
   float ref = suv.z - bias;
   float pen = max(1.5 * u_shadow_texel[t], 0.02 + 0.015 * dist);  // penombre, en METRES
+  // lighting-regimes (SPEC §4.11) : le regime elargit la penombre des cascades de la cle (dome
+  // couvert x4, ambiante dominante x3, source basse x2). La tuile 3 (second astre) n'en recoit rien.
+  // Programme jamais atteint par la poussee : defaut GL a zero, on garde alors la penombre nominale.
+  if (t < 3 && u_rt_regime.y > 0.0) {
+    pen *= u_rt_regime.y;
+  }
   float rr = min(pen / (u_shadow_texel[t] * u_shadow_tile_px), 24.0 / u_shadow_tile_px);
   vec2 org = vec2(float(t & 1), float(t >> 1)) * 0.5;  // origine de la tuile dans l'atlas (uv)
   float hang = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) * 6.2831853;
@@ -350,12 +360,12 @@ vec4 shade_body(in Surface s, float sao) {
       // la pile de matiere que cet item supprime (leurs NOMS ne sont pas ecrits ici : le blob
       // Android embarque les commentaires, et un nom de fichier supprime cite en commentaire est
       // recense comme un residu — mesure du 12/09, 2 occurrences dans libgk.so pour ces deux
-      // seules lignes). Le recensement les nomme, lui : `lib/census/<id>.sh`. Sans ce site, `u_rt_sh[9]`
+      // seules lignes). Le recensement les nomme, lui : `lib/census/<id>.sh`. Sans ce site, `u_env_sh[9]`
       // n'aurait plus AUCUN lecteur : un uniforme declare mais jamais lu est RETIRE par le
       // compilateur GLSL, et les neuf coefficients partiraient vers l'emplacement -1 a chaque
       // image (230 880 poussees mesurees sur le checkpoint de l'essai 8). La feature validee par
       // l'owner — Grecharged-directional-ambient ROUND 2 — serait morte en silence avec le
-      // composite qui l'hebergeait. `lighting_legacy_sh_readers` compte ce site sur le programme
+      // composite qui l'hebergeait. `lighting_env_sh_readers` compte ce site sur le programme
       // LIE, et un zero est une porte ROUGE.
       // COMMENT ELLE ENTRE SANS AJOUTER UNE SECONDE DOSE D'AMBIANTE. Ce composite tient deja son
       // INDIRECT du cuit : lui additionner la SH doublerait l'ambiante. On ne prend donc que ce
@@ -368,10 +378,10 @@ vec4 shade_body(in Surface s, float sao) {
       // Le facteur ne s'applique qu'au bras OMBRE (`shd_mul`), jamais au bras ensoleille : c'est
       // la regle d'or citee au meme endroit (« sunlit byte-identical across models »).
       // LE REPLI. `step()` met le facteur a 1,0 exactement quand la moyenne est degeneree —
-      // programme jamais atteint par la poussee, defaut GL a zero : `u_rt_sh` vaut alors (0,0,0)
+      // programme jamais atteint par la poussee, defaut GL a zero : `u_env_sh` vaut alors (0,0,0)
       // et un rapport y serait un 0/0. Ce n'est pas un reglage, c'est une garde de division.
-      vec3 sh_mean = u_rt_sh[0] * 0.282095;
-      vec3 sh_form = clamp(rt_sh_ambient(N) / max(sh_mean, vec3(1e-4)), vec3(0.0), vec3(2.0));
+      vec3 sh_mean = u_env_sh[0] * 0.282095;
+      vec3 sh_form = clamp(rt_env_ambient(N) / max(sh_mean, vec3(1e-4)), vec3(0.0), vec3(2.0));
       vec3 shd_mul = mix(vec3(1.0), sh_form,
                          step(1e-3, dot(sh_mean, vec3(0.299, 0.587, 0.114))));
       vec3 mod_y = mix(shd_mul, lit_mul_y, lit_y);

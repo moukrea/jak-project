@@ -79,7 +79,9 @@ const char* const kSeven[] = {"u_pbr_sun_dir",    "u_pbr_sun_color",       "u_rt
 // contre un retrait par confusion, pas le constat d'une perte.
 // La preuve publie le compte ET la liste (`kept_uniform_pushes`, `kept_uniform_list`) : ce qui
 // est garde se lit, il ne disparait pas du denominateur.
-const char* const kKept[] = {"u_rt_sh[0]"};
+// MISE A JOUR lighting-regimes, 2026-09-24 : `u_rt_sh` est RETIRE (SPEC annexe D.4) ; son
+// successeur, l'environnement MESURE `u_env_sh`, herite de la garde pour la meme raison.
+const char* const kKept[] = {"u_env_sh[0]"};
 
 bool is_kept(const std::string& name) {
   for (const char* k : kKept) {

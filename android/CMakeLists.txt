@@ -817,6 +817,8 @@ add_library(gk SHARED
     "${JAK_ROOT}/game/graphics/opengl_renderer/SlowTimeEffect.cpp"
     # A36 — first-content buckets: sky + terrain (tfrag3) for the logo/title
     # village1 flythrough. SkyBlendHandler lives in SkyRenderer.cpp.
+    # lighting-regimes (SPEC §4.10) : capture du ciel, forme de l ambiante mesuree.
+    "${JAK_ROOT}/game/graphics/opengl_renderer/SkyCapture.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/SkyRenderer.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/SkyBlendCPU.cpp"
     "${JAK_ROOT}/game/graphics/opengl_renderer/SkyBlendGPU.cpp"

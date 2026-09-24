@@ -176,6 +176,10 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
                             SharedRenderState* render_state,
                             ShaderId shader);
 
+// lighting-regimes (SPEC §4.10) : la capture du ciel est-elle voulue cette image ? (item arme,
+// eclairage recharge actif, un niveau actif a un ciel). Faux sans OG_FEAT_PBR.
+bool regime_sky_capture_wanted();
+
 #ifdef OG_FEAT_PBR
 // lighting-shadows (SPEC-refonte-lumiere §4.8) : ATLAS D'OMBRE TUILE, deux astres, acteurs.
 // Remplace l'ancienne carte unique. UN atlas carre par cote du double-buffer, decoupe en 2x2

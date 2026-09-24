@@ -213,6 +213,10 @@
 ;; also casts shadows at night — not the old synthesised opposite-of-sun night-only vector.
 (define-extern pc-set-pbr-green-sun! (function vector none))
 (define-extern pc-set-pbr-lights! (function pointer none))
+;; lighting-regimes : pour chacune des deux humeurs de niveau, son light-group 0 et sa
+;; mood-lights-table (0 = absente), puis (sun-fade, ciel 0/1, current-interp). Le C++ retrouve chaque
+;; lumiere de creneau dans sa table et en lit le REGIME.
+(define-extern pc-set-mood-regime! (function pointer pointer pointer pointer vector none))
 ;; Grecharged-realtime-lighting / lighting-legacy-purge : ne reste que le pont du MAITRE de la
 ;; refonte lumiere (RECHARGED LIGHTING). Les ponts ambiants/ombres/relief de l'ancien monde
 ;; sont retires avec leurs reglages.
@@ -302,6 +306,8 @@
 (define *refset-cam-down* (new 'static 'vector :y -1.0))
 ;; scratch vector reused each frame to hand the two distances to the bridge (avoids per-frame alloc).
 (define *grass-dist-scratch* (new 'static 'vector :x 30.0 :y 95.0 :z 150.0 :w 1.0))
+;; lighting-regimes : x = sun-fade, y = 1.0 si un niveau actif a un ciel, z = current-interp.
+(define *mood-regime-scratch* (new 'static 'vector :x 1.0 :y 1.0 :z 0.0 :w 0.0))
 
 ;; jak 1 discord rpc structure
 (deftype discord-info (structure)

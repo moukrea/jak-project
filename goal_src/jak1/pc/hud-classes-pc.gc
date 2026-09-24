@@ -8641,6 +8641,19 @@
 ;; (sqrt(0.28^2 - h^2) avec h petit) et qu'un pied LEVE (h > 0.28) ne marque rien du tout.
 (define GRASS-JAK-LIMB-R (meters 0.28))
 
+;; lighting-regimes : le light-group 0 et la mood-lights-table de l'humeur `idx` de
+;; *time-of-day-context* (0 si absente).
+;; `update-time-of-day` y range l'humeur de chaque niveau (ou *default-mood* a sa place) avant de
+;; les interpoler par `current-interp` : c'est la, et pas dans le groupe final, que les creneaux
+;; sont des copies EXACTES de la table.
+(defun pc-mood-lg-of ((idx int))
+  (let ((m (-> *time-of-day-context* moods idx)))
+    (if (and m (nonzero? m)) (the-as pointer (-> m light-group 0)) (the-as pointer 0))))
+
+(defun pc-mood-table-of ((idx int))
+  (let ((m (-> *time-of-day-context* moods idx)))
+    (if (and m (nonzero? m)) (the-as pointer (-> m mood-lights-table)) (the-as pointer 0))))
+
 (defmethod update-to-os ((obj pc-settings-jak1))
   ((method-of-type pc-settings update-to-os) obj)
   ;; Grecharged-master-toggle: push the GLOBAL master FIRST each frame (the C++ side composes
@@ -8682,6 +8695,16 @@
     ;; Extern is (function pointer none) (light-group unresolvable in the early pc context);
     ;; pass the address of group 0 as a raw pointer — the renderer reads it as a float block.
     (pc-set-pbr-lights! (the-as pointer (-> *time-of-day-context* light-group 0)))
+    ;; lighting-regimes (SPEC §4.11) : la cle n'est pas toujours un soleil. On donne au C++ de
+    ;; quoi LIRE le regime des creneaux actifs dans la table : l'humeur de chacun des deux niveaux
+    ;; (son groupe de lumieres et sa table), leur poids de melange, et ce qui dit si un astre est
+    ;; visible (sun-fade, ciel).
+    (set! (-> *mood-regime-scratch* x) (-> *time-of-day-context* sun-fade))
+    (set! (-> *mood-regime-scratch* y) (if (-> *time-of-day-context* sky) 1.0 0.0))
+    (set! (-> *mood-regime-scratch* z) (-> *time-of-day-context* current-interp))
+    (pc-set-mood-regime! (pc-mood-lg-of 0) (pc-mood-table-of 0)
+                         (pc-mood-lg-of 1) (pc-mood-table-of 1)
+                         *mood-regime-scratch*)
     ;; Glighting-hdr: recharged-lighting? is the sole lighting master, including the RT
     ;; composite. Push it and the baked sub-option every frame. The sun direction already
     ;; reaches the renderer via pc-set-pbr-sky-sun! above (the visible-sun dome vector).

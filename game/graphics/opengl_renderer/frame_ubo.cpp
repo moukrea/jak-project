@@ -7,6 +7,7 @@
 #include <set>
 
 #include "game/graphics/opengl_renderer/BucketRenderer.h"
+#include "game/graphics/opengl_renderer/SkyCapture.h"
 #include "game/graphics/opengl_renderer/background/background_common.h"
 #include "game/system/autoport_proof.h"
 #include "game/graphics/opengl_renderer/ao_contact_archive.h"
@@ -57,6 +58,9 @@ void update_and_bind(const GoalBackgroundCameraData& cam, const SharedRenderStat
     std::memcpy(&d.pc_camera[i * 4], newcam[i].data(), 16);
     std::memcpy(&d.camera[i * 4], cam.camera[i].data(), 16);
   }
+  // lighting-regimes (SPEC §4.10) : la capture du ciel projette ses directions avec CETTE matrice,
+  // celle que tfrag3.vert consomme (`camera_matrix` de l'etat partage n'en est pas une projection).
+  sky_capture::note_pc_camera(d.pc_camera, rs->frame_idx);
   std::memcpy(d.hvdf_offset, cam.hvdf_off.data(), 16);
   std::memcpy(d.cam_trans, cam.trans.data(), 16);
   d.fog_color[0] = rs->fog_color[0] / 255.f;

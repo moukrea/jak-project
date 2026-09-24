@@ -40,6 +40,7 @@
 #include "game/graphics/fire_red_census.h"
 #include "game/graphics/opengl_renderer/lighting_census.h"
 #include "game/system/autoport_proof.h"
+#include "common/custom_data/LightBake.h"
 #include "game/graphics/opengl_renderer/ao_static_probe.h"
 #include "game/system/menu_dpad_census.h"
 #include "game/system/mesh_browser_census.h"
@@ -1175,8 +1176,14 @@ static void lighting_legacy_census() {
   // celle du reste du recensement — TOUT INCONNU VAUT DEFAUT : si la sonde n'a vu aucun programme
   // du tout (`legacy_uniform_programs() == 0`), le compte est le meme rouge, parce qu'alors elle
   // ne peut rien attester.
+  // MISE A JOUR lighting-regimes (2026-09-24, SPEC §2.4 et annexe D.4) : l'ambiante SH reportee
+  // est REMPLACEE par l'environnement mesure (`u_env_sh`). La feature n'est pas perdue si
+  // `u_rt_sh` n'a plus de lecteur — c'est la direction voulue —, elle l'est si son SUCCESSEUR
+  // n'en a pas. La sonde regarde donc le successeur ; le compte de l'ancien reste publie a cote
+  // (`lighting_legacy_sh_readers`, attendu 0).
   const u64 sh_readers = lighting_census::sh_reader_programs();
-  const u64 sh_lost = (sh_readers == 0) ? 1 : 0;
+  const u64 env_readers = lighting_census::env_sh_reader_programs();
+  const u64 sh_lost = (env_readers == 0) ? 1 : 0;
 
   // ── LA PORTE ──────────────────────────────────────────────────────────────────────────────
   autoport_proof::publish("lighting_legacy_sites",
@@ -4875,6 +4882,88 @@ void pc_set_pbr_lights(u32 lg) {
   s_seed_lights = false;
 }
 
+// lighting-regimes (SPEC §3.2, §4.11, §5.3.7) : LE REGIME DU CRENEAU, LU DANS LA TABLE.
+// `update-mood-palette` (mood.gc:146) COPIE les creneaux de `mood-lights-table` dans le light-group 0
+// de l'humeur du niveau : dir0 = creneau 1 (levels.x = 1 - w), dir1 = creneau 2 (levels.x = w) ;
+// `update-mood-quick` (niveaux interieurs : lavatube, darkcave...) pose dir0 seul.
+// `update-time-of-day` (time-of-day.gc:209) range ensuite l'humeur de chacun des DEUX niveaux dans
+// `moods[0..1]` et les MELANGE par `current-interp` : le groupe final est un lerp normalise, ou plus
+// rien ne se retrouve (mesure de l'essai 1 : 601 images retrouvees, 2638 non, sur swamp). On lit
+// donc chaque humeur AVANT le melange, et chaque lumiere y est une copie exacte d'un creneau de SA
+// table. Son regime est celui de ce creneau, classe sur SA propre ambiante — pas sur l'ambiante du
+// groupe, qui ferait d'un creneau « source pure » (amb = 0) autre chose des qu'il se melange. Une
+// lumiere que rien ne retrouve (eclair, flamme posee par-dessus) est classee telle quelle et le
+// compte `regime_fallback_frames` le dit.
+// `lg0`/`t0`, `lg1`/`t1` : light-group 0 et mood-lights-table des deux humeurs (0 = absente) ;
+// `parms` = vecteur (sun-fade, ciel 0/1, current-interp, -).
+void pc_set_mood_regime(u32 lg0, u32 t0, u32 lg1, u32 t1, u32 parms) {
+  auto& gs = Gfx::g_global_settings;
+  const float* p = Ptr<float>(parms).c();
+  gs.recharged_sun_fade = p[0];
+  gs.recharged_sky = p[1] > 0.5f;
+  const float ci = std::max(0.f, std::min(1.f, p[2]));
+  const u32 lgs[2] = {lg0, lg1};
+  const u32 tables[2] = {t0, t1};
+  const float lvw[2] = {1.f - ci, ci};
+  bool all_matched = true, any_light = false;
+  for (int lv = 0; lv < 2; lv++) {
+    for (int d = 0; d < 2; d++) {
+      const int i = lv * 2 + d;
+      gs.recharged_regime_w[i] = 0.f;
+      gs.recharged_regime_matched[i] = false;
+      gs.recharged_regime[i] = tfrag3::lightbake::kRegAmbOnly;
+      if (!lgs[lv] || !(lvw[lv] > 0.f)) {
+        continue;
+      }
+      const float* base = Ptr<float>(lgs[lv]).c();
+      const float* l = base + d * 12;  // 48 octets par lumiere : direction @0, color @16, levels @32
+      if (!(l[8] > 0.f)) {
+        continue;
+      }
+      gs.recharged_regime_w[i] = lvw[lv] * l[8];
+      for (int j = 0; j < 3; j++) {
+        gs.recharged_regime_slot_dir[i][j] = l[j];
+        gs.recharged_regime_slot_lgt[i][j] = l[4 + j];
+      }
+      tfrag3::lightbake::MoodLight m;
+      for (int j = 0; j < 3; j++) {
+        m.direction[j] = l[j];
+        m.lgt[j] = l[4 + j];
+        m.amb[j] = base[3 * 12 + 4 + j];  // ambi du groupe, faute de mieux
+      }
+      if (tables[lv]) {
+        const float* tab = Ptr<float>(tables[lv]).c();
+        for (int s = 0; s < 8; s++) {
+          const float* e = tab + s * 20;  // 80 octets : direction, lgt, prt, amb, shadow
+          bool same = true;
+          for (int j = 0; j < 3 && same; j++) {
+            same = e[j] == l[j] && e[4 + j] == l[4 + j];
+          }
+          if (same) {
+            for (int j = 0; j < 3; j++) {
+              m.amb[j] = e[12 + j];
+            }
+            gs.recharged_regime_matched[i] = true;
+            break;
+          }
+        }
+      }
+      gs.recharged_regime[i] = tfrag3::lightbake::classify_regime(m);
+      any_light = true;
+      all_matched = all_matched && gs.recharged_regime_matched[i];
+    }
+  }
+  gs.recharged_regime_valid = any_light;
+  static u64 s_matched = 0, s_fallback = 0;
+  if (any_light && all_matched) {
+    s_matched++;
+  } else if (any_light) {
+    s_fallback++;
+  }
+  autoport_proof::publish("regime_table_matched_frames", s_matched);
+  autoport_proof::publish("regime_fallback_frames", s_fallback);
+}
+
 // Grecharged-realtime-lighting (2026-07-19 REWRITE): SUN-ONLY realtime lighting toggles,
 // pushed from GOAL each frame. rt-light! = master.
 void pc_set_rt_light(u32 sym) {
@@ -5009,6 +5098,7 @@ void InitMachine_PCPort() {
   make_function_symbol_from_c("pc-set-pbr-sky-sun!", (void*)pc_set_pbr_sky_sun);
   make_function_symbol_from_c("pc-set-pbr-green-sun!", (void*)pc_set_pbr_green_sun);
   make_function_symbol_from_c("pc-set-pbr-lights!", (void*)pc_set_pbr_lights);
+  make_function_symbol_from_c("pc-set-mood-regime!", (void*)pc_set_mood_regime);
   // Grecharged-realtime-lighting: SUN-ONLY realtime lighting master
   make_function_symbol_from_c("pc-set-rt-light!", (void*)pc_set_rt_light);
   // lighting-legacy-purge (2026-09-11) : les ponts de l'ombre portee (res/dist/force), de

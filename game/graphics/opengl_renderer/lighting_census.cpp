@@ -197,6 +197,11 @@ std::atomic<uint64_t> s_legacy_uniform_control{0};   // temoin : programmes ou u
 // compteur dit combien de programmes du monde LISENT encore la SH. Zero = la feature est partie ;
 // la porte de l'item le compte comme un SITE (kmachine.cpp), donc un rouge, jamais un silence.
 std::atomic<uint64_t> s_sh_reader_programs{0};
+// lighting-regimes (SPEC §4.10, annexe D.4) : le SUCCESSEUR de `u_rt_sh`. L'ambiante SH reportee
+// est RETIREE par cet item ; ce qui la remplace est l'environnement MESURE, `u_env_sh`. Le compte
+// ci-dessus doit tomber a zero, celui-ci doit rester non nul — sinon la forme mesuree n'a aucun
+// lecteur et la feature validee (l'ambiante directionnelle) serait perdue au lieu d'etre remplacee.
+std::atomic<uint64_t> s_env_sh_reader_programs{0};
 std::unordered_map<unsigned, char> s_legacy_probed;
 
 // Sonde un programme une seule fois. Appelee depuis la relecture d'un draw par image, donc sur
@@ -222,6 +227,9 @@ void legacy_probe_program(unsigned prog) {
   // que GL resout, et la meme que `gl_uniform_cache.cpp` pousse (`kKept`).
   if (glGetUniformLocation(prog, "u_rt_sh[0]") >= 0) {
     s_sh_reader_programs.fetch_add(1, std::memory_order_relaxed);
+  }
+  if (glGetUniformLocation(prog, "u_env_sh[0]") >= 0) {
+    s_env_sh_reader_programs.fetch_add(1, std::memory_order_relaxed);
   }
 }
 
@@ -472,6 +480,8 @@ void publish_locked() {
                             s_legacy_uniform_control.load(std::memory_order_relaxed));
     autoport_proof::publish("lighting_legacy_sh_readers",
                             s_sh_reader_programs.load(std::memory_order_relaxed));
+    autoport_proof::publish("lighting_env_sh_readers",
+                            s_env_sh_reader_programs.load(std::memory_order_relaxed));
     // Une cle de TEXTE ne se vide jamais toute seule : liste vide => "-", sinon la derniere
     // liste non vide resterait a cote d'un compte a zero.
     autoport_proof::publish_text("lighting_legacy_uniform_list", names.empty() ? "-" : names.c_str());
@@ -1082,6 +1092,9 @@ uint64_t legacy_uniform_control() {
 }
 uint64_t sh_reader_programs() {
   return s_sh_reader_programs.load(std::memory_order_relaxed);
+}
+uint64_t env_sh_reader_programs() {
+  return s_env_sh_reader_programs.load(std::memory_order_relaxed);
 }
 
 void publish() {
