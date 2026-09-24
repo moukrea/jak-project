@@ -86,6 +86,9 @@ bad=0
 [ "$(kv host_f2i_model_mismatches)" = 0 ] || bad=1
 [ "$(kv host_matcher_defects)" = 0 ] || bad=1
 stride=$(kv parity_f2i_sweep_stride); [ -z "$stride" ] || [ "$stride" = 1 ] || bad=1
+# Le balayage doit couvrir les 2^32 motifs : le 25/09, un fil finissait a (uint32_t)2^32 = 0
+# et le dernier quart (negatifs <= -2, -Inf, NaN negatifs) n'etait jamais execute.
+[ "$(kv parity_f2i_sweep_cases)" = 4294967296 ] || bad=1
 echo "codegen_parity_state=$([ "$bad" = 0 ] && echo ok || echo defaut)"
 verdict "$bad"
 exit 0

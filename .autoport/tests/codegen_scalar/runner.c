@@ -93,16 +93,21 @@ static void f2i_check_one(f2i_fn new_fn, f2i_fn legacy_fn, uint32_t bits) {
 
 typedef struct {
   f2i_fn new_fn, legacy_fn;
-  uint32_t start, end;  /* half-open range of bit patterns, [start,end) */
+  uint64_t start, end;  /* half-open range of bit patterns, [start,end) ; 64-bit: the
+                           last thread ends at 2^32, which a uint32_t would wrap to 0 */
   uint32_t stride;
 } SweepArg;
 
+static uint64_t g_f2i_sweep_cases, g_f2i_sweep_expected;
+
 static void* sweep_thread(void* argp) {
   SweepArg* a = (SweepArg*)argp;
-  uint64_t bits = a->start;
+  uint64_t bits = a->start, n = 0;
   for (; bits < a->end; bits += a->stride) {
     f2i_check_one(a->new_fn, a->legacy_fn, (uint32_t)bits);
+    n++;
   }
+  __atomic_fetch_add(&g_f2i_sweep_cases, n, __ATOMIC_RELAXED);
   return NULL;
 }
 
@@ -118,8 +123,9 @@ static void run_f2i_sweep(f2i_fn new_fn, f2i_fn legacy_fn, uint32_t stride) {
     if (end > total) end = total;
     args[i].new_fn = new_fn;
     args[i].legacy_fn = legacy_fn;
-    args[i].start = (uint32_t)start;
-    args[i].end = (uint32_t)end;
+    args[i].start = start;
+    args[i].end = end;
+    if (end > start) g_f2i_sweep_expected += (end - start + stride - 1) / stride;
     args[i].stride = stride;
     pthread_create(&th[i], NULL, sweep_thread, &args[i]);
   }
@@ -398,6 +404,8 @@ int main(int argc, char** argv) {
     run_f2i_sweep((f2i_fn)kernel_ptr(f2i_new_full), (f2i_fn)kernel_ptr(f2i_legacy_full), stride);
   }
   printf("parity_f2i_sweep_stride=%u\n", stride);
+  printf("parity_f2i_sweep_cases=%llu\n", (unsigned long long)g_f2i_sweep_cases);
+  printf("parity_f2i_sweep_expected=%llu\n", (unsigned long long)g_f2i_sweep_expected);
 
   for (uint32_t i = 0; i < g_n_kernels; i++) {
     Entry* e = &g_entries[i];
@@ -440,7 +448,9 @@ int main(int argc, char** argv) {
   uint64_t total_bad = g_f2i_new_bad + g_f2i_legacy_bad + g_div_new_vs_legacy_bad +
                        g_div_x8_clobbered + g_div_new_vs_x86_bad + g_swz_new_bad + g_swz_legacy_bad +
                        g_swz_canary_bad + g_pshuf_new_bad + g_pshuf_legacy_bad + g_pshuf_canary_bad +
-                       (g_div_zero_kernels - g_div_zero_trapped);
+                       (g_div_zero_kernels - g_div_zero_trapped) +
+                       /* an incomplete sweep is a defect, not a smaller green */
+                       (g_f2i_sweep_expected == 0 || g_f2i_sweep_cases != g_f2i_sweep_expected);
   uint64_t kernels_run = g_n_kernels;
 
   clock_gettime(CLOCK_MONOTONIC, &t1);
