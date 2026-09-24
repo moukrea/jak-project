@@ -5715,7 +5715,9 @@ items:
   prompt: prompts/item-lighting-bake.md
   owner_ok: null
   device: false
-  where: 'les quatre niveaux de la premiere livraison : village1, swamp, lavatube, snow'
+  where: 'Rien de visible a l''ecran : c''est la fondation (l''eclairage de Naughty Dog separe en ambiante
+    + soleil, verifie au chargement sur village, marais, tube de lave, neige). A valider sur parole, ou
+    a laisser se valider avec le chantier suivant qui le rend visible.'
   known_cause: 'LIS D''ABORD prompts/SPEC-refonte-lumiere.md : c''est le contrat, il porte le detail que
     ce prompt ne repete pas. Le chemin valide fait color.rgb *= rt_mod : le soleil teinte le bake au lieu
     de s''y ajouter, donc il ne peut jamais eclairer ce que le bake a laisse sombre. La decomposition
@@ -7835,8 +7837,7 @@ items:
     op: ==
     value: 0
   device: true
-  depends_on:
-  - perf-codegen-arm64-calls
+  depends_on: []
   where: 'rien a voir : identique au pixel et a la pose'
   known_cause: 'IGenARM64.cpp : float->int scalaire = 9 instr (:2020-2050, parite de saturation x86 par
     2 FCMP + 2 CSEL), division entiere 9-10 (:1174-1326, spill de X8), swizzle general = ORR + 4 INS (:2596-2620)
@@ -7860,6 +7861,9 @@ items:
   prompt: prompts/item-perf-codegen-arm64-scalar.md
   device_serial: eae4df44
   block_reason: null
+  dependency_redirects:
+  - '2026-09-24 perf-codegen-arm64-calls retiree : archive sans successeur (abandonne faute de gain mesure)
+    — l''attendre gelait l''item (harness-dead-dependency-is-named-never-silent)'
 - id: perf-codegen-arm64-regs
   feature: Le compilateur GOAL utilise les 31 registres de l'arm64
   status: open
@@ -7965,8 +7969,6 @@ items:
   - perf-dma-chain-copies
   - perf-gl-state
   - perf-sky-distort
-  - perf-mips2c-neon
-  - perf-codegen-arm64-calls
   - perf-instrument-cost
   where: 'toutes les options Recharged OFF, 21:9, 2400x1080, compteur d''images a l''ecran : 60 stable
     en village1, beach, jungle'
@@ -8002,6 +8004,11 @@ items:
   - date: '2026-09-11'
     text: 74 au lieu de 71 et 91 au lieu de 84 respectivement... mais le HONOR ne struggle pas, c'est
       probablement plus sur le Redmi
+  dependency_redirects:
+  - '2026-09-24 perf-mips2c-neon retiree : archive sans successeur (abandonne faute de gain mesure) —
+    l''attendre gelait l''item (harness-dead-dependency-is-named-never-silent)'
+  - '2026-09-24 perf-codegen-arm64-calls retiree : archive sans successeur (abandonne faute de gain mesure)
+    — l''attendre gelait l''item (harness-dead-dependency-is-named-never-silent)'
 - id: recharged-gating-real
   feature: Eteindre une option eteint VRAIMENT ce qui en depend, et l'eclairage a son sous-menu
   status: validated
