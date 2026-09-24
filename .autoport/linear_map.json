@@ -36,7 +36,7 @@
    "url": "https://linear.app/moukrea/document/e1fe9500339a"
   }
  },
- "_gen": 373,
+ "_gen": 381,
  "_ids": {
   "labels": {
    "ok": "000e105b-24ba-4fa3-a579-bc3bf0869242",
@@ -586,6 +586,14 @@
   ],
   "url": "https://linear.app/moukrea/issue/JAK-123/une-touffe-abritee-bouge-moins-quune-touffe-exposee-et-cest-cuit"
  },
+ "harness-acquis-leftovers": {
+  "hash": "a617629b883f2f72028f024d91d280516ad8b614",
+  "identifier": "JAK-276",
+  "issue_id": "a28b802f-0cfb-4df8-bbd7-32831348bdba",
+  "last_state": "Todo",
+  "pulled_at": "2026-09-24T15:08:18.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-276/restes-des-acquis-un-acquis-coupe-ne-laisse-plus-dorphelin-et-tous-les"
+ },
  "harness-archive-and-status-write-leftovers": {
   "hash": "25cd0634829c0ec751e813691d3bb15e29be9404",
   "identifier": "JAK-263",
@@ -708,13 +716,13 @@
   "url": "https://linear.app/moukrea/issue/JAK-162/la-fabrication-des-apk-reprend-apres-un-refus-de-donnees-precalculees"
  },
  "harness-device-acquis-hardening": {
-  "hash": "46b3f0ac6c6faa04b9776b6ec77696b53c005db7",
+  "hash": "785c052b8cc4bab4548a30cf6c784234802de3be",
   "identifier": "JAK-260",
   "issue_id": "5af913a5-e4b9-4c00-814d-549f8e27cfbb",
-  "last_state": "In Progress",
+  "last_state": "Done",
   "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-23T06:08:38.000Z",
-  "state_at": "2026-09-24T14:07:27.205Z",
+  "state_at": "2026-09-24T14:45:25.868Z",
   "url": "https://linear.app/moukrea/issue/JAK-260/les-acquis-sur-appareil-partagent-une-seule-garde-de-preuve-ont-leur"
  },
  "harness-device-deploy-gate-must-compare-the-asset-pack": {
@@ -1622,24 +1630,25 @@
   "url": "https://linear.app/moukrea/issue/JAK-56/du-redmi-au-snapdragon-8-elite-des-paliers-et-chaque-ajout-debrayable"
  },
  "lighting-regimes": {
-  "hash": "ace86b23c034b2437e368456fac54ea6f993d98d",
+  "hash": "3b2d61995cd6c16f5b9c848bb7a0fe104262ae79",
   "identifier": "JAK-50",
   "issue_id": "c0ae94ec-54bb-4d1d-bd7c-880e12a25428",
-  "last_state": "Todo",
-  "pulled_at": "2026-09-17T05:36:55.000Z",
+  "last_state": "In Progress",
+  "last_verdict_announced": "validator-001.txt",
+  "pulled_at": "2026-09-24T15:37:40.147Z",
   "relations": [
    "lighting-bake"
   ],
-  "state_at": "2026-09-24T14:17:47.562Z",
+  "state_at": "2026-09-24T14:45:24.951Z",
   "url": "https://linear.app/moukrea/issue/JAK-50/la-lumiere-cle-nest-pas-toujours-un-soleil"
  },
  "lighting-shadows": {
-  "hash": "4a594e2ffc3d7f4fa475346c757a3b2560b87ffa",
+  "hash": "6df8701982152f926c19348739419388ddf5fdff",
   "identifier": "JAK-51",
   "issue_id": "923462dc-521a-4c79-ba5f-2e2e8cc4c758",
   "last_state": "Todo",
   "last_verdict_announced": "validator-003.txt",
-  "pulled_at": "2026-09-24T14:38:59.790Z",
+  "pulled_at": "2026-09-24T15:25:26.089Z",
   "relations": [
    "ao-prepass-tie-alpha",
    "lighting-ao-indirect",
@@ -1717,6 +1726,14 @@
   "last_state": "Done",
   "pulled_at": "2026-09-17T10:08:16.165Z",
   "url": "https://linear.app/moukrea/issue/JAK-173"
+ },
+ "owner-level-teleport-menu": {
+  "hash": "f6d8867afa9428458913dc659bdf8eccf3016f78",
+  "identifier": "JAK-277",
+  "issue_id": "369d9397-a686-4914-b66f-33b6c4b774fa",
+  "last_state": "Todo",
+  "pulled_at": "2026-09-24T15:39:50.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-277/un-menu-de-teleportation-vers-nimporte-quel-niveau-ouvert-par-une"
  },
  "owner-opus-5-5": {
   "hash": "9241c2e3f75e3473aaa0f078e2199acd72feebda",
