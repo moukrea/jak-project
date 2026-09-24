@@ -5825,6 +5825,14 @@ items:
       comment: 3648ea39-91b7-42c2-806c-fe6777cb3654
       ticket: c0ae94ec-54bb-4d1d-bd7c-880e12a25428
       at: '2026-09-24T20:46:16.993Z'
+  - date: '2026-09-24'
+    text: Difficile de savoir si la lumière de swamp et lavatube  ne vient plus d'un soleil invisible
+      en l'état, je pense que le baked y joue beaucoup, on doit pas attendre d'autres chantiers de la
+      lumière pour vraiment vérifier ?
+    via:
+      comment: d97ec7fd-89b2-4600-81e9-3af391439c57
+      ticket: c0ae94ec-54bb-4d1d-bd7c-880e12a25428
+      at: '2026-09-24T23:40:06.604Z'
   gate:
     key: regime_sun_override_wrong
     op: ==
@@ -6044,7 +6052,9 @@ items:
   prompt: prompts/item-lighting-shadows.md
   owner_ok: null
   device: true
-  where: l'ombre de Jak et des PNJ au sol, et le matin quand les deux astres sont leves
+  where: 'l''ombre de Jak et des PNJ au sol, et le matin quand les deux astres sont leves ; et dans le
+    marais et le tube de lave : l''ombre doit montrer que la lumiere ne vient plus d''un soleil invisible
+    (verification reportee de lighting-regimes, owner 25/09).'
   known_cause: 'LIS D''ABORD prompts/SPEC-refonte-lumiere.md : c''est le contrat, il porte le detail que
     ce prompt ne repete pas. Une seule cascade attribuee a « l''astre le plus haut », avec fondu et EMA
     pour cacher une bascule qui n''a pas lieu d''etre : les deux astres sont leves ENSEMBLE 3 h 30 par
@@ -8074,7 +8084,7 @@ items:
   max_retries: 10
 - id: perf-codegen-arm64-scalar
   feature: float vers int, division et swizzle en une ou deux instructions
-  status: in-progress
+  status: to-test
   priority: 54
   game: jak1
   gate:
@@ -8109,6 +8119,14 @@ items:
   dependency_redirects:
   - '2026-09-24 perf-codegen-arm64-calls retiree : archive sans successeur (abandonne faute de gain mesure)
     — l''attendre gelait l''item (harness-dead-dependency-is-named-never-silent)'
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-25'
+    proof_sha: ed4f85ef34dcd1f9
+    proof_bytes: 72500
+    attempt: 1
+    journal: validator-001.txt
+  delivered: '2026-09-25'
 - id: perf-codegen-arm64-regs
   feature: Le compilateur GOAL utilise les 31 registres de l'arm64
   status: open
@@ -19572,7 +19590,7 @@ items:
     journal: validator-001.txt
 - id: harness-linear-watch-comment-matches-its-period
   feature: Le commentaire de linear_watch.sh dit la vraie frequence de la veille Linear
-  status: open
+  status: in-progress
   priority: 56
   code_scope: harnais
   device: false
@@ -19597,6 +19615,7 @@ items:
 
     CONTROLE POSITIF fabrique (le defaut semé rougit la porte et est NOMME) + CONTROLE NEGATIF (cas sain
     a 0). Publier le denominateur.'
+  no_code: true
 - id: harness-codex-supervisor-launched-by-hand-is-seen
   feature: Un superviseur Codex lance a la main est vu vivant par le harnais
   status: open
