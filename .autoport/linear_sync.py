@@ -788,7 +788,21 @@ def ensure_view(L, team_id, label_id, name="À lire", icon="Inbox", color="#f299
 def swap_labels(L, issue_id, add=None, remove=None):
     """Pose `add`, retire `remove` (un id d'etiquette ou une liste d'ids), en une ecriture. Sur un ticket archive, la lecture passe
     mais l'ecriture rend « Entity not found » : `on_ticket` le ressort et rejoue le tout."""
-    on_ticket(L, issue_id, lambda: _swap_labels(L, issue_id, add, remove))
+    # ARCHIVE-LEFTOVERS/ : meme regle que `post_comment` — une etiquette ne ressort pas le ticket d'un item archive.
+    on_ticket(L, issue_id, lambda: _swap_labels(L, issue_id, add, remove), revive=_may_revive_issue(issue_id))
+
+
+def _may_revive_issue(issue_id):
+    """`comment_may_revive` pour un ticket : son item (carte) et l'item RELU (backlog en contexte ou disque)."""
+    iid, rec = _rec_of(issue_id)
+    iid = iid or _item_of_issue(issue_id)
+    if not iid:
+        return True
+    try:
+        it = (_CTX.get("bl") or B.load()).get(iid) or {}
+    except Exception:  # noqa: BLE001 — backlog illisible : comportement d'avant
+        it = {}
+    return comment_may_revive(it, rec)
 
 
 def _swap_labels(L, issue_id, add, remove):
@@ -910,6 +924,13 @@ def owner_user_id(L, mp):
     return d["id"]
 
 
+def comment_may_revive(item, rec):
+    """ARCHIVE-LEFTOVERS/ : un message peut-il ressortir le ticket des archives ? Non si l'item est archive
+    dans le backlog ou si l'owner a archive le ticket (`owner_archived_at`) ; oui pour un chantier vivant
+    dont le ticket a ete archive par le harnais faute de place (`harness_archived_at`)."""
+    return not ((item or {}).get("status") == "archived" or (rec or {}).get("owner_archived_at"))
+
+
 def post_comment(L, issue_id, body, parent=None, capture_failed=""):
     """LE SEUL endroit d'ou le harnais poste un commentaire.
 
@@ -947,12 +968,20 @@ def post_comment(L, issue_id, body, parent=None, capture_failed=""):
     i = {"issueId": issue_id, "body": body}
     if parent:
         i["parentId"] = parent
+    # ARCHIVE-LEFTOVERS/ (24/09) : le refus de `worker_comment_refused` ne vise que les ESSAIS ; un message
+    # du superviseur (ou de la synchro) sur le ticket d'un item ARCHIVE ressortait le ticket des archives et
+    # defaisait le geste de l'owner. Ici, point de production unique : un item archive, ou un ticket archive
+    # par l'owner, n'est JAMAIS ressorti pour un message ; le message ne part pas et c'est DIT.
+    _revive = _may_revive_issue(issue_id) if _iid else True
     r = on_ticket(L, issue_id, lambda: L.q('mutation($i:CommentCreateInput!){ commentCreate(input:$i){ success comment { id } } }',
-                                           i=i))
+                                           i=i), revive=_revive)
     # LE REGISTRE DES COMMENTAIRES, ecrit ICI parce que c'est le seul point de production : la porte
     # de fermeture (`lib/owner_capture`) y lit si l'essai a joint une capture a son ticket.
     # Un registre qui tombe ne fait pas tomber le message deja poste : il est NOMME.
     if r is LEFT_ARCHIVED:
+        if not _revive:
+            print("COMMENTAIRE NON POSTE : %s est ARCHIVE (par l'owner ou dans le backlog) ; son ticket reste "
+                  "archive, le message n'est pas parti" % _iid)
         return r   # rien n'est parti : rien a inscrire
     try:
         cid = (((r or {}).get("commentCreate") or {}).get("comment") or {}).get("id", "") if isinstance(r, dict) else ""
@@ -1194,7 +1223,17 @@ def adopted_item(iid, iss):
             "max_turns": 600, "max_retries": 6, "proof_timeout": 420, "no_code": True,
             "known_cause": "Ticket cree par l'owner dans Linear le %s. Son texte : %s" % (dt.date.today().isoformat(), (iss.get("description") or "").strip()),
             "notes": B.AWAITING_FRAMING_NOTE,
-            "where": "", "deliverable": "", "out_of_scope": "", "spec": None}
+            "where": "", "deliverable": "", "out_of_scope": "", "spec": None,
+            "linear_issue": iss["id"]}
+
+
+def adoption_id(items, base):
+    """ARCHIVE-LEFTOVERS/ : le premier id `owner-<base>[-k]` libre dans `items` (la liste RELUE sous le verrou)."""
+    ids = {it.get("id") for it in items}
+    iid, k = "owner-" + base, 2
+    while iid in ids:
+        iid = "owner-%s-%d" % (base, k); k += 1
+    return iid
 
 
 def adopt_owner_issues(L, bl, mp, team, todo_id, dry):
@@ -1227,22 +1266,29 @@ def adopt_owner_issues(L, bl, mp, team, todo_id, dry):
             print("TICKET DU HARNAIS NON RELIE : %s (%s) — jamais adopte comme ticket de l'owner" % (iss["identifier"], what))
             continue
         base = re.sub(r"[^a-z0-9]+", "-", iss["title"].lower().encode("ascii", "ignore").decode()).strip("-")[:48] or "ticket"
-        iid = "owner-" + base
-        k = 2
-        while bl.get(iid):
-            iid = "owner-%s-%d" % (base, k); k += 1
-        print("NOUVEAU TICKET OWNER : %s « %s » -> item %s (a cadrer par le superviseur)" % (iss["identifier"], iss["title"][:60], iid))
         if dry:
+            print("NOUVEAU TICKET OWNER : %s « %s » -> item %s (a cadrer par le superviseur)"
+                  % (iss["identifier"], iss["title"][:60], adoption_id(bl.items, base)))
             continue
-        item = adopted_item(iid, iss)
         path = bl.path
         with B._Lock(path):
             fresh = B._read(path)
+            # ARCHIVE-LEFTOVERS/ (24/09) : l'id est choisi SOUS LE VERROU, sur la liste RELUE. Choisi sur la copie
+            # de debut de passe, deux adoptions simultanees du meme titre donnaient deux items au meme id ; et un
+            # ticket deja adopte par un autre passage (meme `linear_issue`) n'est pas adopte deux fois.
+            deja = next((it.get("id") for it in fresh["items"] if it.get("linear_issue") == iss["id"]), None)
+            if deja:
+                print("TICKET OWNER DEJA ADOPTE : %s -> item %s (par un autre passage) ; rien n'est cree"
+                      % (iss["identifier"], deja))
+                continue
+            iid = adoption_id(fresh["items"], base)
+            item = adopted_item(iid, iss)
             fresh["items"].append(item)
             B._atomic_write(path, B._dump(fresh))
             # UN GESTE DE L'OWNER, quel que soit le processus qui l'a tire : `suite_gate` ne l'impute
             # pas a l'essai qui tourne (JAK-265 a coute l'essai 2 d'un chantier innocent le 23/09).
             B.record_gesture(path, "linear_sync", "adopt_owner_issues", [(iid, None, item)])
+        print("NOUVEAU TICKET OWNER : %s « %s » -> item %s (a cadrer par le superviseur)" % (iss["identifier"], iss["title"][:60], iid))
         mp[iid] = {"issue_id": iss["id"], "identifier": iss["identifier"], "url": "https://linear.app/moukrea/issue/" + iss["identifier"],
                    "last_state": iss["state"]["name"], "hash": "", "pulled_at": PULL_FROM_START}
         _say(L, {"issue_id": iss["id"]}, "Ticket adopté par le harnais (item « %s »). Il n'a pas encore de porte de mesure : le superviseur le cadre, puis il entrera dans la file. Ta description est conservée dans l'item." % iid)
@@ -2201,7 +2247,10 @@ def main():
             _b = OCAP.published_build(HOME)
             body += "\n\nCapture impossible : %s. Build a tester : %s (publie le %s)." % (
                 a.no_capture.strip(), _b.get("tag", "aucun"), _b.get("date", "jamais"))
-        post_comment(L, ticket, body, parent=parent, capture_failed=a.no_capture)
+        if post_comment(L, ticket, body, parent=parent, capture_failed=a.no_capture) is LEFT_ARCHIVED:
+            # ARCHIVE-LEFTOVERS/ : ni etiquette (elle ressortirait le ticket), ni silence : l'appelant le lit.
+            raise SystemExit("COMMENTAIRE NON POSTE : le ticket de %s est archive et n'est pas ressorti "
+                             "(item archive ou archivage de l'owner)" % a.comment)
         if not parent:
             # Un message hors fil n'eteint AUCUN retour (23/09) : le dire au moment ou il part.
             try:
@@ -2256,7 +2305,8 @@ def main():
             def _poster(_iid, _ticket, _body):
                 if not _ticket:
                     return False
-                post_comment(L, _ticket, mark(L) + _body)
+                if post_comment(L, _ticket, mark(L) + _body) is LEFT_ARCHIVED:
+                    return False   # ARCHIVE-LEFTOVERS/ : ticket archive laisse archive, rien n'est parti
                 swap_labels(L, _ticket, add=label, remove=todo)
                 return True
 

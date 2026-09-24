@@ -744,6 +744,41 @@ class Backlog:
             self._verdict_bump(item_id, self.verdict_count(self.get(item_id) or {}), autorise)
         return self.get(item_id)
 
+    # ARCHIVE-LEFTOVERS/set_field — harness-archive-and-status-write-leftovers (24/09).
+    # `set_status(iid, <statut lu en memoire>, champ=...)` etait le seul moyen generique de poser
+    # un champ : il reecrivait le statut de la copie tenue en memoire par-dessus celui qu'un autre
+    # ecrivain avait pose depuis (orchestrateur, synchro Linear, superviseur). `set_field` pose des
+    # champs sur l'item RELU sous le verrou (`update`) et ne touche JAMAIS au statut.
+    CHAMPS_PAR_LEUR_ECRIVAIN = {"status": "set_status", "owner_feedback": "add_owner_feedback",
+                                "deliverable": "set_status", "code_scope": "set_scope", "id": "-"}
+
+    def set_fields(self, item_id, **fields):
+        """Pose `fields` sur l'item relu sous le verrou ; le statut n'est ni lu ni ecrit ici."""
+        for k in fields:
+            if k in self.CHAMPS_PAR_LEUR_ECRIVAIN:
+                raise BacklogError("REFUS : `%s` ne se pose pas par set_field (son ecrivain : %s)"
+                                   % (k, self.CHAMPS_PAR_LEUR_ECRIVAIN[k]))
+
+        def change(target, _items):
+            for k, v in fields.items():
+                target[k] = v
+            return True
+        self.update(item_id, change)
+        return self.get(item_id)
+
+    def set_field(self, item_id, champ, valeur):
+        """UN champ, sans toucher au statut. Voir `set_fields`."""
+        return self.set_fields(item_id, **{champ: valeur})
+
+    def append_note(self, item_id, ligne):
+        """Prolonge `notes` de l'item RELU sous le verrou (jamais la copie en memoire)."""
+        def change(target, _items):
+            target["notes"] = ((target.get("notes") or "").rstrip() + "\n" + ligne).strip()
+            return True
+        self.update(item_id, change)
+        return self.get(item_id)
+    # ARCHIVE-LEFTOVERS/fin
+
     def set_scope(self, item_id, scope, source="-"):
         """PERIMETRE/champ-explicite — LE SEUL ECRIVAIN de `code_scope`, et il prend le verrou.
 

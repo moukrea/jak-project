@@ -2610,6 +2610,101 @@ def _write_status(bk, item_id: str, status: str, **fields) -> bool:
 # ARCHIVE-OWNER/fin
 
 
+# ARCHIVE-LEFTOVERS/debut — harness-archive-and-status-write-leftovers (24/09).
+# Trois restes de la coupure par archivage. (a) La detection suivait la tranche du `select`
+# (READ_POLL_SEC, 5 s) : un worker silencieux ecrivait encore reports/<id>/ pendant ce temps ; elle
+# tourne maintenant a la seconde (un stat), et `hooks/pre-tool.sh` refuse tout outil d'un essai dont
+# l'item est archive. (b) `_kill` ne vise que le GROUPE du worker, et `proc.wait` n'attend que son
+# chef : un membre qui survit au SIGTERM ecrivait APRES la sauvegarde, et une course lancee hors du
+# groupe (setsid, gk) restait orpheline. `_reap_attempt` arrete, par PID exact apparie a son
+# `starttime`, le groupe ET tout processus portant `AUTOPORT_ATTEMPT_ID` de l'essai, et ATTEND leur
+# mort avant que le travail soit sauve. (c) Le travail sauve sous [autoport/owner-archive] etait
+# invisible : il est nomme dans les notes de l'item (commit, chemins, processus arretes).
+ARCHIVE_POLL_SEC = 1.0
+REAP_GRACE_SEC = 3.0          # SIGTERM -> SIGKILL
+REAP_KILL_WAIT_SEC = 2.0      # SIGKILL -> constat
+
+
+def _proc_stat(pid: int):
+    """(pgrp, starttime, etat) de /proc/<pid>/stat, ou None si le processus n'existe plus."""
+    try:
+        raw = Path(f"/proc/{pid}/stat").read_text()
+    except OSError:
+        return None
+    rest = raw[raw.rfind(")") + 2:].split()
+    try:
+        return int(rest[2]), rest[19], rest[0]
+    except (IndexError, ValueError):
+        return None
+
+
+def attempt_processes(token: str, pgid: int = 0) -> dict:
+    """{pid: starttime} des processus VIVANTS de l'essai : membres du groupe `pgid`, ou porteurs de
+    `AUTOPORT_ATTEMPT_ID=<token>` dans leur environnement (une donnee, jamais un motif de ligne de
+    commande). L'orchestrateur lui-meme est exclu."""
+    me = os.getpid()
+    want = f"AUTOPORT_ATTEMPT_ID={token}".encode() if token else None
+    out = {}
+    for d in os.listdir("/proc"):
+        if not d.isdigit() or int(d) == me:
+            continue
+        pid = int(d)
+        st = _proc_stat(pid)
+        if st is None or st[2] == "Z":
+            continue
+        hit = bool(pgid) and st[0] == pgid
+        if not hit and want:
+            try:
+                hit = want in Path(f"/proc/{pid}/environ").read_bytes().split(b"\0")
+            except OSError:
+                hit = False
+        if hit:
+            out[pid] = st[1]
+    return out
+
+
+def _alive(pid: int, start: str) -> bool:
+    st = _proc_stat(pid)
+    return bool(st) and st[1] == start and st[2] != "Z"
+
+
+def _reap_attempt(token: str, pgid: int = 0) -> dict:
+    """Arrete les processus de l'essai et ATTEND leur mort. Rend {found, killed, survived, names}."""
+    found = attempt_processes(token, pgid)
+    names = []
+    for pid in found:
+        try:
+            names.append(f"{pid}:{Path(f'/proc/{pid}/comm').read_text().strip()}")
+        except OSError:
+            names.append(str(pid))
+    killed = 0
+    for sig, wait_s in ((signal.SIGTERM, REAP_GRACE_SEC), (signal.SIGKILL, REAP_KILL_WAIT_SEC)):
+        live = {p: t for p, t in found.items() if _alive(p, t)}
+        if not live:
+            break
+        for p in live:
+            try:
+                os.kill(p, sig)
+            except (ProcessLookupError, PermissionError):
+                pass
+        if sig == signal.SIGKILL:
+            killed += len(live)
+        end = time.monotonic() + wait_s
+        while time.monotonic() < end and any(_alive(p, t) for p, t in live.items()):
+            time.sleep(0.05)
+    survived = sum(1 for p, t in found.items() if _alive(p, t))
+    return {"found": len(found), "killed": killed, "survived": survived, "names": names}
+
+
+def _head_sha() -> str:
+    try:
+        return subprocess.run(["git", "rev-parse", "--short=10", "HEAD"], cwd=REPO_ROOT,
+                              capture_output=True, text=True, timeout=30).stdout.strip() or "?"
+    except Exception:  # noqa: BLE001
+        return "?"
+# ARCHIVE-LEFTOVERS/fin
+
+
 def _progress_fingerprint(item_id: str) -> str:
     """Cheap snapshot of what THIS attempt has actually produced.
 
@@ -3166,7 +3261,8 @@ def run_attempt(item: dict, state: dict) -> Outcome:
             stdout_fd = proc.stdout
             while True:
                 try:
-                    ready, _, _ = select.select([stdout_fd], [], [], READ_POLL_SEC)
+                    ready, _, _ = select.select([stdout_fd], [], [],
+                                                min(READ_POLL_SEC, ARCHIVE_POLL_SEC))
                 except (OSError, ValueError):
                     break                          # stdout closed underneath us
 
@@ -3403,6 +3499,19 @@ def run_attempt(item: dict, state: dict) -> Outcome:
         if counted:
             state["retries"][iid] = max(0, int(state["retries"].get(iid, 0)) - 1)
             save_state(state)
+        # ARCHIVE-LEFTOVERS/ : les processus de l'essai sont MORTS avant la sauvegarde — rien ne
+        # s'ecrit apres elle, et aucune course lancee hors du groupe ne survit a la coupure.
+        try:
+            # le groupe du worker n'est vise qu'a sa sortie : plus tard, son numero peut etre recycle
+            reap = _reap_attempt(attempt_token, proc.pid if stage in (
+                "pendant l'essai", "à la sortie du worker") else 0)
+        except Exception as e:  # noqa: BLE001
+            reap = {"found": -1, "killed": 0, "survived": -1, "names": [str(e)[:80]]}
+        if reap["found"]:
+            log(f"  processus de l'essai arrêtés : {reap['found']} trouvé(s), {reap['killed']} tué(s) "
+                f"au SIGKILL, {reap['survived']} survivant(s) ({', '.join(reap['names'][:6])})",
+                "yellow" if reap["survived"] == 0 else "red")
+        saved = "aucun travail à sauver"
         try:
             paths = worker_paths()
             if paths and git_commit_paths(
@@ -3410,8 +3519,27 @@ def run_attempt(item: dict, state: dict) -> Outcome:
                     f"l'archivage de l'owner — sauvé, ni jugé ni compté", paths):
                 log(f"  travail sauvé ({len(paths)} chemin(s)) sous [autoport/{ARCHIVE_CUT_LABEL}]",
                     "green")
+                saved = (f"travail sauvé dans le commit {_head_sha()} [autoport/{ARCHIVE_CUT_LABEL}], "
+                         f"{len(paths)} chemin(s) : {', '.join(paths[:8])}"
+                         + (" …" if len(paths) > 8 else ""))
+            elif paths:
+                saved = f"{len(paths)} chemin(s) modifié(s) NON commité(s) : {', '.join(paths[:8])}"
         except Exception as e:  # noqa: BLE001
             log(f"travail de l'essai archivé NON sauvé : {e}", "yellow")
+            saved = f"travail NON sauvé ({str(e)[:120]})"
+        # ARCHIVE-LEFTOVERS/ : le travail coupe est NOMME dans les notes de l'item (relu sous verrou).
+        try:
+            lib = str(AUTOPORT_DIR / "lib")
+            if lib not in sys.path:
+                sys.path.insert(0, lib)
+            import backlog as _bk
+            procs = (f" ; {reap['found']} processus de l'essai arrêtés, {reap['survived']} survivant(s)"
+                     if reap["found"] else "")
+            _bk.load(BACKLOG_PATH).append_note(
+                iid, f"{datetime.now().date().isoformat()} : essai {seq} coupé {stage} par "
+                     f"l'archivage de l'owner ; {saved}{procs}.")
+        except Exception as e:  # noqa: BLE001
+            log(f"travail coupé NON nommé dans les notes de {iid} : {e}", "yellow")
         log(f"⏹ {iid} ARCHIVÉ PAR L'OWNER ({stage}) : essai coupé, ni compté ni jugé, "
             f"aucun statut écrit", "yellow")
         return Outcome("archived", f"archivé par l'owner {stage}", seq=seq)

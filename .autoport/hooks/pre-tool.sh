@@ -21,6 +21,17 @@ TOOL=${HEAD%%$'\001'*}; REST=${HEAD#*$'\001'}; FP=${REST%%$'\001'*}; SID=${REST#
 
 refuse(){ printf '[autoport pre-tool] REFUS : %s\n\nA LA PLACE : %s\n' "$1" "$2" >&2; exit 2; }
 
+# ARCHIVE-LEFTOVERS/ — harness-archive-and-status-write-leftovers (24/09). L'owner a archive l'item
+# de CET essai : l'orchestrateur le voit dans la seconde et coupe, mais un outil lance entre-temps
+# ecrivait encore dans reports/<id>/, apres l'archivage. Le refus est ici, au point de production :
+# plus aucun outil ne part au nom d'un item archive. Un awk, sans tube : quelques ms.
+if [ -n "${AUTOPORT_PHASE_ID:-}" ]; then
+  _BL=${AUTOPORT_BACKLOG:-${CLAUDE_PROJECT_DIR:-.}/.autoport/backlog.yaml}
+  _ST=$(awk -v id="$AUTOPORT_PHASE_ID" '$0=="- id: "id{f=1;next} f&&/^- id:/{exit} f&&/^  status:/{print $2;exit}' "$_BL" 2>/dev/null)
+  [ "${_ST:-}" = archived ] && refuse "l'item ${AUTOPORT_PHASE_ID} est ARCHIVE par l'owner : l'essai est coupe, plus rien ne s'ecrit en son nom." \
+    "arrete-toi la, sans rien ecrire : l'orchestrateur sauve ton travail et le nomme dans les notes de l'item."
+fi
+
 # ---------------------------------------------------------------- Write / Edit / MultiEdit ----
 # On ne regarde QUE le chemin, jamais le contenu : un script qui PARLE d'adb n'est pas un
 # script qui LANCE adb, et juger le contenu ferait refuser l'ecriture de cette garde elle-meme.
