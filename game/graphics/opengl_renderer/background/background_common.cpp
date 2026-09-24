@@ -988,6 +988,10 @@ constexpr float kPenumbra[6] = {1.0f, 4.0f, 3.0f, 2.0f, 1.0f, 1.0f};
 constexpr float kSpec[6]     = {1.0f, 0.25f, 0.4f, 1.0f, 0.0f, 1.0f};
 constexpr float kCos30 = 0.8660254f;
 constexpr float kCos20 = 0.9396926f;
+// Contraste directionnel de l'ambiante (SPEC 6.2, « selon niveau ») : la forme du ciel capturee
+// est COMPRESSEE vers 1 de ce facteur puis bornee a [0,6 ; 1,4]. Une forme brute de ciel seul vaut
+// ~2 vers le haut et ~0 vers le bas : sans compression, toute face tournee vers le bas tombe au noir.
+constexpr float kAmbContrast = 0.5f;
 
 struct Frame {
   u64 frame = ~0ull;
@@ -3026,6 +3030,53 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
     lgt_4f(id, "u_rt_regime", rgm.direct_w, rgm.penumbra, rgm.spec_w, (float)rgm.dominant);
   } else {
     lgt_4f(id, "u_rt_regime", 1.f, 1.f, 1.f, 0.f);
+  }
+  // lighting-regimes essai 3 : ce que le CUIT contient (SPEC 5.2, ambiante PLATE — mesure de
+  // lighting-bake, art median 0,954) : x = luma de l'ambiante du groupe de lumieres, y = luma des
+  // lumieres de la table PROJETEES sur la cle poussee (chacune x son niveau x cos(ecart a la cle)),
+  // z = 1 si le groupe est pousse. Le shader en tire la part directe du cuit, la seule que l'ombre
+  // temps reel a le droit d'enlever. Memes unites que le cuit (octet/128, fragment_color x 2).
+  {
+    const auto& gs = Gfx::settings();
+    const float kl[3] = {0.299f, 0.587f, 0.114f};
+    float a_l = 0.f, l_l = 0.f;
+    const bool valid = gs.recharged_pbr_lg_valid && gs.recharged_regime_valid;
+    if (valid) {
+      for (int k = 0; k < 3; k++) {
+        a_l += kl[k] * std::max(0.f, gs.recharged_pbr_lg_ambi[k]);
+      }
+      PbrV3 key = {light_dir[0], light_dir[1], light_dir[2]};
+      if (pv_dot(key, key) > 1e-8f) {
+        key = pv_norm(key);
+      }
+      for (int i = 0; i < 4; i++) {
+        const float wi = std::max(0.f, gs.recharged_regime_w[i]);
+        if (wi <= 0.f) {
+          continue;
+        }
+        const float* d = gs.recharged_regime_slot_dir[i];
+        PbrV3 di = {d[0], d[1], d[2]};
+        if (pv_dot(di, di) <= 1e-8f) {
+          continue;
+        }
+        const float c = std::max(0.f, pv_dot(pv_norm(di), key));
+        float ll = 0.f;
+        for (int k = 0; k < 3; k++) {
+          ll += kl[k] * std::max(0.f, gs.recharged_regime_slot_lgt[i][k]);
+        }
+        l_l += wi * ll * c;
+      }
+    }
+    lgt_4f(id, "u_rt_bake_al", a_l, l_l, valid ? 1.f : 0.f, 0.f);
+    lgt_1f(id, "u_rt_amb_contrast", regime::kAmbContrast);
+    static u64 s_bake_frame = ~0ull;
+    if (s_bake_frame != render_state->frame_idx) {
+      s_bake_frame = render_state->frame_idx;
+      autoport_proof::publish("regime_bake_amb_x1000", (u64)std::lround(a_l * 1000.f));
+      autoport_proof::publish("regime_bake_lgt_x1000", (u64)std::lround(l_l * 1000.f));
+      autoport_proof::publish("regime_bake_valid", valid ? 1 : 0);
+      autoport_proof::publish("regime_amb_contrast_x1000", (u64)std::lround(regime::kAmbContrast * 1000.f));
+    }
   }
 #ifdef __ANDROID__
   // Deterministic state-dump (owner prefers this to eyeballing): green-sun elevation weight, yellow-sun

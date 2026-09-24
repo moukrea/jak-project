@@ -120,6 +120,12 @@ uniform vec4 u_rt_regime;
 // vanishes here, leaving ONLY the ~0.2 sky-fill floor. Set identically for all four world
 // shaders (they share first_tfrag_draw_setup), so no path stays lit at night.
 uniform float u_rt_sun_elev;
+// lighting-regimes essai 3 : ce que le cuit contient (C++ : background_common.cpp, pres de
+// `u_rt_regime`). x = luma de l'ambiante PLATE du groupe de lumieres, y = luma des lumieres de la
+// table projetees sur la cle, z = 1 si pousse. Memes unites que `Surface.baked` (octet/128).
+uniform vec4 u_rt_bake_al;
+// Contraste directionnel de l'ambiante (SPEC 6.2) : 0 = ambiante plate, 1 = forme du ciel brute.
+uniform float u_rt_amb_contrast;
 // lighting-shadows (SPEC §4.8/§3.4) : `u_rt_shadow_light`/`u_rt_shadow_conf` (attribution +
 // fondu de confiance de l'ancienne carte UNIQUE) SONT RETIRES. L'atlas tuile porte les deux
 // astres SIMULTANEMENT (une tuile chacun) : il n'y a plus rien a attribuer ni a fondre —
@@ -285,12 +291,34 @@ float rt_sec_vis(vec3 P_rel, vec3 sN, float sndl) {
 // de l'eclairage.
 // Le corps de l'ombrage. `sao` est l'AO d'ecran de ce fragment (1 = rien d'occulte) ; c'est le
 // SEUL parametre par lequel elle entre, ce qui permet a shade() de l'evaluer deux fois.
-vec4 shade_body(in Surface s, float sao) {
+// lighting-regimes essai 3 : sonde SOL. `occ_force` >= 0 impose l'occultation de la cle (0 = a
+// l'ombre, 1 = au soleil) pour que la sonde evalue le MEME fragment sous les deux etats ; < 0 =
+// l'ombre reelle. `g_shade_lit` / `g_shade_flip` sont relus par shade() sur l'image sondee.
+float rt_luma(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }
+// Direction unitaire sans NaN : `normalize(0)` rendait NaN (lune non poussee) et la sonde sol
+// relevait des rapports NaN sur village1 (notes/probe-village1-before.log).
+vec3 rt_safe_dir(vec3 v) {
+  float l = length(v);
+  return l > 1e-6 ? v / l : vec3(0.0, 1.0, 0.0);
+}
+float g_shade_lit = 0.0;
+float g_shade_flip = 0.0;
+vec4 shade_body(in Surface s, float sao, float occ_force) {
   vec4 color = s.base;
   // L'AO en LINEAIRE sur une base encodee gamma : (base^2.2 * sao)^(1/2.2) == base * sao^(1/2.2).
   float ao_mul = (sao >= 1.0) ? 1.0 : pow(max(sao, 0.0), 1.0 / 2.2);
   bool ao_applied = false;
   vec3 N = s.N;
+  // lighting-regimes essai 3 : LA NORMALE D'OMBRAGE REGARDE DU COTE DE LA FACE VUE. Les normales
+  // lissees du decor suivent l'enroulement des bandes de triangles, qui est pile ou face : la
+  // sonde sol les a trouvees OPPOSEES a la face sur 95 % du sol de village3 et 60 % de celui de
+  // village1 (notes/probe-*-before.log). Une normale tournee vers le bas lisait l'ambiante du
+  // DESSOUS d'un ciel capture (~0) : le sol de village3 rendait 7 % de l'origine. `gN` est la
+  // normale geometrique deja orientee vers la camera par l'hote.
+  g_shade_flip = dot(N, s.gN) < 0.0 ? 1.0 : 0.0;
+  if (g_shade_flip > 0.5) {
+    N = -N;
+  }
 
     // lighting-shadows (SPEC §4.8) : le facteur d'ombre portee vient desormais de
     // `rt_key_vis`/`rt_sec_vis` (definis plus haut, atlas tuile), pas d'un calcul inline ici.
@@ -304,7 +332,8 @@ vec4 shade_body(in Surface s, float sao) {
     if (u_rt_light_on != 0) {
       // The sun: surface->sun, world space, == the vector that places the
       // visible sun sprite (sky-sun dome dir when above the horizon).
-      vec3 L = normalize(u_rt_sun_dir);
+      vec3 L = rt_safe_dir(u_rt_sun_dir);
+      vec3 Lg = rt_safe_dir(u_rt_moon_dir);
       float ndl = max(dot(N, L), 0.0);           // opposite side -> 0 = dark
       // lighting-shadows (SPEC §4.8) : DEUX astres, DEUX ombres, aucune attribution ni fondu.
       // `key` = l'astre qui porte les cascades (`u_shadow_key`) ; `sec` = l'autre, sur la
@@ -312,8 +341,8 @@ vec4 shade_body(in Surface s, float sao) {
       float key = 1.0, sec = 1.0;
       if (u_pbr_shadow_on != 0) {
         float key_ndl = (u_shadow_key == 0) ? s.shadow_ndl
-                                            : clamp(dot(s.shadow_N, normalize(u_rt_moon_dir)), 0.0, 1.0);
-        float sec_ndl = (u_shadow_key == 0) ? clamp(dot(s.shadow_N, normalize(u_rt_moon_dir)), 0.0, 1.0)
+                                            : clamp(dot(s.shadow_N, Lg), 0.0, 1.0);
+        float sec_ndl = (u_shadow_key == 0) ? clamp(dot(s.shadow_N, Lg), 0.0, 1.0)
                                             : s.shadow_ndl;
         key = rt_key_vis(s.P_rel, s.shadow_N, key_ndl);
         sec = rt_sec_vis(s.P_rel, s.shadow_N, sec_ndl);
@@ -324,6 +353,9 @@ vec4 shade_body(in Surface s, float sao) {
       }
       float sun_occ  = (u_shadow_key == 0) ? key : sec;
       float moon_occ = (u_shadow_key == 0) ? sec : key;
+      if (occ_force >= 0.0) {
+        sun_occ = occ_force;
+      }
       // ===================================================================================
       // BAKED-MODULATION — preserve the authored lighting as the non-PBR base.
       // The baked (s.baked * s.tex0, already sitting in `color`) already contains shading
@@ -346,8 +378,9 @@ vec4 shade_body(in Surface s, float sao) {
       // a RESOURCE for future PBR/water; the old probe-fed composite is GONE with its gate.
       // Realtime Lighting OFF never reaches here => pure vanilla baked (OFF == stock).
       float term_y = smoothstep(0.0, 0.35, dot(N, L));                       // smooth terminator
-      float term_g = smoothstep(0.0, 0.35, dot(N, normalize(u_rt_moon_dir)));
+      float term_g = smoothstep(0.0, 0.35, dot(N, Lg));
       float lit_y = term_y * sun_occ;    // toward the sun AND not cast-shadowed
+      g_shade_lit = lit_y;
       float lit_g = term_g * moon_occ;
       float w_y = clamp(u_rt_sun_elev, 0.0, 1.0);
       float w_g = clamp(dot(u_rt_moon_color, vec3(1.0)), 0.0, 1.0) * clamp(u_rt_green_amp, 0.0, 2.0);
@@ -380,41 +413,55 @@ vec4 shade_body(in Surface s, float sao) {
       // donc l'ambiante vue par la normale par sa MOYENNE SPHERIQUE — la bande L0 seule, les
       // bandes 1 et 2 s'integrant a zero sur la sphere — ce qui rend un facteur de moyenne 1,0.
       // Un ciel isotrope rend EXACTEMENT 1,0 sur les trois canaux : l'image ne bouge pas d'un bit.
-      // Le facteur ne s'applique qu'au bras OMBRE (`shd_mul`), jamais au bras ensoleille : c'est
-      // la regle d'or citee au meme endroit (« sunlit byte-identical across models »).
+      // (Essai 3 : ce facteur ne multiplie plus que la part INDIRECTE du cuit, voir plus bas.)
       // LE REPLI. `step()` met le facteur a 1,0 exactement quand la moyenne est degeneree —
       // programme jamais atteint par la poussee, defaut GL a zero : `u_env_sh` vaut alors (0,0,0)
       // et un rapport y serait un 0/0. Ce n'est pas un reglage, c'est une garde de division.
       vec3 sh_mean = u_env_sh[0] * 0.282095;
-      vec3 sh_form = clamp(rt_env_ambient(N) / max(sh_mean, vec3(1e-4)), vec3(0.0), vec3(2.0));
-      vec3 shd_mul = mix(vec3(1.0), sh_form,
-                         step(1e-3, dot(sh_mean, vec3(0.299, 0.587, 0.114))));
-      vec3 mod_y = mix(shd_mul, lit_mul_y, lit_y);
-      vec3 mod_g = mix(shd_mul, lit_mul_g, lit_g);
-      vec3 rt_mod = mix(vec3(1.0), mod_y, w_y) * mix(vec3(1.0), mod_g, w_g);
-      // lighting-hdr (essai 62) : LE SUPPLEMENT LIT NE FABRIQUE PAS DE BLANC. Mesure x86 du
-      // 2026-09-09 (lot essai62-x86-pathA-before, composite A comme sur le Redmi) : 12 vues sur
-      // 34 ecretent PLUS en ON qu'en OFF, et 85 % des pixels ecretes ON-seulement ont un canal
-      // OFF >= 222 : c'est ce facteur 1,15 qui pousse une surface deja claire au-dessus de 1,0.
-      // Aucune courbe monotone du tone map ne peut le rattraper : les blancs voulus d'origine
-      // (x = 1,0) doivent rester blancs, donc tout ce qui depasse 1,0 est ecrete. La marge se
-      // prend ICI : le supplement (lit - base) s'eteint en fondu quand la base approche du
-      // blanc (plein effet sous 0,7) et ne porte jamais le canal max au-dessus de 1,0. Sous 0,7
-      // le rendu est identique a avant ; les ombres (rt_mod = 1) ne bougent pas.
-      vec3 rt_lit = max(color.rgb * rt_mod, vec3(0.0));
+      // lighting-regimes essai 3 : LE COMPOSITE SEPARE LE CUIT EN DEUX PARTS au lieu de le
+      // multiplier en bloc. Avant, un seul facteur multipliait tout le cuit : a l'ombre, la
+      // forme du ciel (jusqu'a 2 vers le haut) ; au soleil, 1,15. Le sol a l'ombre sortait plus
+      // CLAIR que le sol au soleil (sonde : ombre/soleil = 1,643 a village3) et une normale vers
+      // le bas tombait au noir. Maintenant (SPEC 5.2, ambiante PLATE mesuree par lighting-bake) :
+      //   part directe du cuit f = ce qui depasse l'ambiante de la table, plafonnee par la part
+      //       theorique lgt.N.L / (amb + lgt.N.L) — un sommet que ND avait deja mis a l'ombre
+      //       (cuit ~ ambiante) n'a rien a perdre, il ne s'assombrit pas deux fois ;
+      //   indirect = cuit x (1 - f) x forme du ciel (compressee, bornee a [0,6 ; 1,4]) ;
+      //   direct   = cuit x f, remplace en proportion du poids direct (regime x sun-fade x nuit,
+      //       `u_rt_sun_elev`) par sa version temps reel : x ombre portee x 1,15 teinte.
+      // La nuit (poids 0) et sans ombre, le cuit revient tel quel, a la forme d'ambiante pres.
+      float has_sh = step(1e-3, rt_luma(sh_mean));
+      vec3 sh_rel = rt_env_ambient(N) / max(sh_mean, vec3(1e-4));
+      vec3 amb_form = mix(vec3(1.0),
+                          clamp(vec3(1.0) + clamp(u_rt_amb_contrast, 0.0, 1.5) * (sh_rel - vec3(1.0)),
+                                vec3(0.6), vec3(1.4)),
+                          has_sh);
+      float b_l = rt_luma(s.baked.rgb);
+      float d_th = max(u_rt_bake_al.y, 0.0) * ndl;
+      float f_cap = d_th / max(max(u_rt_bake_al.x, 0.0) + d_th, 1e-4);
+      float f_d = (u_rt_bake_al.z > 0.5)
+                      ? clamp((b_l - max(u_rt_bake_al.x, 0.0)) / max(b_l, 1e-4), 0.0, f_cap)
+                      : 0.0;
+      vec3 ind_y = color.rgb * (1.0 - f_d) * amb_form;
+      vec3 dir_bk = color.rgb * f_d;
+      vec3 dir_rt = dir_bk * sun_occ * lit_mul_y;
+      vec3 c_y = ind_y + mix(dir_bk, dir_rt, w_y);
+      vec3 mod_g = mix(vec3(1.0), lit_mul_g, lit_g);
+      vec3 rt_lit = max(c_y * mix(vec3(1.0), mod_g, w_g), vec3(0.0));
+      // lighting-hdr (essai 62) : LE SUPPLEMENT NE FABRIQUE PAS DE BLANC — la marge ne borne que
+      // ce qui ECLAIRCIT (fondu sous 0,7, jamais au-dessus de 0,995). Ce qui ASSOMBRIT passe
+      // entier : avant, la meme marge eteignait aussi l'ombre sur tout texel clair.
+      vec3 rt_delta = rt_lit - color.rgb;
+      vec3 rt_up = max(rt_delta, vec3(0.0));
       float rt_m0 = max(color.r, max(color.g, color.b));
-      float rt_m1 = max(rt_lit.r, max(rt_lit.g, rt_lit.b));
-      // Plafond a 0,995 (254/255) et non 1,0 : a 1,0 exactement, une base a 250 gagnait
-      // encore 2 % et sortait ecretee (misty h18, lot essai62-x86-final : 551 pixels
-      // ON-seulement avec un canal OFF >= 245). Le supplement ne fabrique jamais un 255.
+      float rt_mu = max(rt_up.r, max(rt_up.g, rt_up.b));
       float rt_g = clamp((0.995 - rt_m0) / 0.3, 0.0, 1.0);
-      if (rt_m1 > rt_m0 + 1e-5) {
-        rt_g = min(rt_g, clamp((0.995 - rt_m0) / (rt_m1 - rt_m0), 0.0, 1.0));
+      if (rt_mu > 1e-5) {
+        rt_g = min(rt_g, clamp((0.995 - rt_m0) / rt_mu, 0.0, 1.0));
       }
-      // lighting-ao-indirect : le supplement DIRECT (rt_lit - base) est calcule sur la base
-      // NON occultee et s'ajoute intact ; l'AO ne multiplie que la base cuite — l'indirect,
-      // jusqu'a ce que lighting-bake le separe du soleil cuit. Porte : ao_direct_leak_px.
-      vec3 rt_sup = (rt_lit - color.rgb) * rt_g;
+      // lighting-ao-indirect : l'AO ne multiplie que la base cuite ; le supplement s'ajoute
+      // intact. Porte : ao_direct_leak_px.
+      vec3 rt_sup = min(rt_delta, vec3(0.0)) + rt_up * rt_g;
       color.rgb = color.rgb * ao_mul + rt_sup;
       ao_applied = true;
       if (u_pbr_debug == 1) {
@@ -423,7 +470,7 @@ vec4 shade_body(in Surface s, float sao) {
         color.rgb = N * 0.5 + 0.5;
       } else if (u_pbr_debug == 12) {
         // modulation-factor luma viz: 0.5 = neutral (x1), brighter = lit boost, darker = shadow
-        color.rgb = vec3(dot(rt_mod, vec3(0.299, 0.587, 0.114)) * 0.5);
+        color.rgb = vec3(rt_luma(rt_lit) / max(rt_luma(s.base.rgb), 1e-4) * 0.5);
       }
     }
   if (!ao_applied) {
@@ -446,13 +493,36 @@ vec4 shade_body(in Surface s, float sao) {
 uniform int u_hut_capture;
 layout(location = 2) out vec4 hut_color_sample; // actual delta RGB, sampled AO
 layout(location = 3) out vec4 hut_color_normal; // actual shade normal, valid
+// lighting-regimes essai 3 : la sonde SOL (floor_probe.cpp). Sur l'image sondee seulement, un
+// fragment de decor tourne vers le haut (normale de FACE, gN.y > 0,7) ecrit :
+//   x = luma(sortie) / luma(base) : le rapport eclairage recharge ON / OFF de CE fragment (OFF =
+//       `base`, la couleur d'origine, que le chemin eteint rend telle quelle) ;
+//   y = luma(sortie a l'ombre) / luma(sortie au soleil), le meme fragment evalue deux fois ;
+//   z = luma(base) ;  w = 1 + 2*(normale d'ombrage opposee a la face) + 4*(eclaire par la cle).
+// Un fragment de decor qui n'est PAS un sol ecrit w = 0,5 : il masque le sol qu'il recouvre.
+uniform int u_floor_probe;
+layout(location = 4) out vec4 floor_probe_out;
 #endif
+
 vec4 shade(in Surface s) {
   float sao = 1.0;
   if (u_screen_ao_on != 0) {
     sao = clamp(texture(tex_screen_ao, gl_FragCoord.xy * u_screen_ao_inv_size).r, 0.0, 1.0);
   }
-  vec4 c = shade_body(s, sao);
+  vec4 c = shade_body(s, sao, -1.0);
+#ifdef OG_HUT_COLOR
+  floor_probe_out = vec4(0.0, 0.0, 0.0, 0.5);
+  if (u_floor_probe != 0 && u_rt_light_on != 0 && s.gN.y > 0.7) {
+    float p_lit = g_shade_lit > 0.5 ? 1.0 : 0.0;
+    float p_flip = g_shade_flip;
+    float l_off = rt_luma(s.base.rgb);
+    float l_on = rt_luma(c.rgb);
+    float l_sh = rt_luma(shade_body(s, sao, 0.0).rgb);
+    float l_lt = rt_luma(shade_body(s, sao, 1.0).rgb);
+    floor_probe_out = vec4(l_on / max(l_off, 1e-4), l_sh / max(l_lt, 1e-4), l_off,
+                           1.0 + 2.0 * p_flip + 4.0 * p_lit);
+  }
+#endif
   // lighting-shadows (A7) : sonde de preuve — l'image de PREUVE (`u_shadow_proof`) sort un
   // drapeau au lieu de la couleur : magenta si CE fragment tombe dans une cascade ET que
   // l'atlas ACTEUR (rempli par les merc a la preparation) l'occulte alors que l'atlas complet
@@ -508,13 +578,13 @@ vec4 shade(in Surface s) {
   }
 #ifdef OG_HUT_COLOR
   if (u_hut_capture != 0) {
-    vec4 without_ao = shade_body(s, 1.0);
+    vec4 without_ao = shade_body(s, 1.0, -1.0);
     hut_color_sample = vec4(c.rgb - without_ao.rgb, sao);
     hut_color_normal = vec4(s.N, 1.0);
   }
 #endif
   if (u_ao_proof != 0) {
-    vec4 c1 = shade_body(s, 1.0);
+    vec4 c1 = shade_body(s, 1.0, -1.0);
     float ao_mul = (sao >= 1.0) ? 1.0 : pow(max(sao, 0.0), 1.0 / 2.2);
     vec3 delta = c.rgb - c1.rgb;
     vec3 resid = abs(delta - (ao_mul - 1.0) * s.base.rgb);

@@ -99,6 +99,7 @@ set(RUNTIME_SOURCE
         graphics/opengl_renderer/AmbientOcclusion.cpp
         graphics/opengl_renderer/PrePass.cpp
         graphics/opengl_renderer/ao_tie_alpha_probe.cpp
+        graphics/opengl_renderer/floor_probe.cpp
         graphics/opengl_renderer/gl_uniform_cache.cpp
         graphics/opengl_renderer/prop_cache.cpp
         graphics/opengl_renderer/frame_ubo.cpp
