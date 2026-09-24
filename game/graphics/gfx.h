@@ -356,7 +356,10 @@ struct GfxGlobalSettings {
   // le meme sous-menu « Recharged Lighting » que l'AO.
   // 0 = vraies (l'ombre projetee dans l'atlas PBR, quand elle y est) ; 1 = aplat PS2 (le comportement
   // d'origine, inconditionnel) ; 2 = aucune (la famille shadow-* est desactivee cote GOAL).
-  int recharged_actor_shadows = 1;
+  // Defaut VRAIES (0), le meme que GOAL (pckernel-impl.gc) : un pack de CGO qui ne pousse pas encore
+  // le reglage ne doit pas laisser le moteur sur l'aplat. Hors eclairage recharge,
+  // `recharged_actor_shadow_mode()` rend 1 quoi qu'il vaille : les deux origines ne bougent pas.
+  int recharged_actor_shadows = 0;
   // Distance (en metres) au-dela de laquelle l'aplat PS2 sert de repli meme en mode « vraies »,
   // et jusqu'a laquelle GOAL calcule l'ombre. Sous-parametre de `kActorShadows`.
   int recharged_actor_shadow_dist = 40;

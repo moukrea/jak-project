@@ -43,6 +43,9 @@
 #include "game/system/autoport_proof.h"
 AUTOPORT_FEATURE_SITE("gl-uniforms-off-cost");
 AUTOPORT_FEATURE_SITE("lighting-off-math-still-runs");
+// lighting-shadows (SPEC §4.8) : la sonde de preuve (pbr_shadow_proof_post_opaque) attribue ses
+// pixels de sol ombres par un acteur a CET item via note_hit_for ; le site est declare au chargement.
+AUTOPORT_FEATURE_SITE("lighting-shadows");
 
 #ifdef OG_FEAT_GRASS_OVERHANG
 // ROUND 10 forensics switch (see GrassFringeFade::dbg). Cached + throttled like grass_droop_len():
