@@ -1,0 +1,1 @@
+.autoport/linear_watch.sh (processus vivant pid 2798050) | la veille en cours a ete lancee avec l'ancien texte ; elle tourne toujours a 30 s (meme periode) mais n'ecrira la ligne « veille Linear demarree : synchro toutes les 30 s » qu'a son prochain redemarrage | aucun : cosmetique jusqu'au prochain redemarrage de la veille
