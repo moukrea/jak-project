@@ -5861,7 +5861,7 @@ items:
   supervisor_recovery: true
 - id: lighting-shadows
   feature: Deux astres, deux jeux d'ombres, et les acteurs qui en projettent
-  status: open
+  status: in-progress
   priority: 28
   owner_feedback:
   - date: '2026-09-03'
@@ -21720,7 +21720,7 @@ items:
 - id: harness-dead-dependency-is-named-never-silent
   feature: 'Un chantier qui depend d''un chantier archive ou supplante n''attend plus en silence : le
     lint rougit, le superviseur et l''owner le voient'
-  status: in-progress
+  status: validated
   priority: 23
   code_scope: harnais
   device: false
@@ -21752,6 +21752,13 @@ items:
 
     CONTROLE POSITIF (item fabrique dependant d''un archive -> lint rouge, nomme) + CONTROLE NEGATIF.'
   no_code: true
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-24'
+    proof_sha: 06936e9f38e5fd71
+    proof_bytes: 76725
+    attempt: 3
+    journal: validator-003.txt
 - id: harness-copes-with-usage-pacing
   feature: Quand le frein d'usage de l'owner met un worker en pause, le harnais attend au lieu de tuer
     l'essai, et ne compte jamais ce temps comme une panne
@@ -21846,3 +21853,35 @@ items:
     ; doit valoir 0.
 
     CONTROLE POSITIF (ancien code : lignes perdues) + CONTROLE NEGATIF.'
+- id: harness-dead-dependency-leftovers
+  feature: 'Restes des dependances mortes : un archivage fait par l''owner redirige aussi ses dependants,
+    et le statut machine compte les chantiers geles'
+  status: open
+  priority: 118
+  code_scope: harnais
+  device: false
+  owner_test: false
+  max_retries: 5
+  gate:
+    key: dead_dependency_leftovers
+    op: ==
+    value: 0
+  prompt: prompts/item-harness-dead-dependency-leftovers.md
+  known_cause: 'Signale par le worker de harness-dead-dependency-is-named-never-silent (reports/.../FINDINGS.txt),
+    non corrige ; ouvert sous la delegation de l''owner pour les signalements de harnais.
+
+    (1) `linear_sync.py:1045` : l''archivage venu de Linear ne pose jamais `superseded_by` : aucun dependant
+    n''est redirige, seul le lint le nomme ensuite ; une archive de l''owner gele sa descendance jusqu''a
+    ce que quelqu''un lise le lint. (2) `autoport:29 cmd_status --json` ne porte ni le nombre de chantiers
+    geles ni prenables/ouverts : watch.py et le digest restent aveugles a une file gelee. (3) `lighting-unify`
+    (valide) depend encore de lighting-census (archive) : sans cout tant qu''il ne rouvre pas.'
+  deliverable: '1. Un archivage owner d''un item dont d''autres dependent : les dependants sont nommes
+    au superviseur (reveil) et a l''owner (commentaire), et redirigeables en une commande.
+
+    2. `status --json` porte `game_open`, `game_takeable`, `frozen`.
+
+    3. Nettoyer les dependances vers archive des items valides.
+
+    4. `dead_dependency_leftovers` ; doit valoir 0.
+
+    CONTROLE POSITIF + CONTROLE NEGATIF.'
