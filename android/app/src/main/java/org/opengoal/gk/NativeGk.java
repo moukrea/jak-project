@@ -216,6 +216,9 @@ public final class NativeGk {
      */
     public static native boolean isInWarp();
 
+    /** owner-level-teleport-menu : vrai quand le banc de preuve du menu de teleportation est arme. Jamais vrai pour le joueur. */
+    public static native boolean isTeleportBenchArmed();
+
     /**
      * autoport `mesh-browser-removal`: report the touch overlay's OWN pill
      * census to the engine, so the removal gate can read it.

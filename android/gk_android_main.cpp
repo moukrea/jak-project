@@ -3893,6 +3893,16 @@ extern "C" void a36_tree_scan_per_frame() {
                             root, visited, overflow, s_warp_type, s_active,
                             (int)in_warp);
       }
+      // owner-level-teleport-menu (owner 24/09 : « vu que le joystick n'est pas remplace par
+      // un dpad c'est pas utilisable ») : le menu de teleportation (pc/teleport-menu.gc) vit
+      // pendant la PAUSE, que ni *master-mode* ni *progress-process* ne signalent comme un
+      // menu. Il se pilote a la croix comme le selecteur de warp : meme drapeau, donc meme
+      // bascule stick -> croix et meme glyphe, sans le routage des taps du menu d'options.
+      {
+        auto tp = jak1::intern_from_c("*tpm-open*");
+        const uint32_t v = tp.offset ? tp->value : 0;
+        if (v && v != (uint32_t)s7.offset) in_warp = true;
+      }
       const bool was =
           g_overlay_in_warp.exchange(in_warp, std::memory_order_release);
       if (was != in_warp) {
@@ -10045,6 +10055,18 @@ JNIEXPORT jboolean JNICALL
 Java_org_opengoal_gk_NativeGk_isInWarp(JNIEnv* /*env*/, jclass /*clazz*/) {
   return g_overlay_in_warp.load(std::memory_order_acquire) ? JNI_TRUE
                                                            : JNI_FALSE;
+}
+
+// owner-level-teleport-menu : vrai UNIQUEMENT quand `proof_props` pose
+// `debug.opengoal.costprobe=owner-level-teleport-menu` (le banc GOAL lit la meme propriete).
+// Arme le pilote tactile de TouchOverlayView ; jamais vrai pour le joueur.
+JNIEXPORT jboolean JNICALL
+Java_org_opengoal_gk_NativeGk_isTeleportBenchArmed(JNIEnv* /*env*/, jclass /*clazz*/) {
+  char pv[PROP_VALUE_MAX] = {0};
+  return (__system_property_get("debug.opengoal.costprobe", pv) > 0 &&
+          std::strcmp(pv, "owner-level-teleport-menu") == 0)
+             ? JNI_TRUE
+             : JNI_FALSE;
 }
 
 // mesh-browser-removal : LE RAPPORT DE RECENSEMENT DE L'OVERLAY TACTILE.

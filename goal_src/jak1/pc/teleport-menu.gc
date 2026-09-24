@@ -20,6 +20,10 @@
 ;;
 ;; NAVIGATION : haut/bas deplace, gauche/droite change l'heure, CROIX valide, ROND ou TRIANGLE
 ;; revient en arriere puis ferme. START/SELECT relancent le jeu et ferment le menu.
+;; AU TACTILE (owner 24/09 : « vu que le joystick n'est pas remplace par un dpad c'est pas
+;; utilisable ») : tant que `*tpm-open*` est vrai, le natif Android leve le meme drapeau que le
+;; selecteur de warp (gk_android_main.cpp, g_overlay_in_warp) ; la commande de gauche de la
+;; surcouche devient une croix et pousse HAUT/BAS/GAUCHE/DROITE, une poussee = un cran.
 ;;
 ;; LE SAUT reutilise le chemin du menu debug d'origine (default-menu.gc, `dm-current-continue`) :
 ;;   (start 'play <continue-point>)
@@ -52,6 +56,7 @@
 (define *tpm-hold* 0)
 (define *tpm-armed-latch* #f)      ;; combinaison relachee depuis la derniere ouverture ?
 (define *tpm-str* (new 'global 'string 128 (the string #f)))
+(define *tpm-nav-count* 0)         ;; HAUT/BAS/GAUCHE/DROITE recus menu ouvert (banc tactile)
 
 (define *tpm-tod-names* (new 'static 'boxed-array :type string "libre" "matin (7 h)" "midi (12 h)" "soir (18 h)" "nuit (23 h)"))
 (define *tpm-tod-hours* (new 'static 'array int32 5 -1 7 12 18 23))
@@ -217,6 +222,7 @@
       ;; START ou SELECT a relance le jeu (toggle-pause) : le menu suit.
       ((!= *master-mode* 'pause) (tpm-close! #f))
       (else
+       (if (cpad-pressed? 0 up down left right) (+! *tpm-nav-count* 1))
        (cond
          ((cpad-pressed? 0 up) (tpm-move! -1))
          ((cpad-pressed? 0 down) (tpm-move! 1))
@@ -282,6 +288,11 @@
 (define *tpm-bench-from* (new 'global 'vector))
 (define *tpm-bench-save-changed* 0)
 (define *tpm-bench-key* (new 'global 'string 64 (the string #f)))
+;; phase TACTILE, avant le premier saut : le banc tient le menu ouvert et le pilote tactile de
+;; TouchOverlayView (arme par la meme propriete) y rejoue TPM_TOUCH_PLANNED gestes du pouce sur
+;; la commande de gauche. Rien ici ne presse la croix : ce qui est compte vient de la surcouche.
+(defconstant TPM_TOUCH_PLANNED 4)
+(define *tpm-bench-touch-done* #f)
 
 (defun tpm-target-settled? ()
   (and *target*
@@ -317,13 +328,21 @@
     (when (= *tpm-bench* 'on)
       (__pc-autoport-publish "teleport_menu_planned" TPM_BENCH_COUNT)
       (__pc-autoport-publish "teleport_menu_done" 0)
-      (__pc-autoport-publish "teleport_menu_defects" TPM_BENCH_COUNT)))
+      (__pc-autoport-publish "teleport_menu_touch_planned" TPM_TOUCH_PLANNED)
+      (__pc-autoport-publish "teleport_menu_touch_nav" 0)
+      (__pc-autoport-publish "teleport_menu_defects" (+ TPM_BENCH_COUNT 1))))
   (when (and (= *tpm-bench* 'on) (!= *tpm-bench-phase* 'done))
     (let ((now (-> *display* real-frame-counter)))
       (case *tpm-bench-phase*
         (('wait)
          ;; Jak pose et immobile depuis 3 s avant chaque saut
          (if (tpm-target-settled?) (+! *tpm-bench-settled* 1) (set! *tpm-bench-settled* 0))
+         (when (and (>= *tpm-bench-settled* 180) (not *tpm-bench-touch-done*))
+           (tpm-open!)
+           (set! *tpm-nav-count* 0)
+           (set! *tpm-bench-t0* now)
+           (set! *tpm-bench-settled* 0)
+           (set! *tpm-bench-phase* 'touch))
          (when (>= *tpm-bench-settled* 180)
            (set! *tpm-bench-fuel* (-> *game-info* fuel))
            (set! *tpm-bench-money* (-> *game-info* money))
@@ -340,6 +359,19 @@
               (format 0 "TELEPORT-MENU bench continue-not-found ~A~%" (-> *tpm-bench-conts* *tpm-bench-step*))
               (tpm-close! #t)
               (set! *tpm-bench-phase* 'done)))))
+        (('touch)
+         ;; le menu reste ouvert jusqu'aux gestes du pilote tactile, 60 s au plus
+         (when (or (>= *tpm-nav-count* TPM_TOUCH_PLANNED) (> (- now *tpm-bench-t0*) (seconds 60))
+                   (not *tpm-open*))
+           (__pc-autoport-publish "teleport_menu_touch_nav" *tpm-nav-count*)
+           (__pc-autoport-publish "teleport_menu_touch_wait_ms" (the int (/ (* 10 (- now *tpm-bench-t0*)) 3)))
+           (__pc-autoport-publish "teleport_menu_defects"
+                                  (+ (- TPM_BENCH_COUNT *tpm-bench-ok*) (if (> *tpm-nav-count* 0) 0 1)))
+           (format 0 "TELEPORT-MENU bench touch-nav=~D/~D~%" *tpm-nav-count* TPM_TOUCH_PLANNED)
+           (if *tpm-open* (tpm-close! #t))
+           (set! *tpm-bench-touch-done* #t)
+           (set! *tpm-bench-settled* 0)
+           (set! *tpm-bench-phase* 'wait)))
         (('fly)
          (let* ((cont (get-continue-by-name *game-info* (-> *tpm-bench-conts* *tpm-bench-step*)))
                 (lev (level-get *level* (-> cont level)))
@@ -372,7 +404,8 @@
                (+! *tpm-bench-step* 1)
                (__pc-autoport-publish "teleport_menu_done" *tpm-bench-step*)
                (__pc-autoport-publish "teleport_menu_save_changed" *tpm-bench-save-changed*)
-               (__pc-autoport-publish "teleport_menu_defects" (- TPM_BENCH_COUNT *tpm-bench-ok*))
+               (__pc-autoport-publish "teleport_menu_defects"
+                                      (+ (- TPM_BENCH_COUNT *tpm-bench-ok*) (if (> *tpm-nav-count* 0) 0 1)))
                (set! *tpm-bench-settled* 0)
                (cond
                  ((>= *tpm-bench-step* TPM_BENCH_COUNT)

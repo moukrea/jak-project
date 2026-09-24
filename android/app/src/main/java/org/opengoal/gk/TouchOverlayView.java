@@ -1030,11 +1030,18 @@ public class TouchOverlayView extends View {
         } catch (Throwable th) {
             Log.e(TAG, "MDS start threw", th);
         }
+        // owner-level-teleport-menu : no-op sauf si le banc du menu de teleportation est arme.
+        try {
+            tpmStart();
+        } catch (Throwable th) {
+            Log.e(TAG, "TPM start threw", th);
+        }
     }
 
     @Override
     protected void onDetachedFromWindow() {
         mdsHandler.removeCallbacksAndMessages(null);
+        tpmHandler.removeCallbacksAndMessages(null);
         stopHeartbeat();
         super.onDetachedFromWindow();
     }
@@ -1140,6 +1147,97 @@ public class TouchOverlayView extends View {
     //                      (10.5). L'ancienne regle emet donc 3 fronts pour UN geste (le defaut
     //                      de l'owner), la nouvelle en emet 1.
     // ---------------------------------------------------------------------
+
+    // ---------------------------------------------------------------------
+    // owner-level-teleport-menu (autoport) : le PILOTE TACTILE du banc
+    //
+    // Owner 24/09 : « le menu pour TP apparait bien, mais vu que le joystick n'est pas remplace
+    // par un dpad c'est pas utilisable ». Le menu se pilote maintenant par la commande de gauche
+    // en mode croix (isInWarp, que le natif leve aussi quand *tpm-open*). Ce pilote rejoue, par
+    // dispatchTouchEvent, QUATRE gestes du pouce sur cette commande (bas, haut, droite, gauche)
+    // pendant que le banc GOAL tient le menu ouvert : ils suivent le chemin exact d'un doigt
+    // (onTouchEvent -> verrou de mode -> onPadButton(DPAD_*)), et GOAL compte ce qu'il recoit.
+    // Arme UNIQUEMENT par NativeGk.isTeleportBenchArmed() ; hors banc il ne rejoue rien.
+    // ---------------------------------------------------------------------
+
+    private static final long TPM_POLL_MS   = 500;
+    private static final int  TPM_POLL_MAX  = 1200;  // 10 min d'attente du menu, puis abandon
+    private static final long TPM_HOLD_MS   = 250;
+    private static final long TPM_GAP_MS    = 700;
+    private static final float[][] TPM_DIRS = { {0f, 1f}, {0f, -1f}, {1f, 0f}, {-1f, 0f} };
+    private final Handler tpmHandler = new Handler(Looper.getMainLooper());
+    private boolean tpmStarted = false;
+    private int tpmPolls = 0;
+    private int tpmGesture = 0;
+    private long tpmDownTime = 0;
+
+    private void tpmStart() {
+        if (tpmStarted) return;
+        boolean armed = false;
+        try {
+            armed = NativeGk.isTeleportBenchArmed();
+        } catch (Throwable th) {
+            armed = false;
+        }
+        if (!armed) return;   // joueur : rien, jamais
+        tpmStarted = true;
+        Log.i(TAG, "TPM armed: waiting for the teleport menu (isInWarp)");
+        tpmPost(TPM_POLL_MS, 0);
+    }
+
+    private void tpmPost(long delay, final int step) {
+        tpmHandler.postDelayed(new Runnable() {
+            @Override public void run() {
+                try {
+                    tpmRun(step);
+                } catch (Throwable th) {
+                    Log.e(TAG, "TPM step=" + step + " threw; gestures=" + tpmGesture, th);
+                }
+            }
+        }, delay);
+    }
+
+    private void tpmRun(int step) {
+        final float arm = cLeftStick.radius * 0.62f * 0.78f;
+        switch (step) {
+            case 0: // attendre que le banc ouvre le menu
+                if (queryWarp()) {
+                    Log.i(TAG, "TPM menu open after " + tpmPolls + " polls: 4 stick gestures");
+                    tpmPost(TPM_GAP_MS, 1);
+                } else if (++tpmPolls < TPM_POLL_MAX) {
+                    tpmPost(TPM_POLL_MS, 0);
+                } else {
+                    Log.e(TAG, "TPM menu never opened after " + tpmPolls + " polls");
+                }
+                break;
+            case 1: { // pouce pose au centre puis pousse dans la direction
+                if (tpmGesture >= TPM_DIRS.length) {
+                    Log.i(TAG, "TPM done gestures=" + tpmGesture);
+                    break;
+                }
+                final float[] d = TPM_DIRS[tpmGesture];
+                tpmDownTime = SystemClock.uptimeMillis();
+                mdsSend(MotionEvent.ACTION_DOWN, cLeftStick.cx, cLeftStick.cy, tpmDownTime);
+                mdsSend(MotionEvent.ACTION_MOVE, cLeftStick.cx + d[0] * arm * 0.5f,
+                        cLeftStick.cy + d[1] * arm * 0.5f, tpmDownTime);
+                mdsSend(MotionEvent.ACTION_MOVE, cLeftStick.cx + d[0] * arm,
+                        cLeftStick.cy + d[1] * arm, tpmDownTime);
+                tpmPost(TPM_HOLD_MS, 2);
+                break;
+            }
+            case 2: {
+                final float[] d = TPM_DIRS[tpmGesture];
+                mdsSend(MotionEvent.ACTION_UP, cLeftStick.cx + d[0] * arm,
+                        cLeftStick.cy + d[1] * arm, tpmDownTime);
+                tpmGesture++;
+                Log.i(TAG, "TPM gesture " + tpmGesture + " dir=(" + d[0] + "," + d[1] + ") sent");
+                tpmPost(TPM_GAP_MS, 1);
+                break;
+            }
+            default:
+                break;
+        }
+    }
 
     private final Handler mdsHandler = new Handler(Looper.getMainLooper());
     private boolean mdsStarted = false;
