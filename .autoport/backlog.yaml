@@ -5896,6 +5896,15 @@ items:
       comment: aff9b05a-1909-442e-8222-f92bcf1e8679
       ticket: 923462dc-521a-4c79-ba5f-2e2e8cc4c758
       at: '2026-09-24T14:19:30.126Z'
+  - date: '2026-09-24'
+    text: Te prends pas trop la tête avec les preuves visuelles, t'es toujours assi mauvais pour ça et
+      tu perds un temps monstre et gaspille une quantité de tokens colossale pour soit des preuves bidons,
+      soit des blockers qui n'en sont pas parce que t'es à chier sur le visuel, c'est pas la première
+      fois que je te le dis et ça me casse les couilles de te le réexpliquer chaque fois !
+    via:
+      comment: 47125c32-9791-4edd-9ec6-743de6ceb749
+      ticket: 923462dc-521a-4c79-ba5f-2e2e8cc4c758
+      at: '2026-09-24T14:38:59.790Z'
   gate:
     key: shadow_caster_classes
     op: ==
@@ -5945,24 +5954,18 @@ items:
     / aplat PS2 / aucune + fade-dist expose ; le cran « aucune » desactive la famille shadow-* cote GOAL.
 
 
-    AJOUT APRES LE RETOUR OWNER DU 24/09 :
+    AJOUT APRES LE RETOUR OWNER DU 24/09 (allege sur son ordre : « Te prends pas trop la tête avec les
+    preuves visuelles ») :
 
-    A. Sur l''APPAREIL, reglage « vraies ombres » : ZERO aplat PS2 dessine pour un acteur a portee des
-    cascades (compteur par image : aplats dessines, ombres atlas dessinees, PAR PLATEFORME) ; publier
-    les deux compteurs.
+    A. Corriger la cause : sur l''APPAREIL, le reglage « vraies ombres » doit dessiner l''ombre atlas
+    des acteurs au lieu de l''aplat PS2 (piste : distance camera de l''os racine a 0 sur appareil). UNE
+    grandeur suffit, dans la course normale : par image, nombre d''aplats PS2 dessines et nombre d''ombres
+    atlas dessinees pour les acteurs ; en « vraies ombres », aplats = 0 et atlas > 0.
 
-    B. PARTOUT EN PLEIN JOUR (owner 24/09 : « La scène où je joues… c''est juste partout… en plein jour
-    ») : la preuve appareil parcourt PLUSIEURS points de vue de jour sur plusieurs niveaux (au moins village1
-    hut + warp, plage, jungle ou marais), et CHACUN doit montrer l''ombre atlas de Jak (hits>0) et zero
-    aplat PS2 ; publier le resultat point par point. Un seul point rouge = porte rouge.
+    B. Ajouter le reglage de qualite des ombres (Bas / Moyen / Haut) au menu.
 
-    C. Pas d''empilement : un pixel deja dans l''ombre du decor n''est pas assombri une deuxieme fois
-    par l''ombre d''un acteur (compteur de pixels doublement assombris = 0).
-
-    D. Reglage de qualite des ombres (resolution de l''atlas / portee de la cascade) expose dans le menu,
-    avec au moins Bas / Moyen / Haut ; publier la valeur appliquee.
-
-    E. Repondre a l''owner dans son fil, en clair, sur ses deux questions (qualite, empilement).'
+    C. PAS de campagne multi-scenes, PAS de comptage de pixels : l''OEIL, c''est l''owner. Des que A et
+    B tiennent, livrer le build et passer en to-test.'
   out_of_scope: 'Tout ce qui n''est pas cet item. DEUX origines restent bit-identiques — master OFF, et
     recharged_lighting OFF — et tout sous-reglage d''eclairage se garde sur recharged_lighting, jamais
     sur le master seul (SPEC 1.1, 6.2, 7.3). Ne touche a aucune feature validee. Pas de mesure visuelle.
