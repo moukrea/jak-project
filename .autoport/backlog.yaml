@@ -5774,7 +5774,7 @@ items:
   delivered: '2026-09-24'
 - id: lighting-regimes
   feature: La lumiere cle n'est pas toujours un soleil
-  status: in-progress
+  status: to-test
   priority: 24
   owner_feedback:
   - date: '2026-09-03'
@@ -5839,9 +5839,11 @@ items:
   owner_ok: null
   device: false
   proof_env:
-  - OG_LEVEL_WARP=swamp-start
+  - OG_LEVEL_WARP=village3-start
   - OG_TOD_HOUR=12
-  where: 'swamp et lavatube : la lumiere ne doit plus venir d''un soleil invisible'
+  where: 'Build 4e0c8a : (1) village3, premier ecran, de jour : le sol n''est plus noir ; (2) marais et
+    tube de lave : pas de soleil invisible ; (3) l''ombre de Jak au village de jour doit enfin se voir
+    (equilibre direct/indirect).'
   known_cause: 'LIS D''ABORD prompts/SPEC-refonte-lumiere.md : c''est le contrat, il porte le detail que
     ce prompt ne repete pas. pc-set-pbr-sky-sun! est pousse sans garde et ecrase la lumiere cle : dans
     16 niveaux sur 20 la clef du monde suit un soleil que le joueur ne voit pas. SPEC 3.2, 3.3 et l''annexe
@@ -5956,12 +5958,12 @@ items:
   supervisor_recovery: true
   gate_verdict:
     result: porte-tenue
-    date: '2026-09-24'
-    proof_sha: e77f9a9e3be0e989
-    proof_bytes: 88365
-    attempt: 2
-    journal: validator-002.txt
-  delivered: '2026-09-24'
+    date: '2026-09-25'
+    proof_sha: dcb659276ba92bdf
+    proof_bytes: 71788
+    attempt: 3
+    journal: validator-003.txt
+  delivered: '2026-09-25'
 - id: lighting-shadows
   feature: Deux astres, deux jeux d'ombres, et les acteurs qui en projettent
   status: open
@@ -21929,7 +21931,7 @@ items:
 - id: harness-directives-promises-are-implemented
   feature: 'Ce que DIRECTIVES promet est fait par du code : le rapport perime est refuse, et DIRECTIVES.md
     suit le checkpoint'
-  status: open
+  status: in-progress
   priority: 50
   code_scope: harnais
   device: false
@@ -21956,6 +21958,7 @@ items:
     3. `directives_unkept_promises` ; doit valoir 0.
 
     CONTROLE POSITIF fabrique + CONTROLE NEGATIF. Publier le denominateur.'
+  no_code: true
 - id: harness-linear-request-economy
   feature: La synchro Linear depense moins de requetes et ne garde pas d'identifiants perimes
   status: open
