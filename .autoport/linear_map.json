@@ -36,7 +36,7 @@
    "url": "https://linear.app/moukrea/document/e1fe9500339a"
   }
  },
- "_gen": 342,
+ "_gen": 351,
  "_ids": {
   "labels": {
    "ok": "000e105b-24ba-4fa3-a579-bc3bf0869242",
@@ -660,23 +660,23 @@
   "url": "https://linear.app/moukrea/issue/JAK-202/un-superviseur-codex-lance-a-la-main-est-vu-vivant-par-le-harnais"
  },
  "harness-copes-with-usage-pacing": {
-  "hash": "e064feff13868eea1181446f85a2fcad2f650866",
+  "hash": "c6fd37089b8841096f3a37bdea1670dc2b0e11c9",
   "identifier": "JAK-272",
   "issue_id": "811880fe-3c98-4d64-8072-4de4ef7b88b1",
-  "last_state": "In Progress",
+  "last_state": "Done",
   "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-24T08:52:51.000Z",
-  "state_at": "2026-09-24T09:38:23.113Z",
+  "state_at": "2026-09-24T10:03:29.647Z",
   "url": "https://linear.app/moukrea/issue/JAK-272/quand-le-frein-dusage-de-lowner-met-un-worker-en-pause-le-harnais"
  },
  "harness-dead-dependency-is-named-never-silent": {
-  "hash": "34c0f6cbb4011e15845cb30c01ce79cbb4363889",
+  "hash": "ad954ad4bbffd9803df8cc4468748f0064f17a69",
   "identifier": "JAK-271",
   "issue_id": "f4881950-debe-4575-bc8f-413dc4a46cd9",
-  "last_state": "Todo",
-  "last_verdict_announced": "validator-001.txt",
+  "last_state": "In Progress",
+  "last_verdict_announced": "validator-003.txt",
   "pulled_at": "2026-09-23T15:23:52.000Z",
-  "state_at": "2026-09-23T21:01:44.367Z",
+  "state_at": "2026-09-24T10:03:28.974Z",
   "url": "https://linear.app/moukrea/issue/JAK-271/un-chantier-qui-depend-dun-chantier-archive-ou-supplante-nattend-plus"
  },
  "harness-delivery-stale-bake-recovery": {
@@ -1263,6 +1263,14 @@
   "pulled_at": "2026-09-22T22:24:54.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-199/la-liste-des-retours-de-lowner-sans-reponse-dans-le-reveil-du"
  },
+ "harness-worker-stream-no-lost-lines": {
+  "hash": "bb55afec892c2277606301ef2b6f6c7d2d4b9db0",
+  "identifier": "JAK-273",
+  "issue_id": "112955f3-8c33-4170-a7ca-110b86374e94",
+  "last_state": "Todo",
+  "pulled_at": "2026-09-24T10:04:08.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-273/lorchestrateur-ne-perd-plus-les-dernieres-lignes-dun-worker-qui-sort"
+ },
  "harness-workers-reply-in-the-owner-thread": {
   "hash": "c410bc7dd7cc895924de2ef40de448cac09b4cf6",
   "identifier": "JAK-237",
@@ -1509,7 +1517,7 @@
  },
  "lighting-bake": {
   "build_announced": "c57be8182982",
-  "hash": "d9b4ec5f4fe0ccc26312c14475599c96b43b044a",
+  "hash": "a1bcb4fb21c44ccdfbef128e3ffda5ca3d99e96f",
   "identifier": "JAK-49",
   "issue_id": "6afb5cac-bb1a-4dd8-b308-1fedc50f69c0",
   "last_state": "In Review",
@@ -1755,11 +1763,12 @@
   "url": "https://linear.app/moukrea/issue/JAK-78/le-compilateur-goal-utilise-les-31-registres-de-larm64"
  },
  "perf-codegen-arm64-scalar": {
-  "hash": "9e8a001205bad3d1017541d55310995bd6c55b4f",
+  "hash": "8e1bdfd0189bf62cd39b157a318870bfeaa83301",
   "identifier": "JAK-77",
   "issue_id": "1a43f366-ec9e-40f1-bcb2-4e1698505d53",
-  "last_state": "Backlog",
+  "last_state": "Todo",
   "pulled_at": "2026-09-17T05:36:59.000Z",
+  "state_at": "2026-09-24T10:07:08.639Z",
   "url": "https://linear.app/moukrea/issue/JAK-77/float-vers-int-division-et-swizzle-en-une-ou-deux-instructions"
  },
  "perf-dma-chain-copies": {
@@ -1874,7 +1883,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-75/le-ciel-se-melange-sur-le-gpu-et-la-distorsion-ne-recopie-plus-tout"
  },
  "perf-stock-60": {
-  "hash": "54d31430d511390af05c1ba30b9fbb019c7f7efb",
+  "hash": "4e8c96e6d1f6963ab4f6de1c7bfcc5bf554c1f90",
   "identifier": "JAK-80",
   "issue_id": "e3942ad2-411b-49e6-9000-565eeab1d43e",
   "last_state": "Backlog",
