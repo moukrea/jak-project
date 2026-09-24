@@ -5,7 +5,7 @@
 # Deux astres, deux jeux d'ombres, et les acteurs qui en projettent
 
 ## Defaut cite
-- 2026-09-24 : « Alors j'ai activé les vraies ombres… ça reste les à plats PS… »
+- 2026-09-24 : « La scène où je joues… c'est juste partout… en plein jour »
 
 ## Cause connue
 LIS D'ABORD prompts/SPEC-refonte-lumiere.md : c'est le contrat, il porte le detail que ce prompt ne repete pas. Une seule cascade attribuee a « l'astre le plus haut », avec fondu et EMA pour cacher une bascule qui n'a pas lieu d'etre : les deux astres sont leves ENSEMBLE 3 h 30 par jour. Et aucun acteur n'entre dans la carte. SPEC 3.4 et 4.8.

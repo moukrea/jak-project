@@ -17,7 +17,7 @@ Atlas unique tuile, cascades stabilisees pour l'astre dominant, une tuile pour l
 
 AJOUT APRES LE RETOUR OWNER DU 24/09 :
 A. Sur l'APPAREIL, reglage « vraies ombres » : ZERO aplat PS2 dessine pour un acteur a portee des cascades (compteur par image : aplats dessines, ombres atlas dessinees, PAR PLATEFORME) ; publier les deux compteurs.
-B. Scene de preuve = celle ou l'owner joue (Jak au sol au village, de jour), pas une scene choisie ou ca marche ; la preuve appareil doit montrer hits>0 dans la scene hut ET warp.
+B. PARTOUT EN PLEIN JOUR (owner 24/09 : « La scène où je joues… c'est juste partout… en plein jour ») : la preuve appareil parcourt PLUSIEURS points de vue de jour sur plusieurs niveaux (au moins village1 hut + warp, plage, jungle ou marais), et CHACUN doit montrer l'ombre atlas de Jak (hits>0) et zero aplat PS2 ; publier le resultat point par point. Un seul point rouge = porte rouge.
 C. Pas d'empilement : un pixel deja dans l'ombre du decor n'est pas assombri une deuxieme fois par l'ombre d'un acteur (compteur de pixels doublement assombris = 0).
 D. Reglage de qualite des ombres (resolution de l'atlas / portee de la cascade) expose dans le menu, avec au moins Bas / Moyen / Haut ; publier la valeur appliquee.
 E. Repondre a l'owner dans son fil, en clair, sur ses deux questions (qualite, empilement).
@@ -40,6 +40,9 @@ l'ombre de Jak et des PNJ au sol, et le matin quand les deux astres sont leves
 
 ### 2026-09-24
 > Alors j'ai activé les vraies ombres… ça reste les à plats PS2… le seul truc qui marche c'est "Aucune" mais du coup ça enlève juste les ombres. J'ai comme l'impression que le truc est câblé à moitié, d'ailleurs pas de réglage de qualité ? Quid des ombres avec les ombres du monde, elles vont se stacker les unes au dessus des autres comme un vulgaire a plat d'image ?
+
+### 2026-09-24
+> La scène où je joues… c'est juste partout… en plein jour
 
 ## Pourquoi ce fichier existe
 

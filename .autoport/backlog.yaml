@@ -5890,6 +5890,12 @@ items:
       comment: 2e0b75a9-0d5c-4995-9d46-ac077f0c5a33
       ticket: 923462dc-521a-4c79-ba5f-2e2e8cc4c758
       at: '2026-09-24T14:16:28.460Z'
+  - date: '2026-09-24'
+    text: La scène où je joues… c'est juste partout… en plein jour
+    via:
+      comment: aff9b05a-1909-442e-8222-f92bcf1e8679
+      ticket: 923462dc-521a-4c79-ba5f-2e2e8cc4c758
+      at: '2026-09-24T14:19:30.126Z'
   gate:
     key: shadow_caster_classes
     op: ==
@@ -5945,8 +5951,10 @@ items:
     cascades (compteur par image : aplats dessines, ombres atlas dessinees, PAR PLATEFORME) ; publier
     les deux compteurs.
 
-    B. Scene de preuve = celle ou l''owner joue (Jak au sol au village, de jour), pas une scene choisie
-    ou ca marche ; la preuve appareil doit montrer hits>0 dans la scene hut ET warp.
+    B. PARTOUT EN PLEIN JOUR (owner 24/09 : « La scène où je joues… c''est juste partout… en plein jour
+    ») : la preuve appareil parcourt PLUSIEURS points de vue de jour sur plusieurs niveaux (au moins village1
+    hut + warp, plage, jungle ou marais), et CHACUN doit montrer l''ombre atlas de Jak (hits>0) et zero
+    aplat PS2 ; publier le resultat point par point. Un seul point rouge = porte rouge.
 
     C. Pas d''empilement : un pixel deja dans l''ombre du decor n''est pas assombri une deuxieme fois
     par l''ombre d''un acteur (compteur de pixels doublement assombris = 0).
