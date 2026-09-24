@@ -36,7 +36,7 @@
    "url": "https://linear.app/moukrea/document/e1fe9500339a"
   }
  },
- "_gen": 387,
+ "_gen": 393,
  "_ids": {
   "labels": {
    "ok": "000e105b-24ba-4fa3-a579-bc3bf0869242",
@@ -1630,16 +1630,16 @@
   "url": "https://linear.app/moukrea/issue/JAK-56/du-redmi-au-snapdragon-8-elite-des-paliers-et-chaque-ajout-debrayable"
  },
  "lighting-regimes": {
-  "hash": "164ede25b23910da89b690791b5f90a0b36a80cb",
+  "hash": "5e3021303967852006b770e89fcf4bccc30b1611",
   "identifier": "JAK-50",
   "issue_id": "c0ae94ec-54bb-4d1d-bd7c-880e12a25428",
-  "last_state": "Todo",
-  "last_verdict_announced": "validator-001.txt",
+  "last_state": "In Progress",
+  "last_verdict_announced": "validator-002.txt",
   "pulled_at": "2026-09-24T15:37:40.147Z",
   "relations": [
    "lighting-bake"
   ],
-  "state_at": "2026-09-24T16:10:12.251Z",
+  "state_at": "2026-09-24T16:48:18.138Z",
   "url": "https://linear.app/moukrea/issue/JAK-50/la-lumiere-cle-nest-pas-toujours-un-soleil"
  },
  "lighting-shadows": {
@@ -1728,13 +1728,13 @@
   "url": "https://linear.app/moukrea/issue/JAK-173"
  },
  "owner-level-teleport-menu": {
-  "hash": "51c945a9bfa7a93c3d46429c37cd999b902a5c7c",
+  "hash": "855941028f6f3ae246f70851cf56bc55e61e795c",
   "identifier": "JAK-277",
   "issue_id": "369d9397-a686-4914-b66f-33b6c4b774fa",
-  "last_state": "In Progress",
+  "last_state": "Todo",
   "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-24T15:39:50.000Z",
-  "state_at": "2026-09-24T15:55:35.017Z",
+  "state_at": "2026-09-24T17:27:29.616Z",
   "url": "https://linear.app/moukrea/issue/JAK-277/un-menu-de-teleportation-vers-nimporte-quel-niveau-ouvert-par-une"
  },
  "owner-opus-5-5": {
