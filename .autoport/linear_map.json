@@ -36,7 +36,7 @@
    "url": "https://linear.app/moukrea/document/e1fe9500339a"
   }
  },
- "_gen": 431,
+ "_gen": 436,
  "_ids": {
   "labels": {
    "ok": "000e105b-24ba-4fa3-a579-bc3bf0869242",
@@ -747,13 +747,13 @@
   "url": "https://linear.app/moukrea/issue/JAK-193/la-porte-de-deploiement-sur-appareil-compare-aussi-le-pack-dassets"
  },
  "harness-directives-promises-are-implemented": {
-  "hash": "18dd4d3d086245fccf127883b9a2e165ede94e0a",
+  "hash": "8ac356c6d875ce4acfd49b706fbee3705b00a132",
   "identifier": "JAK-269",
   "issue_id": "f4ddb738-3b69-43a3-b17a-d864b72790bc",
-  "last_state": "In Progress",
+  "last_state": "Done",
   "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-23T10:09:48.000Z",
-  "state_at": "2026-09-24T22:05:09.243Z",
+  "state_at": "2026-09-24T22:29:14.677Z",
   "url": "https://linear.app/moukrea/issue/JAK-269/ce-que-directives-promet-est-fait-par-du-code-le-rapport-perime-est"
  },
  "harness-invisible-item-comment-has-no-capture-boilerplate": {
@@ -1645,7 +1645,7 @@
  },
  "lighting-regimes": {
   "build_announced": "57102cdfce40",
-  "hash": "54019a20e5775590ace608356e5e568211b5b6b9",
+  "hash": "285bb517275911e8a956e3974547b5200142518a",
   "identifier": "JAK-50",
   "issue_id": "c0ae94ec-54bb-4d1d-bd7c-880e12a25428",
   "last_state": "In Review",
@@ -1816,12 +1816,13 @@
   "url": "https://linear.app/moukrea/issue/JAK-78/le-compilateur-goal-utilise-les-31-registres-de-larm64"
  },
  "perf-codegen-arm64-scalar": {
-  "hash": "8e1bdfd0189bf62cd39b157a318870bfeaa83301",
+  "hash": "d8aebd83854d04773e307f05c020fcba2048b7fe",
   "identifier": "JAK-77",
   "issue_id": "1a43f366-ec9e-40f1-bcb2-4e1698505d53",
-  "last_state": "Todo",
+  "last_state": "In Progress",
+  "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-17T05:36:59.000Z",
-  "state_at": "2026-09-24T10:07:08.639Z",
+  "state_at": "2026-09-24T22:29:13.892Z",
   "url": "https://linear.app/moukrea/issue/JAK-77/float-vers-int-division-et-swizzle-en-une-ou-deux-instructions"
  },
  "perf-dma-chain-copies": {
