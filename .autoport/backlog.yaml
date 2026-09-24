@@ -5737,7 +5737,11 @@ items:
     au chargement, sur quatre niveaux. SPEC section 6.3.
 
     23/09 (superviseur) : dependance lighting-ao-indirect (ARCHIVE, supplante le 17/09) remplacee par
-    son successeur ao-indirect-clean (valide) : elle bloquait l''item depuis 6 jours.'
+    son successeur ao-indirect-clean (valide) : elle bloquait l''item depuis 6 jours.
+
+    24/09 (superviseur) : ROUVERT. Ses 3 essais du 23/09 ne sont pas des echecs de code : les workers
+    etaient mis en pause par le crochet de rythme d''usage de l''owner (resetdeck pacing-hook, UserPromptSubmit
+    global) et tues par la garde « aucun progres » apres 4 a 7 actions. Ne pas les decompter.'
   spec: prompts/SPEC-refonte-lumiere.md
   hits_means: index de couleur reconstruits et verifies
   supervisor_recovery: true
@@ -20718,7 +20722,7 @@ items:
     journal: validator-001.txt
 - id: harness-backlog-write-cost
   feature: Une ecriture du backlog ne tient plus le verrou pendant pres d'une seconde
-  status: in-progress
+  status: open
   priority: 26
   code_scope: harnais
   device: false
@@ -20746,6 +20750,17 @@ items:
 
     CONTROLE POSITIF fabrique + CONTROLE NEGATIF. Publier le denominateur.'
   no_code: true
+  owner_feedback:
+  - date: '2026-09-23'
+    text: Pour être honnête je comprends pas du tout de quoi parle ce ticket… c'est visiblement le harnais
+      qui a rencontré le soucis mais je vois pas du tout ce que c'est ce soucis…
+    via:
+      comment: 25f62fc4-a666-450f-89aa-e82325868dc8
+      ticket: f4e659ac-81cd-4d34-95c7-6ad84e9d3de6
+      at: '2026-09-23T16:49:43.215Z'
+  notes: '24/09 (superviseur) : ROUVERT. Ses 3 essais du 23/09 ne sont pas des echecs de code : les workers
+    etaient mis en pause par le crochet de rythme d''usage de l''owner (resetdeck pacing-hook, UserPromptSubmit
+    global) et tues par la garde « aucun progres » apres 4 a 7 actions. Ne pas les decompter.'
 - id: harness-device-acquis-hardening
   feature: Les acquis sur appareil partagent une seule garde de preuve, ont leur propre compteur de passage
     et ne sont pas coupes au milieu d'une course
@@ -21650,3 +21665,4 @@ items:
     de chantiers de jeu prenables contre ouverts.
 
     CONTROLE POSITIF (item fabrique dependant d''un archive -> lint rouge, nomme) + CONTROLE NEGATIF.'
+  no_code: true
