@@ -36,7 +36,7 @@
    "url": "https://linear.app/moukrea/document/e1fe9500339a"
   }
  },
- "_gen": 420,
+ "_gen": 425,
  "_ids": {
   "labels": {
    "ok": "000e105b-24ba-4fa3-a579-bc3bf0869242",
@@ -595,13 +595,13 @@
   "url": "https://linear.app/moukrea/issue/JAK-276/restes-des-acquis-un-acquis-coupe-ne-laisse-plus-dorphelin-et-tous-les"
  },
  "harness-archive-and-status-write-leftovers": {
-  "hash": "b77ea0d89bbd488eb1edc07bd903e1662af6d7ed",
+  "hash": "ac06e5fcb3a811b39e9d1dddf894d5dfc6aad612",
   "identifier": "JAK-263",
   "issue_id": "dffd8c99-dfe8-4af8-8c59-d17bdaf0bddc",
-  "last_state": "In Progress",
+  "last_state": "Done",
   "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-23T08:08:14.000Z",
-  "state_at": "2026-09-24T20:35:07.319Z",
+  "state_at": "2026-09-24T20:59:00.459Z",
   "url": "https://linear.app/moukrea/issue/JAK-263/restes-de-larchivage-en-cours-dessai-et-des-ecritures-de-statut"
  },
  "harness-archived-census-controls-are-alive": {
@@ -651,6 +651,14 @@
   "pulled_at": "2026-09-23T10:09:47.000Z",
   "state_at": "2026-09-23T11:42:44.492Z",
   "url": "https://linear.app/moukrea/issue/JAK-266/les-faux-backlogs-des-recensements-linear-suivent-lapi-reelle-deux"
+ },
+ "harness-census-liveness-leftovers": {
+  "hash": "ab0ba1f7d2d489298ac88c96e7b6d55143bc432c",
+  "identifier": "JAK-278",
+  "issue_id": "ef908c7b-696c-494b-8762-f1ca1f0737dc",
+  "last_state": "Todo",
+  "pulled_at": "2026-09-24T21:08:00.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-278/restes-des-recensements-les-compteurs-qui-attendent-0-sont-eux-aussi"
  },
  "harness-census-seeds-anchored-structurally": {
   "hash": "9d147b8b27daa6413254141a2dbe8b5970e19353",
@@ -1634,16 +1642,16 @@
   "url": "https://linear.app/moukrea/issue/JAK-56/du-redmi-au-snapdragon-8-elite-des-paliers-et-chaque-ajout-debrayable"
  },
  "lighting-regimes": {
-  "hash": "6ae1bb9716a143ca0d95f272600671463bc23005",
+  "hash": "2c129919bebdaf45895a4137d2f12e2257058e25",
   "identifier": "JAK-50",
   "issue_id": "c0ae94ec-54bb-4d1d-bd7c-880e12a25428",
-  "last_state": "Todo",
-  "last_verdict_announced": "validator-002.txt",
+  "last_state": "In Progress",
+  "last_verdict_announced": "validator-003.txt",
   "pulled_at": "2026-09-24T20:46:16.993Z",
   "relations": [
    "lighting-bake"
   ],
-  "state_at": "2026-09-24T20:47:18.718Z",
+  "state_at": "2026-09-24T20:58:59.615Z",
   "url": "https://linear.app/moukrea/issue/JAK-50/la-lumiere-cle-nest-pas-toujours-un-soleil"
  },
  "lighting-shadows": {
