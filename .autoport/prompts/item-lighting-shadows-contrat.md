@@ -17,7 +17,7 @@ Atlas unique tuile, cascades stabilisees pour l'astre dominant, une tuile pour l
 
 AJOUT APRES LE RETOUR OWNER DU 24/09 (allege sur son ordre : « Te prends pas trop la tête avec les preuves visuelles ») :
 A. Corriger la cause : sur l'APPAREIL, le reglage « vraies ombres » doit dessiner l'ombre atlas des acteurs au lieu de l'aplat PS2 (piste : distance camera de l'os racine a 0 sur appareil). UNE grandeur suffit, dans la course normale : par image, nombre d'aplats PS2 dessines et nombre d'ombres atlas dessinees pour les acteurs ; en « vraies ombres », aplats = 0 et atlas > 0.
-B. Ajouter le reglage de qualite des ombres (Bas / Moyen / Haut) au menu.
+B. QUALITE DES OMBRES = CE QUE LA SPEC DEFINIT DEJA, pas un nouveau reglage invente (owner 24/09 : « attention à ce que les réglages de qualité pour les ombres collide pas avec d'autres chantiers [...] faudrait pas refaire deux fois le même travail »). Livrer les lignes « Ombres » de la SPEC §6.2 qui relevent de CE chantier (resolution d'atlas 2048/4096/8192 selon les paliers 0/1/2 de §4.8, cascades 2/3/4, distance 40..200 m, force, ombres d'acteurs vraies/aplat PS2/aucune, ombre du second astre), chacune ecrasable dans le menu. L'echelle globale Tres bas -> Ultra qui POSE ces valeurs appartient a lighting-presets (SPEC §6.3) : ne pas la refaire ici, exposer les valeurs pour que lighting-presets les pilote. Les ombres de contact (§6.2) attendent la prepasse des acteurs (lighting-actors).
 C. PAS de campagne multi-scenes, PAS de comptage de pixels : l'OEIL, c'est l'owner. Des que A et B tiennent, livrer le build et passer en to-test.
 
 ## Hors perimetre
@@ -44,6 +44,9 @@ l'ombre de Jak et des PNJ au sol, et le matin quand les deux astres sont leves
 
 ### 2026-09-24
 > Te prends pas trop la tête avec les preuves visuelles, t'es toujours assi mauvais pour ça et tu perds un temps monstre et gaspille une quantité de tokens colossale pour soit des preuves bidons, soit des blockers qui n'en sont pas parce que t'es à chier sur le visuel, c'est pas la première fois que je te le dis et ça me casse les couilles de te le réexpliquer chaque fois !
+
+### 2026-09-24
+> attention à ce que les réglages de qualité pour les ombres collide pas avec d'autres chantiers sur les ombres qui s'appuient sur la même spec hein. faudrait pas refaire deux fois le même travail, ou ignorer des aspect importants de ça juste parce que je l'ai mentionné
 
 ## Pourquoi ce fichier existe
 
