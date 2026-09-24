@@ -47,8 +47,8 @@ done
 # ========================================= 2. LA PORTE EST BRANCHEE, ET ELLE LIT LES DEUX =====
 # Le branchement se lit dans le CODE (appel hors commentaire, entre les marqueurs du bloc que le
 # bras `vieux` retire) — et son EFFET se lit sur le bras `goal`. L'un sans l'autre ne vaut rien.
-SITES_PR=$(awk 'index($0,"GARDE-PACK/debut"){f=1} f && !/^[[:space:]]*#/ && /deploy_verify_assets\.sh" --gate/{c++} index($0,"GARDE-PACK/fin"){f=0} END{print c+0}' "$AP/lib/proof_run.sh")
-SITES_DV=$(grep -v '^[[:space:]]*#' "$AP/lib/deploy_verify.sh" | grep -c 'deploy_verify_assets\.sh" --gate' || true)
+SITES_PR=$(awk 'index($0,"GARDE-PACK/debut"){f=1} f && !/^[[:space:]]*#/ && /deploy_verify_assets\.sh"[[:space:]]+--gate/{c++} index($0,"GARDE-PACK/fin"){f=0} END{print c+0}' "$AP/lib/proof_run.sh")
+SITES_DV=$(grep -v '^[[:space:]]*#' "$AP/lib/deploy_verify.sh" | grep -cE 'deploy_verify_assets\.sh"[[:space:]]+--gate' || true)
 pub asset_gate_call_sites_proof_run "$SITES_PR"
 pub asset_gate_call_sites_deploy_verify "$SITES_DV"
 t=0; [ "$SITES_PR" -ge 1 ] 2>/dev/null || t=1

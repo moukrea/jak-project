@@ -32,7 +32,10 @@ import copy, io, json, sys, types
 from contextlib import redirect_stdout
 from pathlib import Path
 sys.path.insert(0, '.autoport')
+sys.path.insert(0, '.autoport/lib/census')
 from lib.census import fake_backlog as FB  # noqa: E402
+import anchor as A  # noqa: E402
+import ast  # noqa: E402
 
 OUT = {}
 def pub(k, v): OUT[k] = str(v).replace(" ", "_")
@@ -40,40 +43,55 @@ unmeasured, dead = [], []
 SRC_PATH = Path(".autoport/linear_sync.py")
 SRC = SRC_PATH.read_text()
 
-# Le code d'AVANT, recopie ici (jamais lu a HEAD : faux des le commit). Seme par remplacement exact.
-NEW_ORPH = '''                    try:
-                        L.q('mutation($id:String!,$i:IssueUpdateInput!){ issueUpdate(id:$id,input:$i){ success } }', id=rec["issue_id"], i={"stateId": states["Canceled"]})
-                        post_comment(L, rec["issue_id"], mark(L) + "Ce chantier n'existe plus dans le backlog du harnais : ticket archivé.")
-                        print("  orphelin archive :", rec["identifier"], iid)
-                    except Exception as e:  # noqa: BLE001 — un orphelin qui refuse ne fait plus tomber le passage
-                        fail("--check orphelin %s (%s)" % (rec["identifier"], iid), e)
-'''
+# Le code d'AVANT (regression seme dans une copie), recopie ici : jamais lu a HEAD (faux des le commit).
 OLD_ORPH = '''                    L.q('mutation($id:String!,$i:IssueUpdateInput!){ issueUpdate(id:$id,input:$i){ success } }', id=rec["issue_id"], i={"stateId": states["Canceled"]})
                     post_comment(L, rec["issue_id"], mark(L) + "Ce chantier n'existe plus dans le backlog du harnais : ticket archivé.")
                     print("  orphelin archive :", rec["identifier"], iid)
 '''
-NEW_READ = '''            try:
-                nodes = L.q(QCHK, ids=ids[i:i + 50])["issues"]["nodes"]
-            except RuntimeError as e:
-                if str(e).startswith("Linear indisponible"):
-                    raise  # le reseau, pas un ticket : le passage entier ne peut rien lire
-                nodes = []  # un lot refuse : relu ticket par ticket, seul le fautif est perdu
-                for one in ids[i:i + 50]:
-                    nodes += guard("--check lecture %s" % _name(one), lambda: L.q(QCHK, ids=[one])["issues"]["nodes"], [])
-'''
 OLD_READ = '''            nodes = L.q(QCHK, ids=ids[i:i + 50])["issues"]["nodes"]
 '''
-SEEDS = {"orphelin": [(NEW_ORPH, OLD_ORPH)], "lecture": [(NEW_READ, OLD_READ)]}
+
+
+def _try_containing(src, spec):
+    """Le noeud `try` UNIQUE qui enveloppe le noeud designe par `spec` (`has` ne s'applique pas a un `try` lui
+    meme : on designe une instruction INTERIEURE, structurellement unique, et on remonte a son `try` parent)."""
+    tree = ast.parse(src)
+    target = A.site(tree, **spec)
+    found = [n for n in ast.walk(tree) if isinstance(n, ast.Try) and any(d is target for d in ast.walk(n))]
+    if len(found) != 1:
+        raise A.Introuvable("try:%s:%d" % (spec, len(found)))
+    return found[0]
+
+
+def _drop_try_guard(src, spec, replacement):
+    """Remplace le `try`/`except` entier (identifie par `spec`) par `replacement` (le corps SANS la garde) :
+    equivalent structurel de la regression d'avant le 23/09."""
+    n = _try_containing(src, spec)
+    a, b = A.span(src, n)
+    line_start = src.rfind("\n", 0, a) + 1
+    return src[:line_start] + replacement + src[b:]
+
+
+def _seed_orphelin(src):
+    return _drop_try_guard(src, dict(func="main", kind="expr", has=("  orphelin archive :",)), OLD_ORPH)
+
+
+def _seed_lecture(src):
+    return _drop_try_guard(src, dict(func="main", kind="for", has=("one",)), OLD_READ)
+
+
+SEEDS = {"orphelin": [_seed_orphelin], "lecture": [_seed_lecture]}
 
 
 def load_variant(seeds):
-    """Le module `linear_sync` REEL, rejoue depuis son source avec les remplacements `seeds`.
-    Un remplacement introuvable = controle MORT (le code a change sous lui)."""
+    """Le module `linear_sync` REEL, rejoue depuis son source avec les remplacements `seeds` (callables
+    src->src, structurels). Une graine introuvable = controle MORT (le code a change sous elle)."""
     src, missing = SRC, []
-    for old, new in seeds:
-        if src.count(old) != 1:
-            missing.append(old.strip()[:40])
-        src = src.replace(old, new)
+    for s in seeds:
+        try:
+            src = s(src)
+        except A.Introuvable as e:
+            missing.append(str(e))
     m = types.ModuleType("linear_sync_sim")
     m.__file__ = str(SRC_PATH.resolve())
     exec(compile(src, "linear_sync_sim", "exec"), m.__dict__)

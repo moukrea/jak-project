@@ -180,8 +180,8 @@ esac
 # ── 2. LES ENREGISTREURS ────────────────────────────────────────────────────────────────────────
 # La liste vient des DECLARATIONS de l'en-tete, pas d'ici : une porte ajoutee demain est auditee
 # sans que personne n'ait a y penser.
-RECORDERS=$(grep -oE '^void (gate_[a-z_]+)\(int v\);' "$CENSUS_HDR" 2>/dev/null \
-            | sed -E 's/^void (gate_[a-z_]+)\(int v\);/\1/' | sort -u)
+RECORDERS=$(grep -oE '^void\s+(gate_[a-z_]+)\(int\s+v\);' "$CENSUS_HDR" 2>/dev/null \
+            | sed -E 's/^void\s+(gate_[a-z_]+)\(int\s+v\);/\1/' | sort -u)
 REC_N=0; REC_DEAD=0
 for r in $RECORDERS; do
   read -r sites lit verdict <<EOF
@@ -323,8 +323,8 @@ if [ -n "$BT" ] && git archive "$BEFORE_COMMIT" "$CALL_DIR" 2>/dev/null | tar -x
   if [ -f "$BT/$CENSUS_HDR" ] && [ -f "$BT/$SHADE_SRC" ] && [ -f "$BT/$HDR_SRC" ]; then
     BEFORE_READ=1
     B_REC=0
-    for r in $(grep -oE '^void (gate_[a-z_]+)\(int v\);' "$BT/$CENSUS_HDR" \
-               | sed -E 's/^void (gate_[a-z_]+)\(int v\);/\1/' | sort -u); do
+    for r in $(grep -oE '^void\s+(gate_[a-z_]+)\(int\s+v\);' "$BT/$CENSUS_HDR" \
+               | sed -E 's/^void\s+(gate_[a-z_]+)\(int\s+v\);/\1/' | sort -u); do
       read -r _bs _bl bv <<EOF
 $(rec_verdict "$BT/$CALL_DIR" "$r")
 EOF

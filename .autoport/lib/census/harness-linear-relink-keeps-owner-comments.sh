@@ -34,23 +34,24 @@ from contextlib import redirect_stdout
 from pathlib import Path
 sys.path.insert(0, '.autoport')
 from lib.census import fake_backlog as FB
+sys.path.insert(0, '.autoport/lib/census')
+import anchor as A  # noqa: E402
 
 OUT = {}
 def pub(k, v): OUT[k] = str(v).replace(" ", "_")
 unmeasured, dead = [], []
 SRC_PATH = Path(".autoport/linear_sync.py")
 SRC = SRC_PATH.read_text()
-REST_LINE = '            iss["comments"]["nodes"] += OSLA._rest(L, iss["id"], iss["comments"].get("pageInfo"))\n'
+# Ancre STRUCTURELLE : l'AugAssign qui etend les commentaires par la suite paginee, dans `pull_owner`.
+REST_SPEC = dict(func="pull_owner", kind="assign", has=("_rest", "comments"))
+REST_SEED = (REST_SPEC, ("node", ""))
 
 
 def load_variant(seeds):
-    """Le module `linear_sync` REEL, rejoue depuis son source avec les remplacements `seeds`.
-    Un remplacement introuvable = controle MORT (le code a change sous lui)."""
-    src, missing = SRC, []
-    for old, new in seeds:
-        if src.count(old) != 1:
-            missing.append(old.strip()[:40])
-        src = src.replace(old, new)
+    """Le module `linear_sync` REEL, rejoue depuis son source avec les graines STRUCTURELLES `seeds`
+    (`[(spec, op), ...]` pour `anchor.mutate`). Une graine introuvable (le noeud vise n'est plus dans
+    l'arbre) = controle MORT, nommee par `anchor.seed`."""
+    src, missing = A.seed(SRC, seeds)
     m = types.ModuleType("linear_sync_sim")
     m.__file__ = str(SRC_PATH.resolve())
     exec(compile(src, "linear_sync_sim", "exec"), m.__dict__)
@@ -102,7 +103,7 @@ try:
             return d
 
     by_issue = {v["issue_id"]: k for k, v in recs.items()}
-    for tag, seeds in (("after", []), ("before", [(REST_LINE, "")])):
+    for tag, seeds in (("after", []), ("before", [REST_SEED])):
         m = S if not seeds else load_variant(seeds)[0]
         if seeds:
             m.B = S.B
@@ -270,9 +271,11 @@ try:
     sim_skipped = len(neg["skipped"])
     NOW_EXPR = 'dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")'
     POS = {
-        "ensure": ([("        mp[iid] = relinked_rec(found)\n", "        mp[iid] = dict(relinked_rec(found), pulled_at=now)\n")], "SIM-A:c-a2"),
-        "adopt": ([("                mp[what] = relinked_rec(iss)\n", "                mp[what] = dict(relinked_rec(iss), pulled_at=%s)\n" % NOW_EXPR)], "SIM-B:c-b1"),
-        "page": ([(REST_LINE, "")], "SIM-A:c-a2"),
+        "ensure": ([(dict(func="ensure_ticket", kind="assign", has=("relinked_rec", "found", "iid")),
+                     ("value", "dict(relinked_rec(found), pulled_at=now)"))], "SIM-A:c-a2"),
+        "adopt": ([(dict(func="adopt_owner_issues", kind="assign", has=("relinked_rec", "iss", "what")),
+                    ("value", "dict(relinked_rec(iss), pulled_at=%s)" % NOW_EXPR))], "SIM-B:c-b1"),
+        "page": ([REST_SEED], "SIM-A:c-a2"),
     }
     for tag, (seeds, expect) in POS.items():
         r = simulate(seeds)

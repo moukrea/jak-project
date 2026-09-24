@@ -33,6 +33,8 @@ from contextlib import redirect_stdout
 from pathlib import Path
 sys.path.insert(0, '.autoport')
 from lib.census import fake_backlog as FB  # noqa: E402
+sys.path.insert(0, '.autoport/lib/census')
+import anchor as A  # noqa: E402
 
 OUT = {}
 def pub(k, v): OUT[k] = str(v).replace(" ", "_")
@@ -252,13 +254,10 @@ def fake_world():
 
 
 def load_variant(seeds):
-    """Le module `linear_sync` REEL, rejoue depuis son source avec les remplacements `seeds` (controles positifs).
-    Un remplacement introuvable = controle MORT (le code a change sous lui)."""
-    src, missing = SRC, []
-    for old, new in seeds:
-        if src.count(old) != 1:
-            missing.append(old[:40])
-        src = src.replace(old, new)
+    """Le module `linear_sync` REEL, rejoue depuis son source avec les graines STRUCTURELLES `seeds`
+    (`[(spec, op), ...]` pour `anchor.mutate`, controles positifs). Une graine introuvable (le noeud vise
+    n'est plus dans l'arbre) = controle MORT, nommee par `anchor.seed`."""
+    src, missing = A.seed(SRC, seeds)
     m = types.ModuleType("linear_sync_sim")
     m.__file__ = str(SRC_PATH.resolve())
     exec(compile(src, "linear_sync_sim", "exec"), m.__dict__)
@@ -309,14 +308,32 @@ try:
     pub("owner_archived_ctl_neg_decisions", neg["den"]["owner_decisions"])
     if neg["lost"] or neg["false"] or neg["den"]["owner_comments"] < 1 or neg["den"]["owner_decisions"] < 1:
         dead.append("C-:" + (",".join(neg["names"]) or "denominateur_vide"))
-    Q_OLD = "first:40, includeArchived:true){ nodes { id archivedAt state { name } labels"
+    def _flag_seed():
+        """`includeArchived` retire de l'appel `L.q` de `pull_owner` : le noeud est trouve sur l'arbre (l'appel
+        `L.q(..., ids=...)`), le retrait de l'argument est compte par `A.gql_drop_arg` (structurel, pas une ligne)."""
+        spec = dict(func="pull_owner", kind="call", has=("q", "ids"))
+        try:
+            node = A.site(SRC, **spec)
+            a, b = A.span(SRC, node)
+            new_call, ndrop = A.gql_drop_arg(SRC[a:b], "includeArchived")
+            if ndrop != 1:
+                raise A.Introuvable("flag:drop_arg:%d" % ndrop)
+        except A.Introuvable:
+            # controle du nombre retire : pas exactement 1 -> graine deliberement introuvable, NOMMEE comme telle.
+            return dict(func="pull_owner", kind="call", has=("__flag_drop_arg_failed__",)), ("node", "")
+        return spec, ("node", new_call)
+
     POS = {
-        "flag": [(Q_OLD, Q_OLD.replace(", includeArchived:true", ""))],
-        "decision": [("ev = owner_archived(L, hist, owner_id, rec)", "ev = None")],
-        "last_state": [('rec.update({"hash": h, "stale_archived": True})', 'rec.update({"last_state": st, "hash": h})'),
-                       # 23/09 (harness-linear-stale-map-never-fakes-an-owner-move) : l'attribution passe par `owner_move` pour
-                       # TOUT ecart ; le defaut d'avant (tout ecart = l'owner) se seme sur son appel.
-                       ('mv, why = owner_move(L, hist, owner_id, here, rec)', 'mv, why = {"createdAt": ""}, "carte"')],
+        "flag": [_flag_seed()],
+        "decision": [(dict(func="pull_owner", kind="assign", has=("owner_archived", "ev")), ("value", "None"))],
+        "last_state": [
+            (dict(func="push_existing", kind="expr", has=("update", "hash", "stale_archived")),
+             ("node", 'rec.update({"last_state": st, "hash": h})')),
+            # 23/09 (harness-linear-stale-map-never-fakes-an-owner-move) : l'attribution passe par `owner_move` pour
+            # TOUT ecart ; le defaut d'avant (tout ecart = l'owner) se seme sur son appel.
+            (dict(func="pull_owner", kind="assign", has=("owner_move", "mv", "why")),
+             ("value", '{"createdAt": ""}, "carte"')),
+        ],
     }
     EXPECT = {"flag": "SIM-A:item-a", "decision": "SIM-B:item-b", "last_state": "SIM-B:"}
     for tag, seeds in POS.items():

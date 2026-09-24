@@ -33,8 +33,10 @@ cd "$ROOT" || exit 1
 python3 - <<'PY'
 import ast, copy, hashlib, importlib.util as ilu, json, os, shutil, subprocess, sys, tempfile, time
 sys.path.insert(0, ".autoport/lib")
+sys.path.insert(0, ".autoport/lib/census")
 import backlog as B
 import prompt_origin as PO
+import anchor as A
 
 ROOT = os.getcwd()
 AP = os.path.join(ROOT, ".autoport")
@@ -42,8 +44,8 @@ OUT = {}
 def pub(k, v): OUT[k] = str(v).replace(" ", "_")
 unmeasured, dead = [], []
 SRC = open(os.path.join(AP, "lib", "backlog.py"), encoding="utf-8").read()
-NEW_LINE = '_FINGERPRINTS = os.path.join(AP, ".prompt_fingerprints.json")'
 OLD_LINE = '_FINGERPRINTS = ".autoport/.prompt_fingerprints.json"'
+FP_SPEC = dict(kind="assign", has=("_FINGERPRINTS",))
 sha = lambda t: hashlib.sha256(t.encode("utf-8")).hexdigest()
 
 
@@ -60,9 +62,10 @@ def probe(seeded):
         shutil.copy(os.path.join(AP, "backlog.yaml"), os.path.join(ap, "backlog.yaml"))
         src = SRC
         if seeded:
-            if src.count(NEW_LINE) != 1:
+            try:
+                src = A.mutate(src, FP_SPEC, ("node", OLD_LINE))
+            except A.Introuvable:
                 raise RuntimeError("graine introuvable")
-            src = src.replace(NEW_LINE, OLD_LINE)
         with open(os.path.join(ap, "lib", "backlog.py"), "w", encoding="utf-8") as fh:
             fh.write(src)
         spec = ilu.spec_from_file_location("backlog_fp_%d" % seeded, os.path.join(ap, "lib", "backlog.py"))

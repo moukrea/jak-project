@@ -33,7 +33,35 @@ ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || { echo "banned_model_paths=
 cd "$ROOT" || exit 1
 
 python3 - <<'PY'
-import json, os, re, shutil, subprocess, sys, tempfile
+import ast, json, os, re, shutil, subprocess, sys, tempfile
+sys.path.insert(0, ".autoport/lib/census")
+import anchor as A
+
+
+def drop_line(text, needle, lang="c"):
+    """Retire l'occurrence unique de `needle` (jetons) et le saut de ligne qui la suit."""
+    a, b = A.tok_at(text, needle, lang=lang)
+    if text[b:b + 1] == "\n":
+        b += 1
+    return text[:a] + text[b:]
+
+
+def dict_reseed(node_text, updates):
+    """Remplace, sur l'ARBRE du fragment `node_text` (un litteral `{...}`), la VALEUR de chaque cle nommee
+    dans `updates` (texte python pret a l'emploi, ex. `'"high"'`)."""
+    tree = ast.parse(node_text, mode="eval")
+    edits = []
+    for kk, vv in zip(tree.body.keys, tree.body.values):
+        if isinstance(kk, ast.Constant) and kk.value in updates:
+            edits.append((vv, updates[kk.value]))
+    edits.sort(key=lambda e: A.span(node_text, e[0])[0], reverse=True)
+    out = node_text
+    for vv, newval in edits:
+        aa, bb = A.span(node_text, vv)
+        out = out[:aa] + newval + out[bb:]
+    return out
+
+
 ROOT = os.getcwd()
 AP = os.path.join(ROOT, ".autoport")
 sys.path.insert(0, os.path.join(AP, "lib"))
@@ -201,15 +229,25 @@ def c5(root, home):
 control("c5_agent_frontmatter", c5)
 
 def c6(root, home):
-    edit(root, ".autoport/supervisor.sh", lambda s: s.replace("export CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1\n", "", 1))
+    edit(root, ".autoport/supervisor.sh",
+         lambda s: drop_line(s, "export CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1", lang="sh"))
     return bool(has(lint(root, home), "subagent-force", ".autoport/supervisor.sh")), None
 control("c6_force_removed", c6)
 
+def c7_reseed(s):
+    spec = dict(func="_load_model_profile", kind="dict",
+                has=("manager_model", "manager_effort", "worker_model"))
+    n = A.site(s, **spec)
+    a, b = A.span(s, n)
+    new_node = dict_reseed(s[a:b], {
+        "manager_model": '"claude-fable-5-1[1m]"',
+        "manager_effort": '"high"',
+        "worker_model": '"claude-fable-5-1[1m]"',
+    })
+    return A.mutate(s, spec, ("node", new_node))
+
 def c7(root, home):
-    edit(root, ".autoport/orchestrator.py",
-         lambda s: s.replace('"manager_model": "", "manager_effort": "", "worker_model": "",',
-                             '"manager_model": "claude-fable-5-1[1m]", "manager_effort": "high", '
-                             '"worker_model": "claude-fable-5-1[1m]",', 1))
+    edit(root, ".autoport/orchestrator.py", c7_reseed)
     h = has(lint(root, home), "code", ".autoport/orchestrator.py:")
     return len(h) >= 2, f"{len(h)}_litteraux"
 control("c7_orchestrator_fallback", c7)
@@ -228,7 +266,8 @@ def c9(root, home):
 control("c9_data_only_cannot_hide_a_launcher", c9)
 
 def c10(root, home):
-    edit(root, ".autoport/lib/model_profile.py", lambda s: s.replace("    if hits:\n", "    if False and hits:\n", 1))
+    edit(root, ".autoport/lib/model_profile.py",
+         lambda s: A.mutate(s, dict(func="resolve", kind="if", has=("hits",)), "false"))
     return bool(has(lint(root, home), "launch-gate")), None
 control("c10_launch_gate_removed", c10)
 

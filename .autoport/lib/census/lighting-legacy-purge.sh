@@ -261,7 +261,7 @@ fi
 # on compte les noms presents d'un seul cote.
 DRIFT=$(
   {
-    sed -n '/kLegacyUniformNames\[\] = {/,/^};/p' "$CENSUS_SRC" 2>/dev/null |
+    sed -n '/kLegacyUniformNames\[\]\s*=\s*{/,/^};/p' "$CENSUS_SRC" 2>/dev/null |
       grep -oE '"[A-Za-z_][A-Za-z0-9_]*"' | tr -d '"' | sort -u | sed 's/^/SRC /'
     printf '%s\n' "${REMOVED_UNIFORMS[@]}" "${OTHER_UNIFORMS[@]}" | sort -u | sed 's/^/SH /'
   } | awk '{c[$2]=c[$2] " " $1} END {n=0; for (k in c) if (c[k] !~ /SRC/ || c[k] !~ /SH/) n++; print n+0}'
@@ -270,7 +270,7 @@ case "$DRIFT" in ''|*[!0-9]*) DRIFT=9002; note "derive de table illisible" ;; es
 pub lighting_legacy_list_drift "$DRIFT"
 # Le denominateur de la derive : combien de noms chaque cote porte. Un zero des deux cotes
 # rendrait une derive nulle qui ne prouve rien.
-SRC_N=$(sed -n '/kLegacyUniformNames\[\] = {/,/^};/p' "$CENSUS_SRC" 2>/dev/null |
+SRC_N=$(sed -n '/kLegacyUniformNames\[\]\s*=\s*{/,/^};/p' "$CENSUS_SRC" 2>/dev/null |
         grep -coE '"[A-Za-z_][A-Za-z0-9_]*"')
 pub lighting_legacy_list_src_names "${SRC_N:-0}"
 pub lighting_legacy_list_sh_names "$(( ${#REMOVED_UNIFORMS[@]} + ${#OTHER_UNIFORMS[@]} ))"

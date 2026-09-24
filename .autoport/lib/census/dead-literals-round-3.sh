@@ -64,6 +64,8 @@ SHADER_REMOVED_BY=c65c9a71bd2e00aa1f4799abf4dae000769503a5
 python3 - "$BEFORE_COMMIT" "$SHADER_BEFORE_COMMIT" "$SHADER_REMOVED_BY" <<'PYEOF'
 import hashlib, os, re, shutil, subprocess, sys, tempfile
 from pathlib import Path
+sys.path.insert(0, ".autoport/lib/census")
+import anchor as A
 
 BEFORE_COMMIT, SHADER_BEFORE_COMMIT, SHADER_REMOVED_BY = sys.argv[1], sys.argv[2], sys.argv[3]
 
@@ -297,8 +299,11 @@ def t1():
     # LA CLE MESUREE EST BIEN EMISE, SANS GARDE OPTIONNELLE. Sans ce controle, un lot neuf
     # pourrait retomber au niveau d'avant en silence et la cadence ne serait plus jugee.
     src = Path(REFSET).read_text(errors='ignore')
-    blk = src.split('effective_options["temporal"] = {', 1)
-    ok = len(blk) == 2 and '{"particle_steps", g_part_steps}' in blk[1].split('};', 1)[0]
+    try:
+        blk = A.tok_block(src, 'effective_options["temporal"] =', lang='c')
+        ok = A.tok_count(blk, '{"particle_steps", g_part_steps}', lang='c') > 0
+    except A.Introuvable:
+        ok = False
     pub('t1_cpp_key_present', 1 if ok else 0)
     if not ok:
         note('t1-cle-mesuree-non-emise'); bad += 1000

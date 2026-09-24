@@ -63,6 +63,8 @@ HIST_COMMIT=56fbfe875d75702f28e86dc9f8ea9b320df0e2c8
 python3 - "$BEFORE_COMMIT" "$HIST_COMMIT" <<'PYEOF'
 import re, subprocess, sys, tempfile, shutil
 from pathlib import Path
+sys.path.insert(0, ".autoport/lib/census")
+import anchor as A
 
 BEFORE_COMMIT, HIST_COMMIT = sys.argv[1], sys.argv[2]
 
@@ -124,19 +126,29 @@ def strip_line(l, keep_strings=True):
 def code_only(l):
     return strip_line(l, keep_strings=False)
 
+def find_line(lines, needle, start_at=0):
+    """Ligne (index 0-based) ou la suite de JETONS de `needle` apparait, a `start_at` ou apres. Structurel :
+    ignore la mise en page et les commentaires (`A.tok_find`), au lieu d'une correspondance `needle in ligne`."""
+    text = '\n'.join(lines)
+    offset = sum(len(l) + 1 for l in lines[:start_at])
+    hits = A.tok_find(text[offset:], needle, lang="c")
+    if not hits:
+        return None
+    return text.count('\n', 0, offset + hits[0][0])
+
 def region(lines, needle, start_at=0):
     """Rend (i0, i1) INCLUS, les index 0-based des lignes de la region ouverte par `needle`."""
-    for i in range(start_at, len(lines)):
-        if needle in lines[i]:
-            depth, seen = 0, False
-            for j in range(i, min(len(lines), i + 600)):
-                s = code_only(lines[j])
-                depth += s.count('{') - s.count('}')
-                if '{' in s:
-                    seen = True
-                if seen and depth <= 0:
-                    return i, j
-            return None
+    i = find_line(lines, needle, start_at)
+    if i is None:
+        return None
+    depth, seen = 0, False
+    for j in range(i, min(len(lines), i + 600)):
+        s = code_only(lines[j])
+        depth += s.count('{') - s.count('}')
+        if '{' in s:
+            seen = True
+        if seen and depth <= 0:
+            return i, j
     return None
 
 # ── L'AUTORITE DE CONSTRUCTION ──────────────────────────────────────────────────────────────────
@@ -237,7 +249,7 @@ def published_pairs(base):
     # REGION B S'ANCRE SUR L'OBJET, PAS SUR LA FEATURE. `feature_is("lighting-hdr")` apparait
     # quatorze fois dans ce fichier ; le premier match est un bloc qui ne publie rien. La region
     # qui AUGMENTE l'objet commence a la declaration de `effective_options`.
-    obj = next((i for i, l in enumerate(lines) if RX_OBJECT in l), None)
+    obj = find_line(lines, RX_OBJECT)
     if obj is None:
         return [], False
     out, ok = [], True
@@ -476,16 +488,16 @@ def ledger_keys(base):
     lines = lines_of(base, REFSET)
     if lines is None:
         return None
-    for i, l in enumerate(lines):
-        if LEDGER in l:
-            out = []
-            for j in range(i + 1, min(len(lines), i + 64)):
-                if '};' in lines[j]:
-                    return out
-                m = re.search(r'"([^"]+)"', lines[j])
-                if m:
-                    out.append(re.split(r'->|\?|@', m.group(1))[0])
-            return out
+    i = find_line(lines, LEDGER)
+    if i is not None:
+        out = []
+        for j in range(i + 1, min(len(lines), i + 64)):
+            if '};' in lines[j]:
+                return out
+            m = re.search(r'"([^"]+)"', lines[j])
+            if m:
+                out.append(re.split(r'->|\?|@', m.group(1))[0])
+        return out
     return []
 
 def delivered_key_set(base):
@@ -573,12 +585,29 @@ try:
     sh_now, cpu_now = t3_shader('.'), t3_cpu('.')
     sh_bef = t3_shader(BEFORE) if BEFORE else None
     cpu_bef = t3_cpu(BEFORE) if BEFORE else None
-    if sh_now is None or cpu_now is None:
+    # LE SHADER PEUT AVOIR ETE RETIRE DE L'ARBRE (`pbr_fused.glsl`, c65c9a71bd). Un miroir introuvable
+    # PARCE QU'ON L'A VOULU (le CPU ne cite plus `pbr_coverage_note_draw` non plus) est NOMME, pas
+    # confondu avec une porte cassee : `t3_state=retire:<sha>` et zero, jamais 9000.
+    bgc_head_lines = lines_of('.', BGC)
+    bgc_head_text = '\n'.join(bgc_head_lines) if bgc_head_lines is not None else ''
+    shader_tracked = subprocess.run(['git', 'ls-files', '--error-unmatch', SHADER],
+                                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
+    if not shader_tracked and A.tok_count(bgc_head_text, 'pbr_coverage_note_draw') == 0:
+        sha = A.retired_by(SHADER)
+        if sha:
+            pub('t3_state', 'retire:' + sha)
+            t3 = 0
+        else:
+            note('t3-porte-introuvable'); t3 = 9000
+            pub('t3_state', 'vivant')
+    elif sh_now is None or cpu_now is None:
         note('t3-porte-introuvable'); t3 = 9000
+        pub('t3_state', 'vivant')
     else:
         pub('t3_shader_terms', len(sh_now[0])); pub('t3_shader_list', ';'.join(sh_now[0]))
         pub('t3_cpu_terms', len(cpu_now[0])); pub('t3_cpu_list', ';'.join(cpu_now[0]))
         t3 = abs(len(sh_now[0]) - len(cpu_now[0]))
+        pub('t3_state', 'vivant')
     if sh_bef and cpu_bef:
         pub('t3_before_shader_terms', len(sh_bef[0]))
         pub('t3_before_cpu_terms', len(cpu_bef[0]))
@@ -601,8 +630,19 @@ try:
     # ══ T4 ══════════════════════════════════════════════════════════════════════════════════════
     now = t4_scan('.')
     bef = t4_scan(BEFORE) if BEFORE else None
-    if now is None:
+    # LA GARDE `kPbrParams` PEUT AVOIR ETE RETIREE POUR DE VRAI : un `A.tok_count` (commentaires
+    # ignores) a zero dans BGC dit qu'il ne reste plus qu'une MENTION en commentaire, pas le code.
+    if now is None and A.tok_count(bgc_head_text, 'kPbrParams') == 0:
+        sha = A.retired_by(BGC, 'kPbrParams')
+        if sha:
+            pub('t4_state', 'retire:' + sha)
+            t4 = 0
+        else:
+            note('t4-garde-introuvable'); t4 = 9000
+            pub('t4_state', 'vivant')
+    elif now is None:
         note('t4-garde-introuvable'); t4 = 9000
+        pub('t4_state', 'vivant')
     else:
         pub('t4_block_assigned', now['assigned'])
         pub('t4_cover_arity', len(now['args']))
@@ -617,6 +657,7 @@ try:
         t4 = len(now['unnamed'])
         if not now['args'] or not now['escaping']:
             note('t4-population-vide')
+        pub('t4_state', 'vivant')
     pub('t4_before', len(bef['unnamed']) if bef else -1)
     if bef is not None and not bef['unnamed']:
         note('t4-temoin-avant-a-zero')

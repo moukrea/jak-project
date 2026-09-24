@@ -36,7 +36,9 @@ import ast, copy, datetime as dt, io, re, sys, types
 from contextlib import redirect_stdout
 from pathlib import Path
 sys.path.insert(0, '.autoport')
+sys.path.insert(0, '.autoport/lib/census')
 from lib.census import fake_backlog as FB
+import anchor as A
 
 OUT = {}
 def pub(k, v): OUT[k] = str(v).replace(" ", "_")
@@ -48,10 +50,18 @@ CLOSED = ("completed", "canceled")
 
 def load_variant(seeds):
     src, missing = SRC, []
-    for old, new in seeds:
-        if src.count(old) != 1:
-            missing.append(old.strip()[:40])
-        src = src.replace(old, new)
+    for s in seeds:
+        if callable(s):
+            try:
+                src = s(src)
+            except A.Introuvable as e:
+                missing.append(str(e))
+            continue
+        spec, op = s
+        try:
+            src = A.mutate(src, spec, op)
+        except A.Introuvable as e:
+            missing.append(str(e))
     m = types.ModuleType("linear_sync_sim")
     m.__file__ = str(SRC_PATH.resolve())
     exec(compile(src, "linear_sync_sim", "exec"), m.__dict__)
@@ -76,11 +86,26 @@ def call_defect(src):
     return [] if ok else ["main"]
 
 
-CALL_LINE = '        guard("tickets clos perdus", lambda: relink_closed_tickets(L, bl, mp, team, a.dry_run), 0)\n'
+def _drop_stmt_line(src, spec):
+    """Retire ENTIEREMENT la ligne portant le noeud designe par `spec` (comme `src.replace(ligne, "")`)."""
+    n = A.site(src, **spec)
+    a, b = A.span(src, n)
+    line_start = src.rfind("\n", 0, a) + 1
+    line_end = src.find("\n", b) + 1
+    return src[:line_start] + src[line_end:]
+
+
+def _drop_relink_call(src):
+    return _drop_stmt_line(src, dict(func="main", kind="expr", has=("guard", "relink_closed_tickets")))
+
+
 call_bad = call_defect(SRC)
 pub("relink_closed_call_lines", ",".join(map(str, call_order(SRC)["relink_closed_tickets"])) or "-")
 pub("relink_closed_call_defect", ",".join(call_bad) or "-")
-seeded = SRC.replace(CALL_LINE, "") if SRC.count(CALL_LINE) == 1 else None
+try:
+    seeded = _drop_relink_call(SRC)
+except A.Introuvable:
+    seeded = None
 if seeded is None:
     dead.append("C+_appel:introuvable")
 else:
@@ -264,13 +289,26 @@ try:
     if r["neg"] or r["den"] != 3:
         dead.append("C-:" + (",".join(r["neg"]) or "monde_incomplet"))
     sim_defects = len(r["defects"])
+    def _seed_clos(src):
+        n = A.site(src, func="relink_closed_tickets", kind="if", has=("issue_key",))
+        a, b = A.span(src, n)
+        orig = src[a:b]
+        new = ('if iss["state"]["type"] in ("completed", "canceled") or iss.get("archivedAt"):\n'
+               '            continue\n        ' + orig)
+        return src[:a] + new + src[b:]
+
+    def _seed_archive(src):
+        n = A.site(src, func="relink_closed_tickets", kind="call", has=("q",))
+        a, b = A.span(src, n.args[0])
+        snippet = src[a:b]
+        new_snippet, cnt = A.gql_drop_arg(snippet, "includeArchived")
+        if cnt != 1:
+            raise A.Introuvable("archive:includeArchived:%d" % cnt)
+        return src[:a] + new_snippet + src[b:]
+
     POS = {
-        "clos": ([('        if not issue_key(iss) or iss["id"] in {',
-                   '        if iss["state"]["type"] in ("completed", "canceled") or iss.get("archivedAt"):\n            continue\n'
-                   '        if not issue_key(iss) or iss["id"] in {')], ("SIM-D:non_relie", "SIM-E:non_relie", "SIM-D:c-d1", "SIM-E:c-e1")),
-        "archive": ([("issues(first:100, after:$a, includeArchived:true, filter:{team:{id:{eq:$t}}, '\n                'description:{contains:$k}",
-                      "issues(first:100, after:$a, filter:{team:{id:{eq:$t}}, '\n                'description:{contains:$k}")],
-                    ("SIM-E:non_relie", "SIM-E:c-e1")),
+        "clos": ([_seed_clos], ("SIM-D:non_relie", "SIM-E:non_relie", "SIM-D:c-d1", "SIM-E:c-e1")),
+        "archive": ([_seed_archive], ("SIM-E:non_relie", "SIM-E:c-e1")),
     }
     for tag, (seeds, expect) in POS.items():
         p = simulate(seeds)

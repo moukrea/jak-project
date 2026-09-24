@@ -81,8 +81,8 @@ if commit and commit != '-':
     except Exception:
         blob = ''
 out['orch_avant_octets'] = len(blob)
-lignes = re.findall(r'^\s*if len\(bits\) == 2 and bits\[0\]\.strip\(\)\.isdigit\(\) '
-                    r'and int\(bits\[0\]\) (>=|>|<=|<) t0:\s*$', blob, re.M)
+lignes = re.findall(r'^\s*if\s+len\(bits\)\s*==\s*2\s+and\s+bits\[0\]\.strip\(\)\.isdigit\(\)\s+'
+                    r'and\s+int\(bits\[0\]\)\s*(>=|>|<=|<)\s*t0:\s*$', blob, re.M)
 out['orch_avant_lignes'] = len(lignes)
 if len(lignes) == 1:
     op = lignes[0]

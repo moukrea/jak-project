@@ -56,7 +56,7 @@ pub firstperson_hd_culprit_adds_guard "$([ -n "${CULP:-}" ] && git show "$CULP" 
 # LA RAISON, MESUREE : le pont rend 1 par defaut, donc `(zero? ...)` est FAUX dans le binaire
 # livre et la branche `no-anim` ne s'execute plus jamais hors ablation.
 pub firstperson_hd_guard_returns_one_by_default \
-  "$(sed -n '/^s32 pc_npcf_fix_armed()/,/^}/p' game/kernel/jak1/kmachine.cpp 2>/dev/null | grep -cE 'return autoport_proof::armed\(\) \? 1 : 0;' || true)"
+  "$(sed -n '/^s32\s*pc_npcf_fix_armed\s*(\s*)/,/^}/p' game/kernel/jak1/kmachine.cpp 2>/dev/null | grep -cE 'return\s+autoport_proof::armed\s*\(\s*\)\s*\?\s*1\s*:\s*0\s*;' || true)"
 # Le nombre de commits qui ont touche jak-hd.gc entre les deux : la distance, pas une impression.
 if [ -n "${FIX:-}" ] && [ -n "${CULP:-}" ]; then
   pub firstperson_hd_commits_between "$(git log --format=%h "$FIX".."$CULP" -- "$HD" 2>/dev/null | grep -c . || true)"

@@ -30,10 +30,12 @@ ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || { echo "linear_archived_bli
 cd "$ROOT" || exit 1
 
 python3 - <<'PY'
-import copy, io, os, re, subprocess, sys
+import ast, copy, io, os, re, subprocess, sys
 from contextlib import redirect_stdout
 from pathlib import Path
 sys.path.insert(0, '.autoport')
+sys.path.insert(0, '.autoport/lib/census')
+import anchor as A
 
 OUT = {}
 def pub(k, v): OUT[k] = str(v).replace(" ", "_")
@@ -41,6 +43,16 @@ blind = 0          # la somme de la porte
 unmeasured = []    # termes non mesures (1 chacun)
 dead = []          # controles positifs qui ne rougissent pas (1 chacun)
 FLAG = "includeArchived:true"
+
+
+def strip_flag(q, must_one=False):
+    """Retire `includeArchived:...` de la requete (jetons, pas une ligne exacte). `must_one` : la requete est un
+    litteral connu qui porte le drapeau EXACTEMENT une fois ; un nombre different = defaut nomme (voie `except`
+    existante qui marque `L_vivant`)."""
+    out, n = A.gql_drop_arg(q, "includeArchived")
+    if must_one and n != 1:
+        raise RuntimeError("includeArchived_strip:%d" % n)
+    return out
 # `CENSUS_CONTROLS_ONLY=1` (harness-archived-census-controls-are-alive) : S et ses controles seuls, sans toucher Linear.
 # Les termes vivants ne sont pas mesures et le disent (`linear_live=saute`) : ce mode ne rend jamais la porte de CET item.
 CONTROLS_ONLY = os.environ.get("CENSUS_CONTROLS_ONLY") == "1"
@@ -76,19 +88,37 @@ def parent_of(text, i):
     return m.group(1) if m else "?"
 
 
-def dispatch_key(text, a, b):
-    """Le site `text[a:b]` est-il dans un litteral qui est l'operande GAUCHE d'un `in` / `not in` ? C'est la cle de
-    repartition d'un FAUX Linear (`if "<requete>" in q1:`, relink-keeps-owner-comments:186) : il reconnait une
-    requete, il n'en envoie aucune. Lu sur la FORME (litteral -> in), jamais sur le texte de la cle."""
-    ls = text.rfind("\n", 0, a) + 1
-    le = text.find("\n", b)
-    le = len(text) if le < 0 else le
-    head, tail = text[ls:a], text[b:le]
-    qs = [(head.rfind(q), q) for q in "\"'"]
-    k, q = max(qs)
-    if k < 0 or q not in tail:
-        return False
-    return bool(re.match(r"\s+(not\s+)?in\b", tail[tail.index(q) + 1:]))
+def _line_starts(text):
+    starts, pos = [0], 0
+    for line in text.splitlines(keepends=True):
+        pos += len(line)
+        starts.append(pos)
+    return starts
+
+
+def dispatch_key(text, a, b, name):
+    """Le site `text[a:b]` est-il dans une constante chaine qui est l'operande GAUCHE d'un `ast.Compare` a un
+    seul operateur `In`/`NotIn` ? C'est la cle de repartition d'un FAUX Linear (`if "<requete>" in q1:`,
+    relink-keeps-owner-comments:186) : il reconnait une requete, il n'en envoie aucune. Lu sur l'ARBRE du
+    bloc python qui porte `a`, jamais sur une ligne."""
+    starts = _line_starts(text)
+    for start_line, code, quoted, _end_line in A.py_blocks(name, text):
+        off = starts[start_line]
+        if not (off <= a and b <= off + len(code)):
+            continue
+        tree = A.parse_block(code, quoted)
+        if tree is None:
+            continue
+        ra, rb = a - off, b - off
+        for n in ast.walk(tree):
+            if not (isinstance(n, ast.Compare) and len(n.ops) == 1
+                    and isinstance(n.ops[0], (ast.In, ast.NotIn))
+                    and isinstance(n.left, ast.Constant) and isinstance(n.left.value, str)):
+                continue
+            la, lb = A.span(code, n.left)
+            if la <= ra and rb <= lb:
+                return True
+    return False
 
 
 def scan(name, text):
@@ -111,7 +141,7 @@ def scan(name, text):
         return "<module>"
     for m in SITE.finditer(text):
         line = text.count("\n", 0, m.start()) + 1
-        if dispatch_key(text, m.start(), m.end()):
+        if dispatch_key(text, m.start(), m.end(), name):
             DISPATCH.append("%s:%d" % (name.replace(".autoport/", ""), line))
             continue
         func = enclosing(line)
@@ -215,11 +245,11 @@ try:
 
     # L1 : la regle de l'API sur TOUS les archives ; le bras SANS drapeau est le controle positif
     got_flag, got_bare = set(), set()
-    A = list(arch)
-    for i in range(0, len(A), 50):
+    AIDS = list(arch)
+    for i in range(0, len(AIDS), 50):
         q = 'query($ids:[ID!]){ issues(filter:{id:{in:$ids}}, first:50, includeArchived:true){ nodes { id } } }'
-        got_flag |= {n["id"] for n in L.q(q, ids=A[i:i + 50])["issues"]["nodes"]}
-        got_bare |= {n["id"] for n in L.q(q.replace(", " + FLAG, ""), ids=A[i:i + 50])["issues"]["nodes"]}
+        got_flag |= {n["id"] for n in L.q(q, ids=AIDS[i:i + 50])["issues"]["nodes"]}
+        got_bare |= {n["id"] for n in L.q(strip_flag(q, True), ids=AIDS[i:i + 50])["issues"]["nodes"]}
     pub("linear_api_flag_missed", len(arch) - len(got_flag))
     pub("linear_api_bare_found", len(got_bare))
     blind += len(arch) - len(got_flag)
@@ -244,7 +274,7 @@ try:
             self.strip, self.mode, self.missed = strip, L.mode, []
         def q(self, query, **v):
             if self.strip:
-                query = query.replace(", " + FLAG, "").replace(FLAG + ", ", "")
+                query = strip_flag(query)
             d = L.q(query, **v)
             if "ids" in v and isinstance(d.get("issues"), dict):
                 back = {n["id"] for n in d["issues"]["nodes"]}
@@ -268,13 +298,13 @@ try:
 
     # L4 : l'acquis d'identite. Controle positif = sa propre requete, privee du drapeau.
     idf = Path(".autoport/lib/census/harness-linear-own-identity.sh").read_text()
-    m = re.search(r"'(query\(\$t:String!\)\{ issues\(filter:\{title:[^']*)'", idf)
+    m = re.search(r"'(query\(\$t:String!\)\{\s*issues\(filter:\{title:[^']*)'", idf)
     if not m:
         raise RuntimeError("requete de recherche du recensement d'identite introuvable")
     qi = m.group(1)
     t = "sous sa propre identit"
     now = L.q(qi, t=t)["issues"]["nodes"]
-    bare = L.q(qi.replace(", " + FLAG, ""), t=t)["issues"]["nodes"]
+    bare = L.q(strip_flag(qi, True), t=t)["issues"]["nodes"]
     pub("linear_identity_lookup_found", len(now))
     pub("linear_identity_lookup_bare_found", len(bare))
     was = bool(now and now[0].get("archivedAt"))

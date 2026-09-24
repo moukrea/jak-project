@@ -38,6 +38,8 @@ from contextlib import redirect_stdout
 from pathlib import Path
 sys.path.insert(0, '.autoport')
 from lib.census import fake_backlog as FB  # noqa: E402
+sys.path.insert(0, '.autoport/lib/census')
+import anchor as A  # noqa: E402
 
 OUT = {}
 def pub(k, v): OUT[k] = str(v).replace(" ", "_")
@@ -47,14 +49,15 @@ SRC = SRC_PATH.read_text()
 OWNER_KEY_UNTIL = "2026-09-18T00:00:00.000Z"
 
 
+MAP_SPEC = dict(func="pull_owner", kind="assign", has=("owner_move", "mv", "why"))
+MAP_OP = ("value", '{"createdAt": ""}, "carte"')
+
+
 def load_variant(seeds):
-    """Le module `linear_sync` REEL, rejoue depuis son source avec les remplacements `seeds`.
-    Un remplacement introuvable = controle MORT (le code a change sous lui)."""
-    src, missing = SRC, []
-    for old, new in seeds:
-        if src.count(old) != 1:
-            missing.append(old.strip()[:40])
-        src = src.replace(old, new)
+    """Le module `linear_sync` REEL, rejoue depuis son source avec les graines STRUCTURELLES `seeds`
+    (`[(spec, op), ...]` pour `anchor.mutate`). Une graine introuvable (le noeud vise n'est plus dans
+    l'arbre) = controle MORT, nommee par `anchor.seed`."""
+    src, missing = A.seed(SRC, seeds)
     m = types.ModuleType("linear_sync_sim")
     m.__file__ = str(SRC_PATH.resolve())
     exec(compile(src, "linear_sync_sim", "exec"), m.__dict__)
@@ -239,12 +242,10 @@ except Exception as e:  # noqa: BLE001
 
 # --------------------------------------------------------------------- CONTROLES POSITIFS (S) --
 POS = {
-    "map": ([('                mv, why = owner_move(L, hist, owner_id, here, rec)\n',
-              '                mv, why = {"createdAt": ""}, "carte"\n')], "sim-stale", "app"),
-    "author": ([('    who = history_author(mv, owner_id)\n    if who != "owner":\n',
-                 '    who = history_author(mv, owner_id)\n    if False:\n')], "sim-stale", "app"),
-    "key": ([('    if mv["createdAt"] <= OWNER_KEY_UNTIL:\n', '    if False:\n')], "sim-prekey", "app"),
-    "since": ([('    if since and mv["createdAt"] <= since:\n', '    if False:\n')], "sim-ownkey", "owner"),
+    "map": ([(MAP_SPEC, MAP_OP)], "sim-stale", "app"),
+    "author": ([(dict(func="owner_move", kind="if", has=("who",)), "false")], "sim-stale", "app"),
+    "key": ([(dict(func="owner_move", kind="if", has=("mv", "createdAt", "OWNER_KEY_UNTIL")), "false")], "sim-prekey", "app"),
+    "since": ([(dict(func="owner_move", kind="if", has=("since", "mv", "createdAt")), "false")], "sim-ownkey", "owner"),
 }
 for tag, (seeds, target, mode) in POS.items():
     try:
@@ -367,8 +368,7 @@ try:
         unmeasured.append("vivant_sans_ecart")
     else:
         try:
-            old, missing_old = load_variant([('                mv, why = owner_move(L, hist, owner_id, here, rec)\n',
-                                               '                mv, why = {"createdAt": ""}, "carte"\n')])
+            old, missing_old = load_variant([(MAP_SPEC, MAP_OP)])
             sb_live = FB.Sandbox(bl_live.items)      # le faux PARTAGE : copie jetable du vrai backlog
             FB.install(old, sb_live)
             old.refresh_prompt = lambda it: None

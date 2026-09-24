@@ -32,7 +32,9 @@ python3 - <<'PY'
 import copy, inspect, io, re, sys
 from contextlib import redirect_stdout
 sys.path.insert(0, '.autoport')
+sys.path.insert(0, '.autoport/lib/census')
 import linear_sync as S
+import anchor as A
 
 OUT = {}
 def pub(k, v): OUT[k] = str(v).replace(" ", "_")
@@ -69,7 +71,7 @@ class Fake:
     def q(self, query, **v):
         self.n += 1
         if self.strip:
-            query = query.replace(", " + FLAG, "").replace(FLAG + ", ", "").replace(FLAG, "")
+            query, _n = A.gql_drop_arg(query, "includeArchived")
         flag = FLAG in query.replace(" ", "")
         live = lambda ns: [dict(x) for x in ns if flag or not (x.get("archivedAt") or x.get("trashed"))]
         for mut, kind, key in (("projectCreate", "project", "projects"), ("issueLabelCreate", "label", "labels"),

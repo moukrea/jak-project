@@ -59,15 +59,17 @@ lt(){ local a b; a=$(n "$1"); b=$(n "$2")
 # cette machine et nulle part ailleurs. Le denominateur — le nombre de verdicts LUS — est publie
 # a cote du compte : un plancher calibre sur une population vide rendrait vert par cecite.
 ARCH=$(python3 - <<'PY' 2>/dev/null
-import glob, json, os, re
+import glob, json, os, re, sys
 from collections import Counter
+sys.path.insert(0, ".autoport/lib/census")
+import anchor as A
 
 # LA PHRASE EST CELLE DE `validators/generic.sh`, ET ON VERIFIE QU'ELLE Y EST ENCORE. DIRECTIVES
 # 5 interdit de le modifier pour qu'il l'expose : on l'EPINGLE, et le jour ou il reformule
 # l'ecart se voit au lieu de rendre un zero silencieux.
 PHRASE = "l'item exige l'appareil, la preuve est en source="
 juge = open('.autoport/validators/generic.sh', encoding='utf-8', errors='replace').read()
-print('cout_phrase_dans_le_juge=%d' % juge.count(PHRASE))
+print('cout_phrase_dans_le_juge=%d' % A.ws_count(juge, PHRASE))
 
 def date_de(item, num):
     # LA DATE SORT DU CONTENU DU JOURNAL D'ESSAI, jamais d'un horodatage de fichier.

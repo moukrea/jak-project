@@ -32,11 +32,13 @@ mkdir -p "$HOME/.autoport-tmp"
 export TMPDIR="${TMPDIR:-$HOME/.autoport-tmp}"
 
 python3 - <<'PY'
-import copy, datetime as dt, io, os, re, shutil, subprocess, sys, tempfile, types
+import ast, copy, datetime as dt, io, os, re, shutil, subprocess, sys, tempfile, types
 from contextlib import redirect_stdout
 from pathlib import Path
 sys.path.insert(0, '.autoport')
+sys.path.insert(0, '.autoport/lib/census')
 from lib import backlog as B
+import anchor as A
 
 B.build_sha = lambda: "census-sha"
 OUT = {}
@@ -51,12 +53,33 @@ NAME_OF = {v: k for k, v in SID.items()}
 OLD = "2026-09-22T00:00:00.000Z"
 
 
+def _trace_once_guard_false(src):
+    """La premiere graine de `trace` : le if `ev_id in moves_traced(t)` du `once` imbrique dans
+    `apply_owner_move` (il en existe un second, homonyme, dans `name_ambiguous_move` : on le distingue par
+    le `return ("already", ...)` qui ne suit QUE celui-la, en remontant a son `if` parent dans l'arbre)."""
+    tree = ast.parse(src)
+    target = A.site(tree, kind="return", has=("already",))
+    parent_if = next((n for n in ast.walk(tree) if isinstance(n, ast.If) and target in n.body), None)
+    if parent_if is None:
+        raise A.Introuvable("trace:if-parent-de-already")
+    a, b = A.span(src, parent_if.test)
+    return src[:a] + "False" + src[b:]
+
+
 def load_variant(src, seeds=()):
     missing = []
-    for old, new in seeds:
-        if src.count(old) != 1:
-            missing.append(old.strip()[:40])
-        src = src.replace(old, new)
+    for s in seeds:
+        if callable(s):
+            try:
+                src = s(src)
+            except A.Introuvable as e:
+                missing.append(str(e))
+            continue
+        spec, op = s
+        try:
+            src = A.mutate(src, spec, op)
+        except A.Introuvable as e:
+            missing.append(str(e))
     m = types.ModuleType("linear_sync_sim")
     m.__file__ = str(SRC_PATH.resolve())
     exec(compile(src, "linear_sync_sim", "exec"), m.__dict__)
@@ -347,14 +370,13 @@ pub("owner_moves_genuine", 7)   # un vrai deplacement de l'owner par scenario, d
 
 # ------------------------------------------------------------------ CONTROLES POSITIFS : chaque garde retiree
 POS = {
-    "relecture": ([('        if now_state is not None and now_state != rec["last_state"]:\n', '        if False:\n')], s1, "S1:ecrase"),
-    "etat_omis": ([('        payload = {k: v for k, v in payload.items() if k != "stateId"}\n', '        pass\n')], s1b, "S1B:ecrase"),
-    "apres_coup": ([('        ours_at, caught = catch_overwritten(L, bl, it["id"], rec, st, seen)\n',
-                     '        ours_at, caught = None, None\n')], s2, "S2:ecrase"),
-    "nom": ([('                if not mv and why.startswith(AMBIGUOUS) and not dry:\n', '                if False:\n')], s3, "S3:perdu"),
-    "trace": ([('        if ev_id in moves_traced(t):\n            return ("already", t.get("status"))\n',
-                '        if False:\n            return ("already", t.get("status"))\n'),
-               ('                if mv and mv.get("id") and mv["id"] in moves_traced(bl.get(iid)):\n', '                if False:\n')],
+    "relecture": ([(dict(func="push_existing", kind="if", has=("now_state", "last_state")), "false")], s1, "S1:ecrase"),
+    "etat_omis": ([(dict(func="push_existing", kind="assign", has=("payload", "stateId")), "pass")], s1b, "S1B:ecrase"),
+    "apres_coup": ([(dict(func="push_existing", kind="assign", has=("ours_at", "caught", "catch_overwritten")),
+                     ("value", "None, None"))], s2, "S2:ecrase"),
+    "nom": ([(dict(func="pull_owner", kind="if", has=("mv", "why", "AMBIGUOUS", "dry")), "false")], s3, "S3:perdu"),
+    "trace": ([_trace_once_guard_false,
+               (dict(func="pull_owner", kind="if", has=("mv", "moves_traced", "iid")), "false")],
               s4, "S4:reapplique"),
 }
 for tag, (seeds, fn, want) in POS.items():
