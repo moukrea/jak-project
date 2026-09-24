@@ -21713,7 +21713,7 @@ items:
 - id: harness-dead-dependency-is-named-never-silent
   feature: 'Un chantier qui depend d''un chantier archive ou supplante n''attend plus en silence : le
     lint rougit, le superviseur et l''owner le voient'
-  status: open
+  status: in-progress
   priority: 23
   code_scope: harnais
   device: false
@@ -21748,7 +21748,7 @@ items:
 - id: harness-copes-with-usage-pacing
   feature: Quand le frein d'usage de l'owner met un worker en pause, le harnais attend au lieu de tuer
     l'essai, et ne compte jamais ce temps comme une panne
-  status: in-progress
+  status: validated
   priority: 19
   code_scope: harnais
   device: false
@@ -21800,3 +21800,42 @@ items:
       at: '2026-09-24T08:52:41+00:00'
       by: autoport feedback
   no_code: true
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-24'
+    proof_sha: 5a10d6cdf5513431
+    proof_bytes: 80208
+    attempt: 1
+    journal: validator-001.txt
+- id: harness-worker-stream-no-lost-lines
+  feature: L'orchestrateur ne perd plus les dernieres lignes d'un worker qui sort, et un essai freine
+    a chaque fois finit par etre nomme
+  status: open
+  priority: 117
+  code_scope: harnais
+  device: false
+  owner_test: false
+  max_retries: 5
+  gate:
+    key: worker_stream_lost_lines
+    op: ==
+    value: 0
+  prompt: prompts/item-harness-worker-stream-no-lost-lines.md
+  known_cause: 'Signale par le worker de harness-copes-with-usage-pacing (reports/.../FINDINGS.txt), non
+    corrige ; ouvert sous la delegation de l''owner pour les signalements de harnais.
+
+    (1) `orchestrator.py` boucle de lecture de run_attempt (branche `if not ready:` -> `proc.poll()` ->
+    break) : `select` sur le fd puis `readline` bufferise : les lignes deja en tampon sont PERDUES quand
+    le worker sort (mesure sur le banc). Voir la memoire feedback_select_on_fd_with_buffered_readline_swallows_a_line
+    : lire par os.read.
+
+    (2) Outcome « paced » sans borne d''affilee (contrairement a `aborted`, MAX_ABORTED_IN_A_ROW) : un
+    worker qui mourrait a CHAQUE pause tournerait sans jamais etre compte.'
+  deliverable: '1. Lecture par os.read + decoupage des lignes ; vidange complete a la sortie du worker.
+
+    2. Borne d''essais « paced » d''affilee, au-dela : bloque avec une raison NOMMEE.
+
+    3. `worker_stream_lost_lines` = lignes perdues sur un worker fabrique qui ecrit N lignes et sort aussitot
+    ; doit valoir 0.
+
+    CONTROLE POSITIF (ancien code : lignes perdues) + CONTROLE NEGATIF.'
