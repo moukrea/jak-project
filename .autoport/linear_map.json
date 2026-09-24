@@ -36,7 +36,7 @@
    "url": "https://linear.app/moukrea/document/e1fe9500339a"
   }
  },
- "_gen": 405,
+ "_gen": 410,
  "_ids": {
   "labels": {
    "ok": "000e105b-24ba-4fa3-a579-bc3bf0869242",
@@ -651,11 +651,13 @@
   "url": "https://linear.app/moukrea/issue/JAK-266/les-faux-backlogs-des-recensements-linear-suivent-lapi-reelle-deux"
  },
  "harness-census-seeds-anchored-structurally": {
-  "hash": "2febc9dfbce323e0d4119f1fe243ecc9eaf129da",
+  "hash": "7c2da22fa29ca34d82cf218a680e8bf7ce8f74ea",
   "identifier": "JAK-262",
   "issue_id": "0879f95b-a2fa-4f5a-a3ab-4116305e6738",
-  "last_state": "Todo",
+  "last_state": "In Progress",
+  "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-23T07:20:16.000Z",
+  "state_at": "2026-09-24T19:47:19.172Z",
   "url": "https://linear.app/moukrea/issue/JAK-262/les-recensements-du-harnais-ne-dependent-plus-dune-ligne-de-code"
  },
  "harness-close-gate-separates-inherited-reds": {
@@ -1644,10 +1646,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-50/la-lumiere-cle-nest-pas-toujours-un-soleil"
  },
  "lighting-shadows": {
-  "hash": "65602f64da6cb839cccd572480e1a9c98faddc3c",
+  "build_announced": "f215fd8df0a5",
+  "hash": "80087392c4967e7a7eb23c7c05fd1e1254b61ec7",
   "identifier": "JAK-51",
   "issue_id": "923462dc-521a-4c79-ba5f-2e2e8cc4c758",
-  "last_state": "In Progress",
+  "last_state": "In Review",
   "last_verdict_announced": "validator-005.txt",
   "pulled_at": "2026-09-24T15:25:26.089Z",
   "relations": [
@@ -1655,7 +1658,7 @@
    "lighting-ao-indirect",
    "perf-merc-defuse"
   ],
-  "state_at": "2026-09-24T18:04:10.367Z",
+  "state_at": "2026-09-24T19:47:17.782Z",
   "url": "https://linear.app/moukrea/issue/JAK-51/deux-astres-deux-jeux-dombres-et-les-acteurs-qui-en-projettent"
  },
  "menu-back-label": {
