@@ -23,7 +23,7 @@ A. Corriger la cause : sur l'APPAREIL, le reglage « vraies ombres » doit dessi
 B. QUALITE DES OMBRES = CE QUE LA SPEC DEFINIT DEJA, pas un nouveau reglage invente (owner 24/09 : « attention à ce que les réglages de qualité pour les ombres collide pas avec d'autres chantiers [...] faudrait pas refaire deux fois le même travail »). Livrer les lignes « Ombres » de la SPEC §6.2 qui relevent de CE chantier (resolution d'atlas 2048/4096/8192 selon les paliers 0/1/2 de §4.8, cascades 2/3/4, distance 40..200 m, force, ombres d'acteurs vraies/aplat PS2/aucune, ombre du second astre), chacune ecrasable dans le menu. L'echelle globale Tres bas -> Ultra qui POSE ces valeurs appartient a lighting-presets (SPEC §6.3) : ne pas la refaire ici, exposer les valeurs pour que lighting-presets les pilote. Les ombres de contact (§6.2) attendent la prepasse des acteurs (lighting-actors).
 C. PAS de campagne multi-scenes, PAS de comptage de pixels : l'OEIL, c'est l'owner. Des que A et B tiennent, livrer le build et passer en to-test.
 
-AJOUT APRES LE RETOUR N°2 : RENDRE L'OMBRE VISIBLE. Trouver pourquoi l'ombre est si faible (mesurer la part du direct dans la luminance du sol ensoleille sous Jak) et corriger A LA SOURCE (part du direct / de l'ambiante, application de la visibilite), pas en noircissant artificiellement. UNE grandeur : rapport de luminance sol-a-l'ombre-de-Jak / sol-au-soleil juste a cote, de jour au village, au reglage PAR DEFAUT ; publier aussi sa valeur a Force max. Viser une ombre nettement lisible (ordre de grandeur : le sol ombre au moins 35 % plus sombre au reglage par defaut) ; l'owner juge a l'oeil ensuite. Pas de campagne multi-scenes.
+AJOUT APRES LE RETOUR N°2 : RENDRE L'OMBRE VISIBLE. Trouver pourquoi l'ombre est si faible (mesurer la part du direct dans la luminance du sol ensoleille sous Jak) la part du direct se corrige dans lighting-regimes (dependance ajoutee le 24/09, owner : ne pas faire le travail deux fois) ; ICI seulement l'application de la visibilite d'ombre, pas un noircissement artificiel. UNE grandeur : rapport de luminance sol-a-l'ombre-de-Jak / sol-au-soleil juste a cote, de jour au village, au reglage PAR DEFAUT ; publier aussi sa valeur a Force max. Viser une ombre nettement lisible (ordre de grandeur : le sol ombre au moins 35 % plus sombre au reglage par defaut) ; l'owner juge a l'oeil ensuite. Pas de campagne multi-scenes.
 
 ## Hors perimetre
 
@@ -55,6 +55,9 @@ l'ombre de Jak et des PNJ au sol, et le matin quand les deux astres sont leves
 
 ### 2026-09-24
 > Alors en faisant trééééééés attention de l'ordre du pixel peeping oui l'ombre est là, avec le soleil et l'astre de nuit…. C'est tellement faible même en poussant les curseurs au maximum que c'est barely noticeable. Déjà quasiment impossible à remarquer avec Jak que je peux bouger partout, alors avec le seul autre PNJ en extérieur c'est impossible à voir. Les autres PNJs du village sont en intérieur et l'éclairage intérieur est encore baked il me semble donc pas d'ombre du tout. Sinon oui ça a l'air juste la projection, mais en l'état c'est inutile car extrêmement coûteux alors que personne ne verra l'effet, j'ai pensé que c'était dû au HDR peut-être mais il n'en est rien, c'est barely noticeable même HDR off
+
+### 2026-09-24
+> Si ça collide avec un autre chantier lié il faut faire attention hein ! Mais dans ce cas c'est pas validable en l'état et faut que les autres chantiers liés avancent
 
 ## Pourquoi ce fichier existe
 

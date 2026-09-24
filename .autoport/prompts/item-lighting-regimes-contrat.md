@@ -35,6 +35,8 @@ C. Puis livrer le build et passer en to-test ; pas de campagne multi-scenes.
 
 AJOUT APRES LE RETOUR OWNER (village3 noir) : aucun niveau ne doit tomber au noir sous l'eclairage recharge. Sur un niveau sans donnee de bake, retomber sur l'eclairage d'origine (ou le baked non decompose) au lieu de zero. UNE grandeur : pour CHAQUE niveau charge, luminance moyenne du sol recharge ON / OFF (ratio publie par niveau ; un ratio < 0,5 sur un niveau = defaut NOMME) ; au minimum village3 + un niveau decompose. Puis livrer ; l'owner juge.
 
+AJOUT (24/09, repris de lighting-shadows sur ordre de l'owner : « Si ça collide avec un autre chantier lié il faut faire attention [...] faut que les autres chantiers liés avancent ») : EQUILIBRE DIRECT / INDIRECT. Les ombres de lighting-shadows sont justes mais quasi invisibles parce que le direct temps reel pese trop peu face a l'indirect issu du bake. C'est ICI que se regle la part du direct (cle par creneau, SPEC « Dosage du direct (Fidelite) », §5.2) : de jour sous soleil visible, le direct doit porter une part nette de la luminance du sol. UNE grandeur : part du direct dans la luminance du sol ensoleille au village de jour, au reglage par defaut ; publier aussi le rapport sol-a-l'ombre / sol-au-soleil qui en resulte.
+
 ## Hors perimetre
 
 Tout ce qui n'est pas cet item. DEUX origines restent bit-identiques — master OFF, et recharged_lighting OFF — et tout sous-reglage d'eclairage se garde sur recharged_lighting, jamais sur le master seul (SPEC 1.1, 6.2, 7.3). Ne touche a aucune feature validee. Pas de mesure visuelle. Les modeles d'ambiante analytiques sont deja retires par lighting-unify.

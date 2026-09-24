@@ -5,7 +5,7 @@
 # Deux astres, deux jeux d'ombres, et les acteurs qui en projettent
 
 ## Defaut cite
-- 2026-09-24 : « Alors en faisant trééééééés attention de l'ordre du pixel pe… »
+- 2026-09-24 : « Si ça collide avec un autre chantier lié il faut faire atten… »
 
 ## Cause connue
 LIS D'ABORD prompts/SPEC-refonte-lumiere.md : c'est le contrat, il porte le detail que ce prompt ne repete pas. Une seule cascade attribuee a « l'astre le plus haut », avec fondu et EMA pour cacher une bascule qui n'a pas lieu d'etre : les deux astres sont leves ENSEMBLE 3 h 30 par jour. Et aucun acteur n'entre dans la carte. SPEC 3.4 et 4.8.

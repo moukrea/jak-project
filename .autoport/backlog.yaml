@@ -5932,7 +5932,17 @@ items:
     recharge. Sur un niveau sans donnee de bake, retomber sur l''eclairage d''origine (ou le baked non
     decompose) au lieu de zero. UNE grandeur : pour CHAQUE niveau charge, luminance moyenne du sol recharge
     ON / OFF (ratio publie par niveau ; un ratio < 0,5 sur un niveau = defaut NOMME) ; au minimum village3
-    + un niveau decompose. Puis livrer ; l''owner juge.'
+    + un niveau decompose. Puis livrer ; l''owner juge.
+
+
+    AJOUT (24/09, repris de lighting-shadows sur ordre de l''owner : « Si ça collide avec un autre chantier
+    lié il faut faire attention [...] faut que les autres chantiers liés avancent ») : EQUILIBRE DIRECT
+    / INDIRECT. Les ombres de lighting-shadows sont justes mais quasi invisibles parce que le direct temps
+    reel pese trop peu face a l''indirect issu du bake. C''est ICI que se regle la part du direct (cle
+    par creneau, SPEC « Dosage du direct (Fidelite) », §5.2) : de jour sous soleil visible, le direct
+    doit porter une part nette de la luminance du sol. UNE grandeur : part du direct dans la luminance
+    du sol ensoleille au village de jour, au reglage par defaut ; publier aussi le rapport sol-a-l''ombre
+    / sol-au-soleil qui en resulte.'
   out_of_scope: Tout ce qui n'est pas cet item. DEUX origines restent bit-identiques — master OFF, et
     recharged_lighting OFF — et tout sous-reglage d'eclairage se garde sur recharged_lighting, jamais
     sur le master seul (SPEC 1.1, 6.2, 7.3). Ne touche a aucune feature validee. Pas de mesure visuelle.
@@ -6010,6 +6020,13 @@ items:
       comment: c5b04e45-40be-4e54-8d84-81b0cdb97e06
       ticket: 923462dc-521a-4c79-ba5f-2e2e8cc4c758
       at: '2026-09-24T20:38:47.492Z'
+  - date: '2026-09-24'
+    text: Si ça collide avec un autre chantier lié il faut faire attention hein ! Mais dans ce cas c'est
+      pas validable en l'état et faut que les autres chantiers liés avancent
+    via:
+      comment: 10ce3ea9-68c4-4cb4-b58d-41c6753a4227
+      ticket: 923462dc-521a-4c79-ba5f-2e2e8cc4c758
+      at: '2026-09-24T20:47:55.659Z'
   gate:
     key: shadow_caster_classes
     op: ==
@@ -6018,8 +6035,9 @@ items:
   max_turns: 1600
   max_retries: 8
   depends_on:
-  - perf-merc-defuse
   - ao-indirect-clean
+  - lighting-regimes
+  - perf-merc-defuse
   history: []
   prompt: prompts/item-lighting-shadows.md
   owner_ok: null
@@ -6093,12 +6111,13 @@ items:
 
 
     AJOUT APRES LE RETOUR N°2 : RENDRE L''OMBRE VISIBLE. Trouver pourquoi l''ombre est si faible (mesurer
-    la part du direct dans la luminance du sol ensoleille sous Jak) et corriger A LA SOURCE (part du direct
-    / de l''ambiante, application de la visibilite), pas en noircissant artificiellement. UNE grandeur
-    : rapport de luminance sol-a-l''ombre-de-Jak / sol-au-soleil juste a cote, de jour au village, au
-    reglage PAR DEFAUT ; publier aussi sa valeur a Force max. Viser une ombre nettement lisible (ordre
-    de grandeur : le sol ombre au moins 35 % plus sombre au reglage par defaut) ; l''owner juge a l''oeil
-    ensuite. Pas de campagne multi-scenes.'
+    la part du direct dans la luminance du sol ensoleille sous Jak) la part du direct se corrige dans
+    lighting-regimes (dependance ajoutee le 24/09, owner : ne pas faire le travail deux fois) ; ICI seulement
+    l''application de la visibilite d''ombre, pas un noircissement artificiel. UNE grandeur : rapport
+    de luminance sol-a-l''ombre-de-Jak / sol-au-soleil juste a cote, de jour au village, au reglage PAR
+    DEFAUT ; publier aussi sa valeur a Force max. Viser une ombre nettement lisible (ordre de grandeur
+    : le sol ombre au moins 35 % plus sombre au reglage par defaut) ; l''owner juge a l''oeil ensuite.
+    Pas de campagne multi-scenes.'
   out_of_scope: 'Tout ce qui n''est pas cet item. DEUX origines restent bit-identiques — master OFF, et
     recharged_lighting OFF — et tout sous-reglage d''eclairage se garde sur recharged_lighting, jamais
     sur le master seul (SPEC 1.1, 6.2, 7.3). Ne touche a aucune feature validee. Pas de mesure visuelle.
@@ -6113,7 +6132,10 @@ items:
     24/09 (superviseur) : rouvert sur le retour de test de l''owner (vraies ombres = toujours aplats PS2
     sur telephone).
 
-    24/09 (superviseur) : rouvert, ombres justes mais quasi invisibles (retour owner n°2).'
+    24/09 (superviseur) : rouvert, ombres justes mais quasi invisibles (retour owner n°2).
+
+    24/09 : attend lighting-regimes (equilibre direct/indirect) ; l''owner : « pas validable en l''état
+    et faut que les autres chantiers liés avancent ».'
   spec: prompts/SPEC-refonte-lumiere.md
   hits_means: pixels de sol ombres par un acteur
   proof_timeout: 240
