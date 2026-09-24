@@ -33,6 +33,7 @@
 #include "game/graphics/fixed_tick.h"
 #include "game/graphics/render_pace.h"
 #include "game/graphics/gfx.h"
+#include "game/graphics/opengl_renderer/background/background_common.h"
 #include "game/graphics/opengl_renderer/hud_box_probe.h"
 #include "game/graphics/refset.h"
 #include "game/graphics/refset_state.h"
@@ -2456,12 +2457,51 @@ void pc_set_actor_shadows(u32 mode, u32 dist_m) {
   recharged_gating::set(recharged_gating::kActorShadowDist, d);
 }
 
-// lighting-shadows §4.1 : le SEUL point que GOAL consulte pour sauter la famille shadow-*. Passe
-// par `Gfx::recharged_actor_shadow_mode()`, donc par la MEME composition (master > eclairage) que
-// le C++ : hors eclairage recharge la fonction rend toujours 1 (aplat, jamais 2), donc cette porte
-// reste fermee et le chemin d'origine est intact sur les deux binaires temoins.
-u32 pc_actor_shadows_none() {
-  return Gfx::recharged_actor_shadow_mode() == 2 ? 1 : 0;
+// lighting-shadows partie B (SPEC §6.2, paliers §4.8) : push les cinq reglages de l'atlas d'ombres
+// portees PBR depuis GOAL, a chaque image, juste apres `pc-set-actor-shadows!`. atlas/cascades :
+// -1 Auto ou 0/1/2 (2048/4096/8192) et -1 Auto ou 2/3 respectivement, non bornes ici (l'accesseur
+// de gfx.h traite tout le reste comme Auto) — seuls dist/strength/second sont bornes a l'entree
+// comme `pc_set_actor_shadows` le fait pour dist_m, pour que `desired()` reste la valeur exacte
+// que le menu doit reafficher.
+void pc_set_shadow_quality(u32 atlas, u32 cascades, u32 dist_m, u32 strength_pct, u32 second) {
+  int a = (int)(s32)atlas;
+  if (a != -1 && (a < 0 || a > 2)) {
+    a = -1;
+  }
+  int c = (int)(s32)cascades;
+  if (c != -1 && c != 2 && c != 3) {
+    c = -1;
+  }
+  int d = (int)dist_m;
+  if (d < 40 || d > 200) {
+    d = 150;
+  }
+  int s = (int)strength_pct;
+  if (s < 0 || s > 100) {
+    s = 80;
+  }
+  int sec = second ? 1 : 0;
+  recharged_gating::set(recharged_gating::kShadowAtlas, a);
+  recharged_gating::set(recharged_gating::kShadowCascades, c);
+  recharged_gating::set(recharged_gating::kShadowDist, d);
+  recharged_gating::set(recharged_gating::kShadowStrength, s);
+  recharged_gating::set(recharged_gating::kShadowSecond, sec);
+}
+
+// lighting-shadows : UN verdict par acteur, au site d'emission de l'aplat PS2 (bones.gc). 1 = ne pas
+// dessiner l'aplat : cran « aucune », ou cran « vraies » quand l'atlas porte les acteurs et que
+// celui-ci est plus pres que la frontiere partagee avec Merc2::cast_shadows. Hors eclairage recharge
+// le mode vaut 1 (aplat) : rend toujours 0, les deux origines ne bougent pas.
+u32 pc_actor_shadow_blob_skip(u32 cam_dist_cm) {
+  const int mode = Gfx::recharged_actor_shadow_mode();
+  if (mode == 1) return 0;          // origine : ni compte ni saut
+  bool skip = mode == 2;
+  if (mode == 0) {
+    const float cutoff_m = pbr_shadow_actor_blob_cutoff_m_threadsafe();
+    skip = cutoff_m > 0.f && (float)(s32)cam_dist_cm / 100.f < cutoff_m;
+  }
+  pbr_actor_blob_note(skip);
+  return skip ? 1 : 0;
 }
 
 // Grecharged-foliage-wind: push the light-wind sway toggle from GOAL (pc-set-foliage-wind!).
@@ -5116,7 +5156,8 @@ void InitMachine_PCPort() {
   make_function_symbol_from_c("pc-set-ambient-occlusion!", (void*)pc_set_ambient_occlusion);
   // lighting-shadows: actor shadow mode (real/PS2 blob/none) + distance
   make_function_symbol_from_c("pc-set-actor-shadows!", (void*)pc_set_actor_shadows);
-  make_function_symbol_from_c("pc-actor-shadows-none?", (void*)pc_actor_shadows_none);
+  make_function_symbol_from_c("pc-set-shadow-quality!", (void*)pc_set_shadow_quality);
+  make_function_symbol_from_c("pc-actor-shadow-blob-skip?", (void*)pc_actor_shadow_blob_skip);
 #ifdef OG_FEAT_HD_MODELS
   // Grecharged-hd-models: enhanced (jak2 HD) character-models toggle + availability query
   make_function_symbol_from_c("pc-set-recharged-enhanced-models!", (void*)pc_set_recharged_enhanced_models);

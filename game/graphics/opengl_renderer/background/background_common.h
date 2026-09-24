@@ -257,6 +257,18 @@ float pbr_shadow_actor_dist_m();
 bool pbr_shadow_read_has_actors();
 // Portee (m) couverte par l'atlas lu : demi-etendue de la derniere cascade (150).
 float pbr_shadow_read_range_m();
+// Frontiere partagee atlas/aplat (m) : min(distance reglee, 0.9 * portee de l'atlas). 0 si
+// l'atlas lu ne porte pas d'acteur. Thread de rendu seulement.
+float pbr_shadow_actor_cutoff_m();
+// Meme frontiere, lisible depuis le thread GOAL (0.f si mode != "vraies").
+float pbr_shadow_actor_blob_cutoff_m_threadsafe();
+// Nombre de draws merc projetes dans l'atlas a l'image precedente complete (alimente aussi
+// la cle de preuve "shadow_merc_draws_cast", definie dans Merc2.cpp).
+u64 pbr_shadow_atlas_draws_cast();
+// lighting-shadows, partie A : verdict par acteur (thread GOAL) et fin d'image (thread rendu)
+// pour le saut de l'aplat PS2 quand l'ombre reelle couvre deja l'acteur.
+void pbr_actor_blob_note(bool skipped);
+void pbr_actor_blob_frame_end(u64 frame_idx, u64 blob_tris);
 // Preuve : l'image courante est-elle l'image de PREPARATION (les merc ecrivent AUSSI l'atlas
 // acteur) ?
 bool pbr_shadow_actor_prep_frame(u64 frame_idx);

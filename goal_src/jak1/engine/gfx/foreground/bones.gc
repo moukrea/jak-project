@@ -1418,11 +1418,11 @@
                   (set! (-> dma-buf base) (draw-bones-generic-merc arg0 (the pointer matrix-data) (the pointer s2-0) 0))
                   (set! s2-0 (-> dma-buf base))))
               ;; draw shadow!
-              ;; lighting-shadows (SPEC-refonte-lumiere §1.2 decision 2, §4.1) : le cran « aucune »
-              ;; desactive la famille shadow-* cote GOAL. `pc-actor-shadows-none?` compose deja
-              ;; master > eclairage cote C++ (Gfx::recharged_actor_shadow_mode) : hors eclairage
-              ;; recharge elle rend toujours faux, donc ce garde ne change rien aux deux origines.
-              (when (and (-> arg0 shadow) (zero? (pc-actor-shadows-none?)))
+              ;; lighting-shadows, partie A : cran « aucune » OU cran « vraies » quand l'atlas
+              ;; couvre deja cet acteur (frontiere partagee avec Merc2::cast_shadows, cote C++).
+              ;; Un seul verdict C++ (`pc-actor-shadow-blob-skip?`) ; hors eclairage recharge il
+              ;; rend toujours faux, donc ce garde ne change rien aux deux origines.
+              (when (and (-> arg0 shadow) (zero? (pc-actor-shadow-blob-skip? (the int (* 0.024414062 arg2)))))
                 (when #t
                   (set! s2-0 (draw-bones-shadow arg0 (the pointer matrix-data) (the pointer s2-0)))
                   (set! (-> dma-buf base) (the-as pointer s2-0))))

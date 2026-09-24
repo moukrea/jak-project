@@ -5262,6 +5262,14 @@ bool Merc2::shadow_cast_allowed_bucket() const {
 // (une passe par tuile), en rejouant EXACTEMENT le chemin geometrie/os de do_draws (VAO/MOD_VTX,
 // plage d'os), avec le shader MERC_SHADOW (profondeur seule, cree par A). Rien n'est fait si le
 // seau n'est pas un seau MONDE jak1 ou si les acteurs ne projettent pas cette image.
+// lighting-shadows, partie A : draws merc projetes dans l'atlas a la derniere image d'ecriture.
+// Thread de rendu seul (ecrit ici, lu depuis pbr_actor_blob_frame_end, meme thread).
+static u64 s_atlas_draws_cast = 0;
+
+u64 pbr_shadow_atlas_draws_cast() {
+  return s_atlas_draws_cast;
+}
+
 void Merc2::cast_shadows(const LevelDrawBucket& lev_bucket,
                          const LevelData* lev,
                          SharedRenderState* render_state,
@@ -5322,7 +5330,10 @@ void Merc2::cast_shadows(const LevelDrawBucket& lev_bucket,
 
   // Tri des draws opaques + rejet par distance camera, une seule fois (les deux mêmes draws
   // servent a toutes les tuiles, ecriture ET preparation).
-  const float max_dist_m = pbr_shadow_actor_dist_m();
+  // Meme frontiere que le saut de l'aplat PS2 (bones.gc), sauf si l'atlas ne porte encore aucun
+  // acteur (demarrage) : garder la distance reglee, sinon l'atlas ne recevrait jamais d'acteur.
+  const float shared_cutoff_m = pbr_shadow_actor_cutoff_m();
+  const float max_dist_m = shared_cutoff_m > 0.f ? shared_cutoff_m : pbr_shadow_actor_dist_m();
   std::vector<const Draw*> kept;
   kept.reserve(lev_bucket.next_free_draw + lev_bucket.next_free_envmap_draw);
   u64 skipped_far = 0, skipped_alpha = 0;
@@ -5368,6 +5379,7 @@ void Merc2::cast_shadows(const LevelDrawBucket& lev_bucket,
     s_kept_empty++;
     if (casting) {
       pbr_shadow_note_cast(kShadowCastMerc, 0);
+      s_atlas_draws_cast = 0;
     }
     return;
   }
@@ -5455,6 +5467,7 @@ void Merc2::cast_shadows(const LevelDrawBucket& lev_bucket,
   if (casting) {
     const u64 drawn = draw_pass(&pbr_shadow_bind_write_tile);
     pbr_shadow_note_cast(kShadowCastMerc, drawn);
+    s_atlas_draws_cast = (u64)kept.size();
     if (autoport_proof::feature_is("lighting-shadows")) {
       autoport_proof::publish("shadow_merc_draws_cast", (u64)kept.size());
       autoport_proof::publish("shadow_merc_draws_skipped_far", skipped_far);

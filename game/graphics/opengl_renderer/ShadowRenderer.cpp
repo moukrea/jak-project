@@ -4,6 +4,7 @@
 #include <cfloat>
 
 #include "game/graphics/gfx.h"
+#include "game/graphics/opengl_renderer/background/background_common.h"
 
 #include "third-party/imgui/imgui.h"
 
@@ -181,6 +182,7 @@ void ShadowRenderer::render(DmaFollower& dma,
     while (dma.current_tag_offset() != render_state->next_bucket) {
       dma.read_and_advance();
     }
+    pbr_actor_blob_frame_end(render_state->frame_idx, 0);
     return;
   }
 
@@ -201,6 +203,7 @@ void ShadowRenderer::render(DmaFollower& dma,
       dma.read_and_advance();
     }
     ASSERT(dma.current_tag_offset() == render_state->next_bucket);
+    pbr_actor_blob_frame_end(render_state->frame_idx, 0);
     return;
   }
 
@@ -329,7 +332,9 @@ void ShadowRenderer::render(DmaFollower& dma,
   }
   ASSERT(dma.current_tag_offset() == render_state->next_bucket);
 
+  const u64 blob_tris = (m_next_front_index + m_next_back_index) / 3;
   draw(render_state, prof);
+  pbr_actor_blob_frame_end(render_state->frame_idx, blob_tris);
 }
 
 void ShadowRenderer::draw(SharedRenderState* render_state, ScopedProfilerNode& prof) {

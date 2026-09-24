@@ -550,6 +550,23 @@
     (("actor-shadow-dist")
      (let ((v (file-stream-read-int file)))
        (set! (-> obj actor-shadow-dist) (if (and (>= v 10) (<= v 200)) v 40))))
+    ;; lighting-shadows partie B: cles absentes d'un settings.ini d'avant cet item -> defaut. -1
+    ;; (Auto) est une valeur legitime pour atlas/cascades, donc bornee a [-1, 2] / {-1, 2, 3}.
+    (("shadow-atlas")
+     (let ((v (file-stream-read-int file)))
+       (set! (-> obj shadow-atlas) (if (and (>= v -1) (<= v 2)) v -1))))
+    (("shadow-cascades")
+     (let ((v (file-stream-read-int file)))
+       (set! (-> obj shadow-cascades) (if (or (= v -1) (= v 2) (= v 3)) v -1))))
+    (("shadow-dist")
+     (let ((v (file-stream-read-int file)))
+       (set! (-> obj shadow-dist) (if (and (>= v 40) (<= v 200)) v 150))))
+    (("shadow-strength")
+     (let ((v (file-stream-read-int file)))
+       (set! (-> obj shadow-strength) (if (and (>= v 0) (<= v 100)) v 80))))
+    (("shadow-second")
+     (let ((v (file-stream-read-int file)))
+       (set! (-> obj shadow-second) (if (or (= v 0) (= v 1)) v 1))))
     (("recharged-enhanced-models?") (set! (-> obj recharged-enhanced-models?) (file-stream-read-symbol file)))
     ;; Grecharged-hd-models5: per-character HD LOOK selections (index entier).
     ;; CLAMPED on load (hd-models4 cycle 5): a look index is ALSO the carousell index, and the JAK
@@ -653,6 +670,12 @@
   ;; lighting-shadows: « Ombres d'acteurs » (0 vraies / 1 aplat PS2 / 2 aucune) + distance (m).
   (format file "actor-shadows = ~D~%" (-> obj actor-shadows))
   (format file "actor-shadow-dist = ~D~%" (-> obj actor-shadow-dist))
+  ;; lighting-shadows partie B: atlas/cascades/distance/force/second astre (SPEC §6.2, §4.8).
+  (format file "shadow-atlas = ~D~%" (-> obj shadow-atlas))
+  (format file "shadow-cascades = ~D~%" (-> obj shadow-cascades))
+  (format file "shadow-dist = ~D~%" (-> obj shadow-dist))
+  (format file "shadow-strength = ~D~%" (-> obj shadow-strength))
+  (format file "shadow-second = ~D~%" (-> obj shadow-second))
   (format file "recharged-enhanced-models? = ~A~%" (-> obj recharged-enhanced-models?))
   ;; Grecharged-hd-models5: per-character HD LOOK selections (index entier).
   (format file "hd-look-jak = ~D~%" (-> obj hd-look-jak))

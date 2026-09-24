@@ -686,80 +686,93 @@ ShadowProofState& shadow_proof_state() {
 
 void pbr_shadow_ensure_resources() {
   auto& st = pbr_shadow_state();
-  if (st.fbo[0] || st.depth_tex[0]) {
-    return;  // already tried once (valid or permanently failed)
+  // lighting-shadows partie B : taille DESIREE (reglage joueur, palier plateforme si Auto ou hors
+  // bornes), bornee par GL_MAX_TEXTURE_SIZE comme avant. Cascades/half sont desormais relus a
+  // chaque image (voir plus bas) : ici on ne fixe que ce qui commande l'ALLOCATION GPU.
+  int desired_size = Gfx::recharged_shadow_atlas_px();
+  {
+    const GLint max_tex = gl_query_census::limit(GL_MAX_TEXTURE_SIZE);
+    if (max_tex > 0 && desired_size > max_tex) {
+      desired_size = max_tex;
+    }
   }
+
+  const bool have_resources = st.fbo[0] || st.depth_tex[0];
+  if (have_resources && desired_size == st.size) {
+    return;  // deja alloue a la bonne taille
+  }
+  const int fallback_size = have_resources ? st.size : 0;
+
   gl_query_census::Armed _ap("pbr-shadow-resources");
   GLint prev_fbo = 0, prev_vp[4] = {0, 0, 0, 0};
   glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prev_fbo);
   glGetIntegerv(GL_VIEWPORT, prev_vp);
 
-#ifdef __ANDROID__
-  st.size = 2048;
-  st.cascades = 2;
-  st.half[0] = 20.f; st.half[1] = 150.f; st.half[2] = 150.f; st.half[3] = 150.f;
-#else
-  st.size = 4096;
-  st.cascades = 3;
-  st.half[0] = 8.f; st.half[1] = 32.f; st.half[2] = 150.f; st.half[3] = 150.f;
-#endif
-  {
-    const GLint max_tex = gl_query_census::limit(GL_MAX_TEXTURE_SIZE);
-    if (max_tex > 0 && st.size > max_tex) {
-      st.size = max_tex;
-    }
-    while (glGetError() != GL_NO_ERROR) {
-    }
-  }
-  st.tile_px = st.size / 2;
-
-  st.valid = true;
-  for (int i = 0; i < 2; i++) {
-    glGenTextures(1, &st.depth_tex[i]);
-    glBindTexture(GL_TEXTURE_2D, st.depth_tex[i]);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT16, st.size, st.size, 0, GL_DEPTH_COMPONENT,
-                 GL_UNSIGNED_SHORT, nullptr);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_NONE);
-
-    glGenFramebuffers(1, &st.fbo[i]);
-    glBindFramebuffer(GL_FRAMEBUFFER, st.fbo[i]);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, st.depth_tex[i], 0);
-    GLenum none = GL_NONE;
-    glDrawBuffers(1, &none);
-    glReadBuffer(GL_NONE);
-
-    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-      lg::error("lighting-shadows: atlas FBO incomplet; ombres portees desactivees");
-      st.valid = false;
-    } else {
-      glViewport(0, 0, st.size, st.size);
-#ifdef __ANDROID__
-      glClearDepthf(1.0f);
-#else
-      glClearDepth(1.0);
-#endif
-      glClear(GL_DEPTH_BUFFER_BIT);
-    }
-  }
-
-  if (glGetError() != GL_NO_ERROR && st.size > 2048) {
-    lg::warn("lighting-shadows: atlas {}x{} alloc failed; repli sur 2048", st.size, st.size);
+  if (have_resources) {
+    // La taille voulue a change (reglage joueur) : detruit proprement l'atlas principal avant de
+    // le recreer. L'atlas acteur de preuve (shadow_proof_state) se recree tout seul : sa garde
+    // compare deja `sp.actor_size != st.size`.
     glDeleteFramebuffers(2, st.fbo);
     glDeleteTextures(2, st.depth_tex);
     st.fbo[0] = 0; st.fbo[1] = 0;
     st.depth_tex[0] = 0; st.depth_tex[1] = 0;
-    st.size = 2048;
-    st.tile_px = 1024;
+  }
+  while (glGetError() != GL_NO_ERROR) {
+  }
+
+  // lighting-shadows partie B : en cas d'echec d'allocation, retombe sur la taille PRECEDENTE
+  // (si on en avait une valide) plutot que de toujours viser 2048 — un reglage 8192 qui echoue
+  // sur un moteur deja a 4096 ne doit pas redescendre plus bas que necessaire. Boucle NON
+  // recursive : au plus deux tentatives (desired_size, puis le repli).
+  const int retry_size = (fallback_size > 0 && fallback_size < desired_size) ? fallback_size : 2048;
+  int try_size = desired_size;
+  for (int attempt = 0; attempt < 2; attempt++) {
+    st.size = try_size;
+    st.tile_px = st.size / 2;
     st.valid = true;
-    glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prev_fbo);
-    glViewport(prev_vp[0], prev_vp[1], prev_vp[2], prev_vp[3]);
-    glBindTexture(GL_TEXTURE_2D, 0);
-    pbr_shadow_ensure_resources();
-    return;
+    for (int i = 0; i < 2; i++) {
+      glGenTextures(1, &st.depth_tex[i]);
+      glBindTexture(GL_TEXTURE_2D, st.depth_tex[i]);
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT16, st.size, st.size, 0,
+                   GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT, nullptr);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_NONE);
+
+      glGenFramebuffers(1, &st.fbo[i]);
+      glBindFramebuffer(GL_FRAMEBUFFER, st.fbo[i]);
+      glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, st.depth_tex[i],
+                              0);
+      GLenum none = GL_NONE;
+      glDrawBuffers(1, &none);
+      glReadBuffer(GL_NONE);
+
+      if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+        lg::error("lighting-shadows: atlas FBO incomplet; ombres portees desactivees");
+        st.valid = false;
+      } else {
+        glViewport(0, 0, st.size, st.size);
+#ifdef __ANDROID__
+        glClearDepthf(1.0f);
+#else
+        glClearDepth(1.0);
+#endif
+        glClear(GL_DEPTH_BUFFER_BIT);
+      }
+    }
+
+    if (glGetError() == GL_NO_ERROR || try_size <= retry_size || attempt == 1) {
+      break;
+    }
+    lg::warn("lighting-shadows: atlas {}x{} alloc failed; repli sur {}", try_size, try_size,
+             retry_size);
+    glDeleteFramebuffers(2, st.fbo);
+    glDeleteTextures(2, st.depth_tex);
+    st.fbo[0] = 0; st.fbo[1] = 0;
+    st.depth_tex[0] = 0; st.depth_tex[1] = 0;
+    try_size = retry_size;
   }
 
   glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prev_fbo);
@@ -865,6 +878,62 @@ bool pbr_shadow_read_has_actors() {
 float pbr_shadow_read_range_m() {
   auto& st = pbr_shadow_state();
   return st.half[st.cascades > 0 ? st.cascades - 1 : 2];
+}
+
+float pbr_shadow_actor_cutoff_m() {
+  if (!pbr_shadow_read_has_actors()) {
+    return 0.f;
+  }
+  return std::min(pbr_shadow_actor_dist_m(), 0.9f * pbr_shadow_read_range_m());
+}
+
+// lighting-shadows, partie A : frontiere partagee atlas/aplat, lue par le thread GOAL depuis
+// bones.gc via pc-actor-shadow-blob-skip?. Ecrite une fois par image sur le thread de rendu.
+static std::atomic<float> g_actor_blob_cutoff_m{0.f};
+
+float pbr_shadow_actor_blob_cutoff_m_threadsafe() {
+  return g_actor_blob_cutoff_m.load(std::memory_order_relaxed);
+}
+
+static std::atomic<u64> g_blob_drawn_cur{0};
+static std::atomic<u64> g_blob_skipped_cur{0};
+static std::atomic<u64> g_blob_drawn_total{0};
+static std::atomic<u64> g_blob_skipped_total{0};
+static std::atomic<u64> g_actor_shadow_frames_swapped{0};
+
+void pbr_actor_blob_note(bool skipped) {
+  if (skipped) {
+    g_blob_skipped_cur.fetch_add(1, std::memory_order_relaxed);
+    g_blob_skipped_total.fetch_add(1, std::memory_order_relaxed);
+  } else {
+    g_blob_drawn_cur.fetch_add(1, std::memory_order_relaxed);
+    g_blob_drawn_total.fetch_add(1, std::memory_order_relaxed);
+  }
+}
+
+void pbr_actor_blob_frame_end(u64 frame_idx, u64 blob_tris) {
+  const u64 drawn = g_blob_drawn_cur.exchange(0, std::memory_order_relaxed);
+  const u64 skipped = g_blob_skipped_cur.exchange(0, std::memory_order_relaxed);
+  const int mode = Gfx::recharged_actor_shadow_mode();
+  const u64 atlas_draws = pbr_shadow_atlas_draws_cast();
+  if (mode == 0 && skipped > 0 && atlas_draws > 0) {
+    g_actor_shadow_frames_swapped.fetch_add(1, std::memory_order_relaxed);
+  }
+  if (frame_idx % 60 == 0) {
+    autoport_proof::publish("actor_shadow_mode", (u64)mode);
+    autoport_proof::publish("actor_shadow_blob_drawn", drawn);
+    autoport_proof::publish("actor_shadow_blob_skipped", skipped);
+    autoport_proof::publish("actor_shadow_blob_tris", blob_tris);
+    autoport_proof::publish("actor_shadow_atlas_draws", atlas_draws);
+    autoport_proof::publish("actor_shadow_cutoff_cm",
+                            (u64)(pbr_shadow_actor_blob_cutoff_m_threadsafe() * 100.f));
+    autoport_proof::publish("actor_shadow_blob_drawn_total",
+                            g_blob_drawn_total.load(std::memory_order_relaxed));
+    autoport_proof::publish("actor_shadow_blob_skipped_total",
+                            g_blob_skipped_total.load(std::memory_order_relaxed));
+    autoport_proof::publish("actor_shadow_frames_swapped",
+                            g_actor_shadow_frames_swapped.load(std::memory_order_relaxed));
+  }
 }
 
 bool pbr_shadow_actor_prep_frame(u64 frame_idx) {
@@ -1351,6 +1420,9 @@ void pbr_shadow_first_camera(SharedRenderState* rs, const GoalBackgroundCameraDa
     memcpy(st.read_cam, st.write_cam, sizeof(st.read_cam));
     st.write = 1 - st.write;
   }
+  g_actor_blob_cutoff_m.store(
+      Gfx::recharged_actor_shadow_mode() == 0 ? pbr_shadow_actor_cutoff_m() : 0.f,
+      std::memory_order_relaxed);
   st.have_mvp = false;
   st.class_mask_frame = 0;
   // Les compteurs publies sont ceux de l'image PRECEDENTE, COMPLETE : a ce point de l'image
@@ -1388,6 +1460,22 @@ void pbr_shadow_first_camera(SharedRenderState* rs, const GoalBackgroundCameraDa
       moon_up = moon_up && rgs.sun_fade > 0.f;
     }
   }
+  // lighting-shadows partie B : cascades/distance relues CHAQUE image (le reglage joueur peut
+  // changer sans reallocation de l'atlas, qui ne depend que de la taille en pixels).
+  st.cascades = Gfx::recharged_shadow_cascades_effective();
+  {
+    const float D = Gfx::recharged_shadow_dist_m();
+    if (st.cascades >= 3) {
+      st.half[0] = std::min(8.f, D);
+      st.half[1] = std::min(32.f, D);
+    } else {
+      st.half[0] = std::min(20.f, D);
+      st.half[1] = D;
+    }
+    st.half[2] = D;
+    st.half[3] = D;
+  }
+
   int key = 0;
   if (sun_up && moon_up) {
     key = (st.w_moon > st.w_sun) ? 1 : 0;
@@ -1405,7 +1493,8 @@ void pbr_shadow_first_camera(SharedRenderState* rs, const GoalBackgroundCameraDa
   const float total_w = st.w_sun + st.w_moon;
   const bool second_on = second_up && total_w > 1e-4f &&
                         ((key == 0) ? st.w_moon : st.w_sun) > 0.05f * total_w &&
-                        autoport_proof::armed_for("lighting-shadows");
+                        autoport_proof::armed_for("lighting-shadows") &&
+                        Gfx::recharged_shadow_second_on();
 
   for (int t = 0; t < kShadowTiles; t++) {
     st.tile_on[t] = (t < st.cascades) || (t == 3 && second_on);
@@ -1579,6 +1668,14 @@ void pbr_shadow_first_camera(SharedRenderState* rs, const GoalBackgroundCameraDa
                             (uint64_t)(st.texel_world[3] * 1000.0f + 0.5f));
     autoport_proof::publish("shadow_atlas_bytes",
                             (uint64_t)2 * (uint64_t)st.size * (uint64_t)st.size * 2ull);
+    // lighting-shadows partie B : les cinq reglages, publies sans garde `feature_is` comme
+    // demande (les autres `shadow_*` ci-dessus le sont deja).
+    autoport_proof::publish("shadow_atlas_px", (uint64_t)st.size);
+    autoport_proof::publish("shadow_dist_m", (uint64_t)Gfx::recharged_shadow_dist_m());
+    autoport_proof::publish("shadow_strength_pct",
+                            (uint64_t)(Gfx::recharged_shadow_strength_frac() * 100.f + 0.5f));
+    autoport_proof::publish("shadow_second_setting",
+                            Gfx::recharged_shadow_second_on() ? 1 : 0);
   }
 }
 
@@ -1601,6 +1698,7 @@ void pbr_shadow_bind_receiver(GLuint program, const float* cam_trans) {
   GLint tile_mvp_loc = glu::loc(program, "u_shadow_tile_mvp");
   GLint tiles_loc = glu::loc(program, "u_shadow_tiles");
   GLint split_loc = glu::loc(program, "u_shadow_split");
+  GLint strength_loc = glu::loc(program, "u_shadow_strength");
   GLint texel_loc = glu::loc(program, "u_shadow_texel");
   GLint tile_px_loc = glu::loc(program, "u_shadow_tile_px");
   GLint key_loc = glu::loc(program, "u_shadow_key");
@@ -1633,6 +1731,9 @@ void pbr_shadow_bind_receiver(GLuint program, const float* cam_trans) {
   if (tiles_loc >= 0) glUniform1i(tiles_loc, mask);
   if (split_loc >= 0) {
     glUniform4f(split_loc, st.half[0], st.half[1], st.half[2], (float)st.cascades);
+  }
+  if (strength_loc >= 0) {
+    glUniform1f(strength_loc, Gfx::recharged_shadow_strength_frac());
   }
   if (texel_loc >= 0) {
     glUniform4f(texel_loc, st.read_texel_world[0], st.read_texel_world[1], st.read_texel_world[2],

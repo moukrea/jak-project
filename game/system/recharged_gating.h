@@ -104,6 +104,14 @@ enum Opt : int {
   // aplat PS2 / aucune) et sa distance, sous le meme sous-menu que l'AO.
   kActorShadows,
   kActorShadowDist,
+  // lighting-shadows partie B (SPEC-refonte-lumiere §6.2, paliers §4.8) : les cinq reglages de
+  // l'atlas d'ombres portees PBR, tous enfants de `kLighting` comme `ao-mode`. Lus uniquement par
+  // le code de l'atlas PBR, donc sans effet hors eclairage recharge (regle du parent).
+  kShadowAtlas,
+  kShadowCascades,
+  kShadowDist,
+  kShadowStrength,
+  kShadowSecond,
   kRtLight,
   kHdr,
   kHdrKnee,

@@ -81,23 +81,6 @@ class Shadow2 : public BucketRenderer {
   size_t m_back_index_buffer_used = 0;
   bool m_debug_draw_volume = false;
 
-  // lighting-shadows (SPEC-refonte-lumiere §1.2 decision 2, §4.1, §6.1, §6.2) : « Jak n'a jamais
-  // deux ombres a la fois ». Le decalque PS2 (aplat) d'un acteur est saute quand sa VRAIE ombre
-  // (l'atlas PBR) est active et le couvre. La decision est prise UNE fois par acteur, sur le
-  // pointeur `top_vertex_data` de son upload (constant entre le/les appel(s) mscal2/mscal6 des
-  // capuchons et l'appel mscal4 des murs QUI SUIVENT, tant que l'acteur suivant n'a pas
-  // reuploade de nouveaux sommets) : un acteur ne peut donc jamais avoir ses capuchons dessines
-  // et ses murs sautes, ou l'inverse.
-  const u8* m_shadow_skip_key = nullptr;
-  bool m_shadow_skip_valid = false;
-  bool m_shadow_skip = false;
-  uint64_t m_blob_drawn = 0;
-  uint64_t m_blob_skipped = 0;
-  // Vrai si le volume dont `top_vertex_data == in.top_vertex_data` doit etre SAUTE (l'ombre
-  // reelle de cet acteur est dans l'atlas et le couvre). Calcule une fois par acteur, memoise
-  // par identite de pointeur, et compte dans `m_blob_drawn` / `m_blob_skipped`.
-  bool actor_shadow_should_skip(const InputData& in);
-
   void reset_buffers();
   void buffer_from_mscal2(const InputData& input);
   void buffer_from_mscal4(const InputData& input);

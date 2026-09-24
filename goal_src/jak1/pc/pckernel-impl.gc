@@ -113,6 +113,11 @@
    (ao-strength         int32) ;; Grecharged-ambient-occlusion closing round: 0=weaker 1=default 2=stronger. Default DEFAULT (1). Per-mode multiplier on the AO estimator intensity.
    (actor-shadows       int32) ;; lighting-shadows (SPEC-refonte-lumiere §1.2 decision 2): 0=vraies (atlas PBR) 1=aplat PS2 (stock) 2=aucune. Defaut VRAIES (0) ; sans eclairage recharge le C++ rend 1 (aplat) : les deux origines restent identiques.
    (actor-shadow-dist   int32) ;; lighting-shadows: distance (m) de calcul/repli de l'ombre d'acteur. Carrousel 20/40/80/150. Default 40.
+   (shadow-atlas        int32) ;; lighting-shadows partie B (SPEC §6.2, paliers §4.8): resolution de l'atlas d'ombres. -1=Auto (palier plateforme) 0=2048 1=4096 2=8192. Default -1.
+   (shadow-cascades     int32) ;; lighting-shadows partie B: nombre de cascades. -1=Auto (palier plateforme) 2 ou 3. Default -1.
+   (shadow-dist         int32) ;; lighting-shadows partie B: distance (m) des ombres. Carrousel 40/80/150/200. Default 150.
+   (shadow-strength     int32) ;; lighting-shadows partie B: force des ombres (%). Carrousel 25/50/80/100. Default 80.
+   (shadow-second       int32) ;; lighting-shadows partie B: ombre du second astre. 0/1. Default 1 (ON).
    (recharged-enhanced-models? symbol) ;; Grecharged-hd-models: load jak2 HD character models (Jak/Daxter/Samos/Keira, jak1-look) instead of stock low-poly. #f = stock. Only meaningful when the build ships the enhanced FR3 set.
    ;; Grecharged-hd-models5: per-character HD LOOK selection carousells. Each picks WHICH art variant
    ;; the enhanced-model loader uses for that character; index 0 is always the stock jak1 mesh, so the
@@ -226,9 +231,13 @@
 (define-extern pc-set-ambient-occlusion! (function int int int none))
 ;; lighting-shadows: pushes (mode dist-m) to the C++ renderer. mode 0=vraies/1=aplat PS2/2=aucune.
 (define-extern pc-set-actor-shadows! (function int int none))
-;; lighting-shadows §4.1: le C++ compose deja master > eclairage (Gfx::recharged_actor_shadow_mode) ;
-;; GOAL n'a qu'a demander le verdict pour sauter la famille shadow-* en mode « aucune ».
-(define-extern pc-actor-shadows-none? (function int))
+;; lighting-shadows partie B: pushes (atlas cascades dist-m strength-pct second) to the C++
+;; renderer. atlas/cascades: -1=Auto sinon 0/1/2 et 2/3. dist-m: 40..200. strength-pct: 0..100.
+;; second: 0/1.
+(define-extern pc-set-shadow-quality! (function int int int int int none))
+;; lighting-shadows, partie A: verdict par acteur (cam-dist en cm) pour sauter l'aplat PS2 quand
+;; l'ombre reelle de l'atlas le couvre deja, ou en cran « aucune ». Compose master > eclairage.
+(define-extern pc-actor-shadow-blob-skip? (function int int))
 ;; Grecharged-foliage-wind: pushes the light wind sway toggle (0/1) to the renderer.
 (define-extern pc-set-foliage-wind! (function int none))
 ;; Grecharged-title-logo-fullres: pushes the CRISP TITLE LOGO toggle (0/1) to the renderer. ON draws
@@ -402,6 +411,11 @@
   (set! (-> obj ao-strength) 1) ;; Grecharged-ambient-occlusion closing round: default DEFAULT strength
   (set! (-> obj actor-shadows) 0) ;; lighting-shadows: default VRAIES (SPEC 6.2 : « vraies » par defaut ; l'aplat reste le repli et le mode Original)
   (set! (-> obj actor-shadow-dist) 40) ;; lighting-shadows: default 40 m
+  (set! (-> obj shadow-atlas) -1) ;; lighting-shadows partie B: default Auto
+  (set! (-> obj shadow-cascades) -1) ;; lighting-shadows partie B: default Auto
+  (set! (-> obj shadow-dist) 150) ;; lighting-shadows partie B: default 150 m
+  (set! (-> obj shadow-strength) 80) ;; lighting-shadows partie B: default 80%
+  (set! (-> obj shadow-second) 1) ;; lighting-shadows partie B: default ON
   (set! (-> obj recharged-enhanced-models?) #f)
   ;; Grecharged-hd-models5: per-character HD LOOK defaults — 1 = HD (the jak1-look enhanced model),
   ;; i.e. the pre-carousell ENHANCED MODELS behaviour. 0 = ORIGINAL (stock jak1 mesh) for every one.

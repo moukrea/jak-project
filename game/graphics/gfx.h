@@ -378,6 +378,21 @@ struct GfxGlobalSettings {
   // Distance (en metres) au-dela de laquelle l'aplat PS2 sert de repli meme en mode « vraies »,
   // et jusqu'a laquelle GOAL calcule l'ombre. Sous-parametre de `kActorShadows`.
   int recharged_actor_shadow_dist = 40;
+
+  // lighting-shadows partie B (SPEC-refonte-lumiere §6.2, paliers §4.8) : les cinq reglages de
+  // l'atlas d'ombres portees PBR, poses par `pc-set-shadow-quality!` sous « Recharged Lighting ».
+  // Lus uniquement par le code de l'atlas PBR (background_common.cpp) : hors eclairage recharge
+  // rien ne change (regle de `recharged_lighting_active()`).
+  // -1 = Auto (palier de la plateforme : Android 2048, bureau 4096 = l'actuel) ; 0/1/2 = 2048/4096/8192.
+  int recharged_shadow_atlas = -1;
+  // -1 = Auto (Android 2, bureau 3 = l'actuel) ; sinon 2 ou 3.
+  int recharged_shadow_cascades = -1;
+  // Distance (metres) de la derniere cascade / de la tuile du second astre. SPEC : 40..200.
+  int recharged_shadow_dist = 150;
+  // Force de l'ombre (pourcent, 0..100). SPEC : force 0..1, defaut 0,8 -> 80.
+  int recharged_shadow_strength = 80;
+  // Ombre du second astre (tuile 4 de l'atlas). Defaut ON.
+  bool recharged_shadow_second = true;
 };
 
 namespace Gfx {
@@ -719,6 +734,66 @@ inline float recharged_actor_shadow_dist_m() {
     d = 200.f;
   }
   return d;
+}
+
+// lighting-shadows partie B : palier d'atlas EFFECTIF (en pixels). -1 (Auto) ou hors bornes ->
+// palier de la plateforme (le comportement d'origine avant cet item).
+inline int recharged_shadow_atlas_px() {
+#ifdef __ANDROID__
+  const int auto_px = 2048;
+#else
+  const int auto_px = 4096;
+#endif
+  int p = settings().recharged_shadow_atlas;
+  switch (p) {
+    case 0:
+      return 2048;
+    case 1:
+      return 4096;
+    case 2:
+      return 8192;
+    default:
+      return auto_px;
+  }
+}
+
+// lighting-shadows partie B : nombre de cascades EFFECTIF. -1 (Auto) ou hors bornes -> palier de
+// la plateforme (Android 2, bureau 3 = l'actuel).
+inline int recharged_shadow_cascades_effective() {
+#ifdef __ANDROID__
+  const int auto_n = 2;
+#else
+  const int auto_n = 3;
+#endif
+  int c = settings().recharged_shadow_cascades;
+  if (c == 2 || c == 3) {
+    return c;
+  }
+  return auto_n;
+}
+
+// lighting-shadows partie B : distance (metres) bornee [40, 200], defaut 150.
+inline float recharged_shadow_dist_m() {
+  float d = (float)settings().recharged_shadow_dist;
+  if (!(d >= 40.f) || d > 200.f) {
+    d = 150.f;
+  }
+  return d;
+}
+
+// lighting-shadows partie B : force bornee [0, 100] (pourcent), defaut 80.
+inline float recharged_shadow_strength_frac() {
+  int s = settings().recharged_shadow_strength;
+  if (s < 0 || s > 100) {
+    s = 80;
+  }
+  return (float)s / 100.f;
+}
+
+// lighting-shadows partie B : ombre du second astre. Hors eclairage recharge n'a aucun effet
+// (le site appelant est deja derriere `recharged_lighting_active()`).
+inline bool recharged_shadow_second_on() {
+  return settings().recharged_shadow_second;
 }
 
 // water-ocean-mesh : LE seul composeur des trois niveaux pour l'EAU (master > eau > sous-reglage).

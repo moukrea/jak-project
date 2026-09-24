@@ -826,6 +826,31 @@
   (pc-text-actor-shadow-dist-40 #x17ee)
   (pc-text-actor-shadow-dist-80 #x17ef)
   (pc-text-actor-shadow-dist-150 #x17f0)
+  ;; lighting-shadows partie B (SPEC-refonte-lumiere §6.2, paliers §4.8): les cinq reglages de
+  ;; l'atlas d'ombres portees PBR. #x17f6-#x1803 sont les chaines d'OPTION des carrousels
+  ;; (Auto est partagee entre atlas et cascades, meme motif que grass-density reutilisant les
+  ;; ids AO) ; #x1804-#x1808 sont les cinq LIBELLES de rangee (name-override, meme motif que
+  ;; pc-text-actor-shadows). Second astre reutilise (on off) (ids #x111/#x112). Next free id at
+  ;; allocation time was #x17f6 (verified by scan of goal_src/** et des 24 json de texte).
+  (pc-text-shadow-auto #x17f6)
+  (pc-text-shadow-atlas-2048 #x17f7)
+  (pc-text-shadow-atlas-4096 #x17f8)
+  (pc-text-shadow-atlas-8192 #x17f9)
+  (pc-text-shadow-cascades-2 #x17fa)
+  (pc-text-shadow-cascades-3 #x17fb)
+  (pc-text-shadow-dist-40 #x17fc)
+  (pc-text-shadow-dist-80 #x17fd)
+  (pc-text-shadow-dist-150 #x17fe)
+  (pc-text-shadow-dist-200 #x17ff)
+  (pc-text-shadow-strength-25 #x1800)
+  (pc-text-shadow-strength-50 #x1801)
+  (pc-text-shadow-strength-80 #x1802)
+  (pc-text-shadow-strength-100 #x1803)
+  (pc-text-shadow-atlas-label #x1804)
+  (pc-text-shadow-cascades-label #x1805)
+  (pc-text-shadow-dist-label #x1806)
+  (pc-text-shadow-strength-label #x1807)
+  (pc-text-shadow-second-label #x1808)
   ;; Grecharged-realtime-lighting round-4: SHADOW QUALITY 5-tier extremes (Very Low / Very High).
   (pc-text-ao-very-low #x1714)
   (pc-text-ao-very-high #x1715)

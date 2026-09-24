@@ -118,6 +118,15 @@ const Row kOptions[kOptCount] = {
     {"actor-shadows", kLighting, Kind::kMode, NOB, &GS::recharged_actor_shadows, NOF, 1, true},
     {"actor-shadow-dist", kActorShadows, Kind::kParamI, NOB, &GS::recharged_actor_shadow_dist, NOF,
      40, true},
+    // lighting-shadows partie B : reglages de l'atlas d'ombres portees PBR (SPEC §6.2, paliers
+    // §4.8), tous enfants de `kLighting`. STOCK = defaut de gfx.h (Auto pour atlas/cascades).
+    {"shadow-atlas", kLighting, Kind::kParamI, NOB, &GS::recharged_shadow_atlas, NOF, -1, true},
+    {"shadow-cascades", kLighting, Kind::kParamI, NOB, &GS::recharged_shadow_cascades, NOF, -1,
+     true},
+    {"shadow-dist", kLighting, Kind::kParamI, NOB, &GS::recharged_shadow_dist, NOF, 150, true},
+    {"shadow-strength", kLighting, Kind::kParamI, NOB, &GS::recharged_shadow_strength, NOF, 80,
+     true},
+    {"shadow-second", kLighting, Kind::kToggle, &GS::recharged_shadow_second, NOI, NOF, 1, true},
     {"rt-light", kLighting, Kind::kToggle, PB(recharged_rt_light_enable), NOI, NOF, 0, false},
     {"hdr", kLighting, Kind::kToggle, &GS::recharged_hdr, NOI, NOF, 0, false},
     {"hdr-knee", kHdr, Kind::kParamF, NOB, NOI, &GS::recharged_hdr_knee, 0.96, false},

@@ -52,6 +52,7 @@
 uniform mat4 u_shadow_tile_mvp[4];
 uniform int u_shadow_tiles;    // bit t = tuile t active cette image (cote LECTURE)
 uniform vec4 u_shadow_split;   // demi-etendues des cascades 0..2 (m), w = nombre de cascades
+uniform float u_shadow_strength;  // lighting-shadows partie B : force du reglage joueur, 0..1
 uniform vec4 u_shadow_texel;   // metres par texel, par tuile
 uniform float u_shadow_tile_px;
 uniform int u_shadow_key;      // 0 : le soleil porte les cascades, 1 : la lune verte
@@ -316,6 +317,10 @@ vec4 shade_body(in Surface s, float sao) {
                                             : s.shadow_ndl;
         key = rt_key_vis(s.P_rel, s.shadow_N, key_ndl);
         sec = rt_sec_vis(s.P_rel, s.shadow_N, sec_ndl);
+        // lighting-shadows partie B : force du reglage joueur ; 1.0 = pleine ombre (l'existant),
+        // 0.0 = aucune ombre (vis == 1.0 partout).
+        key = mix(1.0, key, u_shadow_strength);
+        sec = mix(1.0, sec, u_shadow_strength);
       }
       float sun_occ  = (u_shadow_key == 0) ? key : sec;
       float moon_occ = (u_shadow_key == 0) ? sec : key;

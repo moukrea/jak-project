@@ -208,6 +208,13 @@
      ;; actor-shadows is Aucune). Mirrors the ambient-occlusion/ao-quality relationship.
      (actor-shadows)
      (actor-shadow-dist)
+     ;; lighting-shadows partie B (SPEC §6.2, paliers §4.8): les cinq rangees de l'atlas d'ombres
+     ;; portees PBR, ajoutees juste apres ACTOR SHADOW DISTANCE, meme ecran.
+     (shadow-atlas)
+     (shadow-cascades)
+     (shadow-dist)
+     (shadow-strength)
+     (shadow-second)
      ;; lighting-legacy-purge (2026-09-11) : SHADOW QUALITY, AMBIENT MODEL, DISPLACEMENT, PBR TEST
      ;; PRESET, PBR ISOLATE et MESH SUBDIVISION sont RETIRES — reglages d'eclairage de l'ancien
      ;; monde. Aucune valeur numerique de cet enum n'est ecrite en dur nulle part (verifie par
