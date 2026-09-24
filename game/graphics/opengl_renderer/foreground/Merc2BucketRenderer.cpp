@@ -18,6 +18,10 @@ void Merc2BucketRenderer::render(DmaFollower& dma,
     return;
   }
 
+  // lighting-shadows (partie B) : Merc2 est partage par les 16 Merc2BucketRenderer ; lui dire
+  // dans quel seau on est lui permet de refuser de projeter une ombre pour un seau qui n'est pas
+  // un seau MONDE (voir Merc2::shadow_cast_allowed_bucket, ex. le seau debug du HUD 3D).
+  m_renderer->set_current_bucket(m_my_id);
   m_renderer->render(dma, render_state, prof, &m_debug_stats);
 
   m_empty = m_debug_stats.num_predicted_draws == 0;

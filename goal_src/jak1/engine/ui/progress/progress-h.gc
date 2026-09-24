@@ -203,6 +203,11 @@
      (ambient-occlusion)
      (ao-quality)
      (ao-strength)
+     ;; lighting-shadows: two multi-value carousell rows added right after AO STRENGTH, same screen.
+     ;; actor-shadows = Vraies/Aplat PS2/Aucune; actor-shadow-dist = 20/40/80/150 m (disabled while
+     ;; actor-shadows is Aucune). Mirrors the ambient-occlusion/ao-quality relationship.
+     (actor-shadows)
+     (actor-shadow-dist)
      ;; lighting-legacy-purge (2026-09-11) : SHADOW QUALITY, AMBIENT MODEL, DISPLACEMENT, PBR TEST
      ;; PRESET, PBR ISOLATE et MESH SUBDIVISION sont RETIRES — reglages d'eclairage de l'ancien
      ;; monde. Aucune valeur numerique de cet enum n'est ecrite en dur nulle part (verifie par

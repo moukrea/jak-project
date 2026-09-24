@@ -177,69 +177,92 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
                             ShaderId shader);
 
 #ifdef OG_FEAT_PBR
-// Grecharged-pbr-materials round-4 mandate B: classic sun SHADOW MAPPING, WORLD-scale
-// (owner clarification 2026-07-18: the hut's shadow on the ground, not characters). A
-// depth-only pass renders the camera-vis-culled tfrag NORMAL trees AND the TIE NORMAL
-// category into a 1024x1024 depth FBO from the mood-sun direction, in the SAME
-// camera-relative-meters space as v_fringe_rel = (position_in - cam_trans.xyz)/4096.
-// Receivers: the PBR fragment path multiplies its ENTIRE direct (multi-light) term by a
-// PCF shadow factor; LEGACY (non-PBR) fragments in the same program get a calibrated
-// darkening (legacy_strength) so the hut's shadow lands on the non-PBR ground too.
-// Indirect/baked-GI term untouched.
+// lighting-shadows (SPEC-refonte-lumiere §4.8) : ATLAS D'OMBRE TUILE, deux astres, acteurs.
+// Remplace l'ancienne carte unique. UN atlas carre par cote du double-buffer, decoupe en 2x2
+// tuiles : les tuiles 0..cascades-1 portent les CASCADES de l'astre DOMINANT (le plus haut ET
+// le plus pesant), la derniere tuile porte l'unique tuile du SECOND astre quand il est haut ET
+// pese plus de 5% du total direct. Deux astres, deux ombres, aucune attribution ni fondu
+// (SPEC §3.4/§4.8) : contrairement a l'ancienne carte unique, il n'y a plus de bascule a fondre
+// entre les deux — chaque astre a sa propre geometrie d'atlas, active ou non selon sa hauteur.
 //
-// DOUBLE-BUFFERED: casters render in bucket order (tfrag before tie), so a same-frame map
-// is incomplete when early receivers (the ground) sample it — the TIE hut's depth would
-// never be seen. Receivers therefore sample the READ side = LAST frame's completed map
-// with its matching matrix (standard 1-frame shadow latency); casters accumulate into the
-// WRITE side. Merc/actor casters are OUT of scope (the stock stencil shadow system covers
-// actors). GL-thread only.
+// DOUBLE-BUFFERE comme avant : les casters STATIQUES (tfrag/tie/shrub) sont rejoues au premier
+// passage camera de l'image (`pbr_shadow_first_camera`, via la prepasse d'AO) dans l'atlas
+// D'ECRITURE ; les acteurs (merc) y ajoutent leurs propres draws pendant la passe couleur
+// (implementeur B). Les receveurs echantillonnent l'atlas de LECTURE = celui complete l'image
+// precedente, avec sa matrice.
 struct PbrShadowState {
   GLuint fbo[2] = {0, 0};
   GLuint depth_tex[2] = {0, 0};
-  int size = 1024;
-  float shadow_half = 40.0f;  // ROUND-2 Shadow Distance: ortho half-extent in meters (box=2x)
+  int size = 4096;      // cote de l'atlas (desktop 4096, Android 2048)
+  int tile_px = 2048;   // cote d'une tuile = size/2
+  int cascades = 3;      // nombre de cascades de l'astre dominant (desktop 3, Android 2)
+  float half[4] = {8.f, 32.f, 150.f, 150.f};  // demi-etendue (m) par tuile
   u64 frame = ~0ull;   // frame_idx that last cleared the write map
   bool valid = false;  // resources created OK
   int write = 0;          // buffer index this frame's depth pass renders into
-  bool have_mvp = false;  // write-side mvp computed for the current frame
-  float mvp[16];          // write-side column-major light view-proj (cam-relative meters)
-  bool read_valid = false;  // read side (1 - write) holds last frame's COMPLETED map
-  float read_mvp[16];       // matrix matching the read-side map
-  float legacy_strength = 0.35f;  // calibrated legacy-receiver darkening (prop-tunable)
-  u64 cast_indices = 0;  // indices drawn into the write map this frame (debug telemetry)
-  bool debug = false;    // telemetry on (env OG_PBR_SHADOW_DEBUG / prop ...pbr.shadowdbg)
-  // Round-5 owner bug (shadows pop/swim on camera ROTATION): the caster set must ignore
-  // camera visibility. true (default) = depth passes draw the FULL static tree index
-  // buffers; false (prop debug.opengoal.pbr.castfull=0 / env OG_PBR_CASTFULL=0) = the old
-  // camera-vis-culled caster set, kept only as a perf/repro A/B fallback.
-  bool cast_full = true;
-  // Round-5 addendum suspect (d): the shadow space is CAMERA-relative, so the read-side
-  // map is anchored to the camera position of the frame that WROTE it. Receivers compute
-  // v_fringe_rel with the CURRENT camera — without correction every shadow is displaced
-  // by one frame of camera motion. write_cam = cam_trans captured at begin_frame;
-  // read_cam = the cam the READ map was written around (promoted on buffer swap); the
-  // receiver uniform u_pbr_shadow_cam_delta = (cam_now - read_cam)/4096 re-anchors it.
+  bool have_mvp = false;  // write-side matrices computed for the current frame
+  bool tile_on[4] = {false, false, false, false};       // write-side : tuile active cette image
+  bool read_tile_on[4] = {false, false, false, false};  // promue au flip
+  float tile_mvp[4][16];       // write-side, par tuile (metres camera-relatifs -> clip tuile)
+  float read_tile_mvp[4][16];  // promue au flip
+  float texel_world[4] = {0.f, 0.f, 0.f, 0.f};       // metres/texel, par tuile (write)
+  float read_texel_world[4] = {0.f, 0.f, 0.f, 0.f};  // promu au flip
+  int key_light = 0;       // 0 = le soleil porte les cascades, 1 = la lune verte
+  int read_key_light = 0;  // promu au flip
+  float w_sun = 0.f;   // poids direct du soleil (image precedente)
+  float w_moon = 0.f;  // poids direct de la lune verte (image precedente)
+  float cam_rot[16] = {1.f, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f,
+                       0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f};  // vue GL, colonne-major
+  float merc_mvp[4][16];  // "vue merc (metres GOAL) -> clip tuile", par tuile
+  bool merc_mvp_valid[4] = {false, false, false, false};
+  u32 class_mask_frame = 0;  // classes ayant projete >0 indices cette image (bits ci-dessous)
+  u32 read_class_mask = 0;   // promu au flip
+  u32 class_mask_run = 0;    // union depuis le debut (publication)
+  u64 class_idx[4] = {0, 0, 0, 0};  // indices ce cadre : tfrag, tie, shrub, merc
+  bool cast_full = true;  // hors du chemin livre desormais (le caster statique est TOUJOURS complet)
+  bool debug = false;    // telemetrie (env OG_PBR_SHADOW_DEBUG / prop ...pbr.shadowdbg)
   float write_cam[3] = {0.f, 0.f, 0.f};
   float read_cam[3] = {0.f, 0.f, 0.f};
-  // Grecharged-directional-ambient (owner playtest #3 item 1): the green sun (Jak's 2nd sun)
-  // casts shadows like the yellow sun. There is ONE shadow map; it is driven by the DOMINANT
-  // sun each frame — the yellow sun when it is above the horizon (day), the GREEN sun when the
-  // yellow is below the horizon (night). shadow_light records which light this frame's WRITE map
-  // was rendered from (0 = yellow sun, 1 = green sun); read_shadow_light is its promoted read-side
-  // twin (matches read_mvp), pushed to receivers as u_rt_shadow_light so the shader applies the
-  // occlusion to the matching term (yellow-sun term for 0, green-sun term for 1). No second depth
-  // pass — the depth machinery is direction-agnostic, so this is just a direction+attribution swap.
-  int shadow_light = 0;
-  int read_shadow_light = 0;
 };
 PbrShadowState& pbr_shadow_state();
 void pbr_shadow_ensure_resources();  // lazy FBO/tex creation
-// true if the depth pass should run. cam_trans = the frame's camera translation in game
-// units (settings.camera.trans) — the light ortho window is anchored to it (constant-size
-// camera-position-centered box, rotation cannot change it) and the texel snap quantizes
-// its light-space projection so camera TRANSLATION moves the window in whole-texel steps.
-bool pbr_shadow_begin_frame(u64 frame_idx, const float* cam_trans);
-// Phantom-lines bisect tool: bitmask gating which renderers cast into the sun shadow map
+// lighting-shadows : classes de projecteurs (bitmask).
+constexpr u32 kShadowCastTfrag = 1, kShadowCastTie = 2, kShadowCastShrub = 4, kShadowCastMerc = 8;
+constexpr int kShadowTiles = 4;
+// Point d'entree UNIQUE de l'image, appele au premier passage camera (avant
+// `prepass::on_first_camera`) : bascule/promotion, calcul des matrices des 4 tuiles, effacement
+// de l'atlas d'ECRITURE, et dessin des casters STATIQUES (tfrag/tie/shrub) dans chaque tuile
+// active, via la prepasse d'AO.
+void pbr_shadow_first_camera(SharedRenderState* rs, const GoalBackgroundCameraData& cam);
+// Vrai si l'atlas d'ECRITURE de CETTE image est pret (first_camera a tourne pour frame_idx).
+bool pbr_shadow_write_ready(u64 frame_idx);
+// Lie le FBO d'ECRITURE de l'atlas, viewport + scissor OFF sur la tuile `tile` ; rend faux si la
+// tuile est eteinte cette image. Ne sauve rien : l'appelant sauve/restaure son etat.
+bool pbr_shadow_bind_write_tile(int tile);
+// Matrice "espace camera merc (vue, unites GOAL) -> clip de la tuile", valide cette image.
+const float* pbr_shadow_merc_mvp(int tile);  // nullptr si tuile eteinte ou matrice invalide
+// Espace vue (unites GOAL) -> monde (unites GOAL), par l'inverse de camera-rot de l'image
+// d'ecriture.
+bool pbr_shadow_view_to_world(const float view[3], float out_world[3]);
+void pbr_shadow_note_cast(u32 cls, u64 indices);
+// Acteurs dans l'atlas cette image ? (mode "vraies", item arme, eclairage recharge, atlas pret)
+bool pbr_shadow_merc_cast_enabled(u64 frame_idx);
+// Distance max (m) d'un acteur qui projette (reglage "distance des ombres d'acteurs").
+float pbr_shadow_actor_dist_m();
+// La carte LUE cette image contient-elle des acteurs ? (sert au saut de l'aplat PS2, bucket 47)
+bool pbr_shadow_read_has_actors();
+// Portee (m) couverte par l'atlas lu : demi-etendue de la derniere cascade (150).
+float pbr_shadow_read_range_m();
+// Preuve : l'image courante est-elle l'image de PREPARATION (les merc ecrivent AUSSI l'atlas
+// acteur) ?
+bool pbr_shadow_actor_prep_frame(u64 frame_idx);
+// Lie le FBO de l'atlas ACTEUR (preuve), viewport sur la tuile ; faux si non prep ou tuile eteinte.
+bool pbr_shadow_bind_actor_tile(int tile);
+// Preuve : avant/apres un bucket (voir background_common.cpp, section preuve).
+void pbr_shadow_proof_frame_begin(u64 frame_idx);
+void pbr_shadow_proof_before_bucket(int bucket_id);
+void pbr_shadow_proof_post_opaque(SharedRenderState* rs);
+// Phantom-lines bisect tool: bitmask gating which STATIC renderers cast into the atlas
 // (bit0 tfrag, bit1 tie, bit2 shrub). Default 7 (all). Debug-only override via env
 // OG_PBR_CASTER_MASK / prop debug.opengoal.pbr.castermask; cached once per frame.
 int pbr_shadow_caster_mask(u64 frame_idx);
@@ -247,6 +270,15 @@ int pbr_shadow_caster_mask(u64 frame_idx);
 // CURRENT frame's camera translation in game units (same vector the program's cam_trans
 // uniform gets) so the 1-frame-stale read map is sampled in its own camera anchor.
 void pbr_shadow_bind_receiver(GLuint program, const float* cam_trans);
+
+// lighting-shadows : l'herbe recharged recoit l'atlas avec sa PROPRE modulation (pas de N.L de
+// brin stable), donc elle n'appelle pas `rt_key_vis`/`rt_sec_vis` du C++ — elle a besoin des DEUX
+// poids directs de l'image LUE pour doser sa propre attenuation cote shader. `read_key_light`
+// dit quel astre (0 soleil, 1 lune) porte les cascades cote LECTURE ; ces deux fonctions donnent
+// le poids direct (0..1) de l'astre CASCADES et de l'astre SECOND (tuile 3, 0 si absent),
+// mesures a l'image precedente (memes `w_sun`/`w_moon` que `shade.glsl` pese).
+float pbr_shadow_read_key_weight();
+float pbr_shadow_read_second_weight();
 
 // ROUND 22 PER-PIXEL SCREEN-COVERAGE INSTRUMENTATION (owner defect A step 1: "la plupart des
 // endroits n'ont aucun displacement" — measure the truth before porting anything).

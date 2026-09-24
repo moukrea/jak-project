@@ -114,6 +114,13 @@ class Merc2 {
   void clear_deferred_native_draws() { m_deferred_native.clear(); }
   void draw_deferred_native_draws(SharedRenderState* render_state);
 
+  // lighting-shadows (partie B, acteurs merc) : le seau (bucket) courant, pose par
+  // Merc2BucketRenderer::render juste avant d'appeler Merc2::render. Merc2 est partage par 16
+  // Merc2BucketRenderer ; seuls les seaux MONDE jak1 (voir shadow_cast_allowed_bucket) ont le
+  // droit de projeter une ombre — le seau debug (draw-bones-hud, os HUD 3D calcules en IDENTITE,
+  // donc deja en espace ecran) projetterait sinon des ombres fantomes devant la camera.
+  void set_current_bucket(int id) { m_current_bucket_id = id; }
+
  private:
   const std::vector<GLuint>* m_anim_slot_array;
   enum MercDataMemory {
@@ -389,4 +396,28 @@ class Merc2 {
                              ModBuffers* mod_opengl_buffers,
                              const float* blerc_weights,
                              MercDebugStats* stats);
+
+  // lighting-shadows (partie B) : voir set_current_bucket() ci-dessus et cast_shadows() plus bas.
+  int m_current_bucket_id = -1;
+  bool shadow_cast_allowed_bucket() const;
+  // lighting-shadows : (first_bone du modele, distance camera de son os racine en m), rempli par
+  // handle_pc_model, vide a la fin de chaque flush.
+  std::vector<std::pair<u32, float>> m_shadow_root_dist;
+  void cast_shadows(const LevelDrawBucket& lev_bucket,
+                    const LevelData* lev,
+                    SharedRenderState* render_state,
+                    u32 bones_base);
+  // localisation de u_merc_smvp dans le shader MERC_SHADOW (cree par A) : recherchee une fois,
+  // au premier appel de cast_shadows (le shader n'existe pas forcement encore au moment ou
+  // Merc2::Merc2 tourne, selon l'ordre de chargement de ShaderLibrary).
+  GLint m_shadow_smvp_loc = -1;
+  bool m_shadow_smvp_loc_looked_up = false;
+
+  // lighting-shadows : ancre eichar (translation VUE, unites GOAL) capturee par handle_pc_model
+  // sous autoport_proof::feature_is("lighting-shadows"), lue et publiee une fois par image dans
+  // cast_shadows.
+  bool m_shadow_anchor_valid = false;
+  u64 m_shadow_anchor_frame = UINT64_MAX;
+  float m_shadow_anchor_view[3] = {0.f, 0.f, 0.f};
+  u64 m_shadow_last_publish_frame = UINT64_MAX;
 };

@@ -8702,6 +8702,8 @@
   (pc-set-fixed-tick! (if (-> obj fixed-tick?) 1 0))
   ;; Grecharged-ambient-occlusion: push the AO mode + quality + strength every frame (1:1, no translation).
   (pc-set-ambient-occlusion! (-> obj ambient-occlusion) (-> obj ao-quality) (-> obj ao-strength))
+  ;; lighting-shadows: push « Ombres d'acteurs » (mode + distance) every frame, same pattern as AO.
+  (pc-set-actor-shadows! (-> obj actor-shadows) (-> obj actor-shadow-dist))
   (when *target*
     (pc-set-jak-pos! (-> *target* control trans)))
   ;; Grecharged-grass-poc POLISH#4/#5: push the two adjustable grass view-distances + density every frame.

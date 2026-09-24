@@ -113,6 +113,13 @@ enum class ShaderId {
   // vraiment, relu du GPU au pas de l'anneau 0. Elle partage `ocean_layer_a.glsl` ET
   // `ocean_atten.glsl` avec la clipmap : une seule transcription de chaque loi, deux lecteurs.
   OCEAN_WAVE = 56,
+#ifdef OG_FEAT_PBR
+  // lighting-shadows (SPEC §4.8) : depth-only merc (acteur) dans une tuile de l'atlas d'ombre.
+  MERC_SHADOW = 57,
+  // lighting-shadows : sonde de preuve — triangle plein ecran qui noircit tout pixel monde non
+  // marque au stencil, pour isoler la population que la relecture couleur classe.
+  SHADOW_PROBE = 58,
+#endif
   MAX_SHADERS
 };
 

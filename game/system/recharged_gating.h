@@ -100,6 +100,10 @@ enum Opt : int {
   kAoMode,
   kAoQuality,
   kAoStrength,
+  // lighting-shadows (SPEC-refonte-lumiere §1.2 decision 2) : « Ombres d'acteurs » (vraies /
+  // aplat PS2 / aucune) et sa distance, sous le meme sous-menu que l'AO.
+  kActorShadows,
+  kActorShadowDist,
   kRtLight,
   kHdr,
   kHdrKnee,

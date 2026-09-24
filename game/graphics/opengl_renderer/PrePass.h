@@ -171,6 +171,25 @@ GLuint world_program();
 const GoalBackgroundCameraData* prepass_cam();
 void etie_mode(int on);
 
+// lighting-shadows (SPEC §4.8) : rejoue les casters STATIQUES (tfrag/tie/shrub) de la
+// prepasse dans une tuile de l'atlas d'ombre. `smvp` = matrice "monde camera-relatif metres ->
+// clip de la tuile" (le contenu de `u_pre_smvp`). `kind_mask` filtre les contributeurs par
+// famille (bit0 tfrag, bit1 tie, bit2 shrub — memes bits que `pbr_shadow_caster_mask`).
+// `out_idx[3]` recoit les indices dessines par famille (tfrag, tie, shrub), dans cet ordre.
+// L'appelant a deja lie le FBO/viewport/etat de profondeur de la tuile.
+void draw_shadow_casters(SharedRenderState* rs,
+                         const GoalBackgroundCameraData& cam,
+                         const float smvp[16],
+                         int kind_mask,
+                         uint64_t out_idx[3]);
+// Vrai pendant un appel a `draw_shadow_casters` : les contributeurs et `draw_depth_range`
+// s'en servent pour ne pas compter ces draws dans les compteurs de l'AO.
+bool shadow_pass_active();
+// L'appartenance d'un bucket a la famille monde (0 = ni tfrag, ni tie, ni shrub). Expose pour
+// que la sonde de preuve `lighting-shadows` reconnaisse les buckets monde comme
+// `proof_before_bucket` le fait deja pour l'AO.
+int world_bucket_family(int id);
+
 // Appele par les DEUX renderers (bureau, Android) la ou ils initialisaient `m_ao_pass`.
 void init_shaders(ShaderLibrary& shaders);
 // L'estimateur d'AO, possede par ce module (il tournait dans les deux renderers).

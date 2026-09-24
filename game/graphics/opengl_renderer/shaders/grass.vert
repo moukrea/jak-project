@@ -74,6 +74,11 @@ out float v_seed;         // per-instance random, seeds the card tuft sub-blades
 // ruban. Le fragment s'en sert avec gl_FrontFacing pour separer la face eclairee de la face
 // opposee (voir grass_shade_face.glsl) — la seule grandeur qui distingue les deux cotes.
 out vec2 v_fwd_xz;
+// lighting-shadows : position finale du brin (apres vent/contact), CAMERA-RELATIVE en METRES,
+// meme espace que `P_rel` de shade.glsl. `camera_position` est deja le `settings.camera.trans`
+// de cette image (uniforme partage avec `cam_dist` ci-dessus) ; le fragment ajoute ensuite
+// `u_pbr_shadow_cam_delta` pour se rattacher a la camera de la carte LUE (image precedente).
+out vec3 v_shadow_rel;
 
 const int   SEGMENTS = 4;            // blade strip segments -> 2*(SEGMENTS+1) = 10 verts
 const float TWO_PI   = 6.28318530718;
@@ -668,5 +673,6 @@ void main() {
   probe_grass_pre = probe_grass_world;
   probe_grass_post = probe_grass_world;
 #endif
+  v_shadow_rel = (pos - camera_position.xyz) / 4096.0;
   gl_Position = world_to_clip(pos);
 }

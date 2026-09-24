@@ -516,7 +516,11 @@ void ensure_white() {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 }
 
-int world_bucket_family(int id) {
+// lighting-shadows (SPEC §4.8) : vrai pendant `draw_shadow_casters`. Empeche `draw_depth_range`
+// de compter ces draws dans le recensement d'AO (une population etrangere a l'AO).
+bool g_shadow_pass = false;
+
+int world_bucket_family_impl(int id) {
   using B = jak1::BucketId;
   switch ((B)id) {
     case B::TFRAG_LEVEL0:
@@ -1295,6 +1299,87 @@ void publish_all() {
 
 }  // namespace
 
+// lighting-shadows : fonctions PUBLIQUES (declarees dans PrePass.h), hors de l'espace anonyme.
+bool shadow_pass_active() {
+  return g_shadow_pass;
+}
+
+int world_bucket_family(int id) {
+  return world_bucket_family_impl(id);
+}
+
+// lighting-shadows (SPEC §4.8) : REJOUE les contributeurs de la prepasse d'AO dans une tuile de
+// l'atlas d'ombre, filtres par famille. L'appelant (background_common.cpp) a deja lie le FBO
+// d'ecriture de l'atlas, le viewport de la tuile et l'etat de profondeur (LEQUAL, mask on,
+// polygon-offset 2/4, cull off, scissor off) ; cette fonction n'installe que le programme et ses
+// uniformes de projection, dessine, et REND l'etat de profondeur inchange (elle ne restaure PAS
+// le FBO/viewport : c'est a l'appelant, qui enchaine plusieurs tuiles sur le meme atlas).
+void draw_shadow_casters(SharedRenderState* rs,
+                         const GoalBackgroundCameraData& cam,
+                         const float smvp[16],
+                         int kind_mask,
+                         uint64_t out_idx[3]) {
+  if (!g_shaders) {
+    return;
+  }
+  const CamScope cam_scope(cam);
+  const auto& sh = (*g_shaders)[ShaderId::PREPASS_WORLD];
+  sh.activate();
+  const GLuint id = sh.id();
+  // pc_camera n'est pas lue quand u_pre_light == 1 (branche prise dans prepass_world.vert) ;
+  // on ne la pousse pas ici, la valeur laissee par le dernier passage suffit.
+  glUniform4f(glu::loc(id, "cam_trans"), cam.trans[0], cam.trans[1], cam.trans[2], cam.trans[3]);
+  glUniform1i(glu::loc(id, "tex_T0"), 0);
+  glUniform1i(glu::loc(id, "u_cut_mode"), 0);
+  glUniform1i(glu::loc(id, "u_pre_etie"), 0);
+  glUniform1i(glu::loc(id, "u_pre_light"), 1);
+  glUniformMatrix4fv(glu::loc(id, "u_pre_smvp"), 1, GL_FALSE, smvp);
+  sway_none();
+
+  g_cut_armed = true;  // le caster d'ombre porte le meme alpha-test que la prepasse d'AO
+  g_shadow_pass = true;
+  forget_range_state();
+
+  std::unordered_set<std::string> seen;
+  for (DepthContributor* c : g_contributors) {
+    const std::string& level = c->prepass_level_name();
+    if (level.empty()) {
+      continue;
+    }
+    const char* kind = c->prepass_kind();
+    int bit = 0, idx = -1;
+    if (!strncmp(kind, "tfrag", 5)) {
+      bit = 1;
+      idx = 0;
+    } else if (!strncmp(kind, "tie", 3)) {
+      bit = 2;
+      idx = 1;
+    } else if (!strncmp(kind, "shrub", 5)) {
+      bit = 4;
+      idx = 2;
+    }
+    if (bit == 0 || !(kind_mask & bit)) {
+      continue;
+    }
+    std::string key = kind;
+    key += ':';
+    key += level;
+    if (!seen.insert(key).second) {
+      continue;
+    }
+    const uint64_t drawn = c->draw_depth_prepass(rs);
+    if (out_idx) {
+      out_idx[idx] += drawn;
+    }
+  }
+
+  g_shadow_pass = false;
+  glUniform1i(glu::loc(id, "u_pre_light"), 0);
+  forget_range_state();
+  glBindVertexArray(0);
+}
+
+
 // ------------------------------------------------------------------------- contributeurs ----
 DepthContributor::DepthContributor() {
   g_contributors.push_back(this);
@@ -1550,8 +1635,14 @@ uint64_t draw_depth_range(unsigned gl_mode, const DepthRange& r) {
       g_last_state_mode = (uint16_t)r.tex_mode;
     }
   }
-  lighting_census::note_world_draw(lighting_census::Kind::DepthOnly);
-  ao_tie_alpha_probe::before_pre_draw(id, r.tie_probe_id);
+  // lighting-shadows (SPEC §4.8) : cette meme fonction rejoue les plages de la prepasse DANS
+  // une tuile de l'atlas d'ombre. Le recensement d'AO ne doit voir QUE ses propres draws,
+  // jamais ceux de la passe d'ombre — sinon un compteur d'AO grossirait pour une raison
+  // etrangere a l'AO.
+  if (!g_shadow_pass) {
+    lighting_census::note_world_draw(lighting_census::Kind::DepthOnly);
+    ao_tie_alpha_probe::before_pre_draw(id, r.tie_probe_id);
+  }
   glDrawElements((GLenum)gl_mode, (GLsizei)r.count, GL_UNSIGNED_INT,
                  (void*)((size_t)r.first * sizeof(uint32_t)));
   return r.count;

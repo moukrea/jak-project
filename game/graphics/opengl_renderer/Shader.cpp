@@ -937,6 +937,9 @@ ShaderLibrary::ShaderLibrary(GameVersion version) {
   // lighting-legacy-purge (2026-09-11) : le programme TFRAG3_TESS n'est plus construit — il
   // n'existe plus. Le mode DISPLACEMENT = TESSELLATION qui l'aurait selectionne n'a jamais ete
   // livre.
+  // lighting-shadows (SPEC §4.8) : atlas d'ombre tuile — caster merc + sonde de preuve.
+  at(ShaderId::MERC_SHADOW) = {"merc_shadow", version};
+  at(ShaderId::SHADOW_PROBE) = {"shadow_probe", version};
 #endif
 
 #ifdef __ANDROID__

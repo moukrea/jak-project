@@ -32,6 +32,7 @@
 #include "game/graphics/opengl_renderer/LoadingScreenTextures.h"
 #include "game/graphics/opengl_renderer/ProgressRenderer.h"
 #include "game/graphics/opengl_renderer/PrePass.h"
+#include "game/graphics/opengl_renderer/background/background_common.h"
 #include "game/graphics/opengl_renderer/frame_ubo.h"
 #include "game/graphics/opengl_renderer/gl_uniform_cache.h"
 #include "game/graphics/opengl_renderer/prop_cache.h"
@@ -1937,6 +1938,9 @@ void OpenGLRenderer::dispatch_buckets_jak1(DmaFollower dma,
     lighting_census::pass_begin_bucket((int)bucket_id, renderer->name_and_id().c_str());
     const auto roi = lighting_census::roi_before();
     prepass::proof_before_bucket((int)bucket_id);
+#ifdef OG_FEAT_PBR
+    pbr_shadow_proof_before_bucket((int)bucket_id);
+#endif
     renderer->render(dma, &m_render_state, bucket_prof);
     lighting_census::roi_after(roi, "bucket", (int)bucket_id, renderer->name_and_id().c_str());
     lighting_census::pass_end();
@@ -1957,6 +1961,9 @@ void OpenGLRenderer::dispatch_buckets_jak1(DmaFollower dma,
     // sonde de preuve, inerte hors mesure.
     if (bucket_id == 31 - 1) {
       prepass::proof_post_opaque(&m_render_state);
+#ifdef OG_FEAT_PBR
+      pbr_shadow_proof_post_opaque(&m_render_state);
+#endif
     }
 
     // hack to draw the collision mesh in the middle the drawing

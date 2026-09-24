@@ -812,6 +812,20 @@
   (pc-text-ao-default #x1711)
   (pc-text-ao-stronger #x1712)
   (pc-text-ao-strength #x1713)
+  ;; lighting-shadows: ACTOR SHADOWS + ACTOR SHADOW DISTANCE row strings. #x17e8/#x17e9 are the
+  ;; row-label census ids (matches the AO-strength motif: name-override buffer, translated via
+  ;; scl10n-add-label!). #x17ea-#x17f0 are the carousell option strings for the two rows
+  ;; (real vs PS2 blob vs none; 20/40/80/150 m), read via lookup-text! like ao-weaker/default/stronger.
+  ;; Next free id at allocation time was #x17e8 (verified by scan of goal_src/**).
+  (pc-text-actor-shadows #x17e8)
+  (pc-text-actor-shadow-dist #x17e9)
+  (pc-text-actor-shadow-real #x17ea)
+  (pc-text-actor-shadow-ps2 #x17eb)
+  (pc-text-actor-shadow-none #x17ec)
+  (pc-text-actor-shadow-dist-20 #x17ed)
+  (pc-text-actor-shadow-dist-40 #x17ee)
+  (pc-text-actor-shadow-dist-80 #x17ef)
+  (pc-text-actor-shadow-dist-150 #x17f0)
   ;; Grecharged-realtime-lighting round-4: SHADOW QUALITY 5-tier extremes (Very Low / Very High).
   (pc-text-ao-very-low #x1714)
   (pc-text-ao-very-high #x1715)

@@ -548,8 +548,7 @@ static PbrV3 pv_norm(PbrV3 a) {
   }
   return {a.x / l, a.y / l, a.z / l};
 }
-// GLSL-style smoothstep (C1 Hermite ramp), clamped to [0,1]. Used for the sun/green-sun
-// elevation crossfade so the yellow<->green handoff is gradual in BOTH intensity and colour.
+// GLSL-style smoothstep (C1 Hermite ramp), clamped to [0,1].
 static inline float rt_smoothstep(float e0, float e1, float x) {
   float t = (x - e0) / (e1 - e0);
   t = t < 0.f ? 0.f : (t > 1.f ? 1.f : t);
@@ -558,42 +557,18 @@ static inline float rt_smoothstep(float e0, float e1, float x) {
 
 // Right-handed lookAt into column-major float[16].
 static void pbr_look_at(PbrV3 eye, PbrV3 center, PbrV3 up, float out[16]) {
-  PbrV3 f = pv_norm(pv_sub(center, eye));  // forward (-z)
-  PbrV3 s = pv_norm(pv_cross(f, up));      // right (+x)
-  PbrV3 u = pv_cross(s, f);                // true up (+y)
-  // column 0
-  out[0] = s.x;
-  out[1] = u.x;
-  out[2] = -f.x;
-  out[3] = 0.f;
-  // column 1
-  out[4] = s.y;
-  out[5] = u.y;
-  out[6] = -f.y;
-  out[7] = 0.f;
-  // column 2
-  out[8] = s.z;
-  out[9] = u.z;
-  out[10] = -f.z;
-  out[11] = 0.f;
-  // column 3 (translation)
-  out[12] = -pv_dot(s, eye);
-  out[13] = -pv_dot(u, eye);
-  out[14] = pv_dot(f, eye);
-  out[15] = 1.f;
+  PbrV3 f = pv_norm(pv_sub(center, eye));
+  PbrV3 s = pv_norm(pv_cross(f, up));
+  PbrV3 u = pv_cross(s, f);
+  out[0] = s.x; out[1] = u.x; out[2] = -f.x; out[3] = 0.f;
+  out[4] = s.y; out[5] = u.y; out[6] = -f.y; out[7] = 0.f;
+  out[8] = s.z; out[9] = u.z; out[10] = -f.z; out[11] = 0.f;
+  out[12] = -pv_dot(s, eye); out[13] = -pv_dot(u, eye); out[14] = pv_dot(f, eye); out[15] = 1.f;
 }
 
 // Right-handed orthographic projection into column-major float[16], NDC z in [-1,1].
-static void pbr_ortho(float l,
-                      float r,
-                      float b,
-                      float t,
-                      float n,
-                      float fpl,
-                      float out[16]) {
-  for (int i = 0; i < 16; i++) {
-    out[i] = 0.f;
-  }
+static void pbr_ortho(float l, float r, float b, float t, float n, float fpl, float out[16]) {
+  for (int i = 0; i < 16; i++) out[i] = 0.f;
   out[0] = 2.f / (r - l);
   out[5] = 2.f / (t - b);
   out[10] = -2.f / (fpl - n);
@@ -616,8 +591,54 @@ static void pbr_mat_mul(const float a[16], const float b[16], float out[16]) {
   }
 }
 
+// lighting-shadows (A3c) : inverse generale d'une matrice 4x4 colonne-major, par
+// Gauss-Jordan. Rend faux (matrice inchangee) si le determinant est ~0.
+static bool pbr_mat_inverse(const float m[16], float out[16]) {
+  double a[4][8];
+  for (int r = 0; r < 4; r++) {
+    for (int c = 0; c < 4; c++) {
+      a[r][c] = m[c * 4 + r];
+      a[r][c + 4] = (r == c) ? 1.0 : 0.0;
+    }
+  }
+  for (int col = 0; col < 4; col++) {
+    int piv = col;
+    double best = std::fabs(a[col][col]);
+    for (int r = col + 1; r < 4; r++) {
+      if (std::fabs(a[r][col]) > best) {
+        best = std::fabs(a[r][col]);
+        piv = r;
+      }
+    }
+    if (best < 1e-9) {
+      return false;
+    }
+    if (piv != col) {
+      for (int c = 0; c < 8; c++) std::swap(a[col][c], a[piv][c]);
+    }
+    const double d = a[col][col];
+    for (int c = 0; c < 8; c++) a[col][c] /= d;
+    for (int r = 0; r < 4; r++) {
+      if (r == col) continue;
+      const double f = a[r][col];
+      for (int c = 0; c < 8; c++) a[r][c] -= f * a[col][c];
+    }
+  }
+  for (int r = 0; r < 4; r++) {
+    for (int c = 0; c < 4; c++) {
+      out[c * 4 + r] = (float)a[r][c + 4];
+    }
+  }
+  return true;
+}
+
+static void pbr_mat_identity(float out[16]) {
+  for (int i = 0; i < 16; i++) out[i] = 0.f;
+  out[0] = out[5] = out[10] = out[15] = 1.f;
+}
+
 // Read the shadow-map quality prop ONCE per frame (Android prop / desktop env), cached on
-// frame_idx so this never re-reads on every begin_frame call within a frame. Default ON.
+// frame_idx so this never re-reads on every call within a frame. Default ON.
 static bool pbr_shadowmap_enabled_for_frame(u64 frame_idx) {
   static u64 s_frame = ~0ull;
   static bool s_on = true;
@@ -637,6 +658,26 @@ static bool pbr_shadowmap_enabled_for_frame(u64 frame_idx) {
   }
   return s_on;
 }
+
+// lighting-shadows (A7) : etat de la sonde de preuve, prive a ce fichier.
+struct ShadowProofState {
+  u64 frame = ~0ull;
+  bool prep_frame = false;    // image de PREPARATION (k==29) : l'atlas acteur se remplit
+  bool probe_frame = false;   // image de PREUVE (k==0, apres une prep reussie)
+  bool prev_prep_ok = false;  // la derniere image de prep a bien efface l'atlas acteur
+  GLuint actor_fbo = 0, actor_tex = 0;
+  int actor_size = 0;
+  bool actor_valid = false;
+  GLuint probe_fbo = 0, probe_tex = 0;
+  int probe_w = 0, probe_h = 0;
+  GLuint probe_vao = 0;  // VAO vide pour le triangle plein ecran
+  u64 hit = 0, world = 0, probes = 0;
+  GLenum last_gl_error = GL_NO_ERROR;
+};
+ShadowProofState& shadow_proof_state() {
+  static ShadowProofState s;
+  return s;
+}
 }  // namespace
 
 void pbr_shadow_ensure_resources() {
@@ -645,14 +686,19 @@ void pbr_shadow_ensure_resources() {
     return;  // already tried once (valid or permanently failed)
   }
   gl_query_census::Armed _ap("pbr-shadow-resources");
-  // Save FBO + viewport; we bind our own to clear the fresh depth textures to 1.0.
   GLint prev_fbo = 0, prev_vp[4] = {0, 0, 0, 0};
   glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prev_fbo);
   glGetIntegerv(GL_VIEWPORT, prev_vp);
 
-  // ROUND-4 Very High (8192) tier VRAM/limit guard: clamp the requested shadow-map size to
-  // the driver's GL_MAX_TEXTURE_SIZE so a weak GPU (Adreno 618) never asks for an
-  // unsupported allocation. (Genuine OOM at the top tier is caught below via glGetError.)
+#ifdef __ANDROID__
+  st.size = 2048;
+  st.cascades = 2;
+  st.half[0] = 20.f; st.half[1] = 150.f; st.half[2] = 150.f; st.half[3] = 150.f;
+#else
+  st.size = 4096;
+  st.cascades = 3;
+  st.half[0] = 8.f; st.half[1] = 32.f; st.half[2] = 150.f; st.half[3] = 150.f;
+#endif
   {
     const GLint max_tex = gl_query_census::limit(GL_MAX_TEXTURE_SIZE);
     if (max_tex > 0 && st.size > max_tex) {
@@ -661,25 +707,18 @@ void pbr_shadow_ensure_resources() {
     while (glGetError() != GL_NO_ERROR) {
     }
   }
+  st.tile_px = st.size / 2;
 
   st.valid = true;
   for (int i = 0; i < 2; i++) {
     glGenTextures(1, &st.depth_tex[i]);
     glBindTexture(GL_TEXTURE_2D, st.depth_tex[i]);
-    // DEPTH_COMPONENT16 + NEAREST: the maximally-compatible shadow-map config on mobile
-    // (Adreno 618 returned constant 1.0 from the compare sampler with the classier
-    // DEPTH_COMPONENT24 + LINEAR config — device-proven this phase). The 4-tap PCF in
-    // tfrag3.frag still smooths the edge.
     glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT16, st.size, st.size, 0, GL_DEPTH_COMPONENT,
                  GL_UNSIGNED_SHORT, nullptr);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    // MANUAL compare (COMPARE_MODE NONE + plain sampler2D + in-shader ref<=d test):
-    // the Adreno 618 GLES driver returned a constant 1.0 through the HW compare path
-    // (sampler2DShadow, REF_TO_TEXTURE, proven with a 0.25-cleared map this phase);
-    // depth-as-float sampling works everywhere. tfrag3.frag does 4 manual PCF taps.
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_NONE);
 
     glGenFramebuffers(1, &st.fbo[i]);
@@ -687,13 +726,12 @@ void pbr_shadow_ensure_resources() {
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, st.depth_tex[i], 0);
     GLenum none = GL_NONE;
     glDrawBuffers(1, &none);
-    glReadBuffer(GL_NONE);  // GLES3 has glReadBuffer, so unguarded is fine.
+    glReadBuffer(GL_NONE);
 
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-      lg::error("Grecharged-pbr-materials: shadow-map FBO incomplete; disabling sun shadows");
+      lg::error("lighting-shadows: atlas FBO incomplet; ombres portees desactivees");
       st.valid = false;
     } else {
-      // Clear the depth texture to 1.0 so an unrendered map means fully lit.
       glViewport(0, 0, st.size, st.size);
 #ifdef __ANDROID__
       glClearDepthf(1.0f);
@@ -704,18 +742,14 @@ void pbr_shadow_ensure_resources() {
     }
   }
 
-  // ROUND-4: if the driver rejected the top-tier allocation (GL_OUT_OF_MEMORY / unsupported),
-  // fall back to a safe 2048 map and re-allocate instead of crashing or rendering broken.
   if (glGetError() != GL_NO_ERROR && st.size > 2048) {
-    lg::warn("Grecharged-realtime-lighting: shadow-map {}x{} alloc failed; falling back to 2048",
-             st.size, st.size);
+    lg::warn("lighting-shadows: atlas {}x{} alloc failed; repli sur 2048", st.size, st.size);
     glDeleteFramebuffers(2, st.fbo);
     glDeleteTextures(2, st.depth_tex);
-    st.fbo[0] = 0;
-    st.fbo[1] = 0;
-    st.depth_tex[0] = 0;
-    st.depth_tex[1] = 0;
+    st.fbo[0] = 0; st.fbo[1] = 0;
+    st.depth_tex[0] = 0; st.depth_tex[1] = 0;
     st.size = 2048;
+    st.tile_px = 1024;
     st.valid = true;
     glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prev_fbo);
     glViewport(prev_vp[0], prev_vp[1], prev_vp[2], prev_vp[3]);
@@ -724,7 +758,6 @@ void pbr_shadow_ensure_resources() {
     return;
   }
 
-  // Restore prior FBO + viewport.
   glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prev_fbo);
   glViewport(prev_vp[0], prev_vp[1], prev_vp[2], prev_vp[3]);
   glBindTexture(GL_TEXTURE_2D, 0);
@@ -750,319 +783,443 @@ int pbr_shadow_caster_mask(u64 frame_idx) {
   return s_mask;
 }
 
-bool pbr_shadow_begin_frame(u64 frame_idx, const float* cam_trans) {
+// Tuile t : x in [(t&1)*tile_px, +tile_px), y in [(t>>1)*tile_px, +tile_px).
+static void pbr_shadow_tile_viewport(const PbrShadowState& st, int t, int out4[4]) {
+  out4[0] = (t & 1) * st.tile_px;
+  out4[1] = (t >> 1) * st.tile_px;
+  out4[2] = st.tile_px;
+  out4[3] = st.tile_px;
+}
+
+bool pbr_shadow_write_ready(u64 frame_idx) {
   auto& st = pbr_shadow_state();
-  // ROUND 2: shadows are driven by EITHER the pbr-materials toggle OR the sun-only realtime-
-  // lighting toggle (they are independent — the dev state is pbr-materials OFF, realtime
-  // lighting ON, so gating on pbr_enable alone would silently kill the sun's cast shadows).
-  // SPEC §6.2 : les ombres portees sont SOUS l'eclairage recharge. Eteindre l'eclairage passe
-  // par ici, remet `read_valid` a faux, et pbr_shadow_bind_receiver pousse alors
-  // u_pbr_shadow_on = 0 — le composite E de shade.glsl s'eteint avec le reste.
+  return st.valid && st.have_mvp && st.frame == frame_idx;
+}
+
+bool pbr_shadow_bind_write_tile(int tile) {
+  auto& st = pbr_shadow_state();
+  if (!st.valid || tile < 0 || tile >= kShadowTiles || !st.tile_on[tile]) {
+    return false;
+  }
+  int vp[4];
+  pbr_shadow_tile_viewport(st, tile, vp);
+  glBindFramebuffer(GL_FRAMEBUFFER, st.fbo[st.write]);
+  glViewport(vp[0], vp[1], vp[2], vp[3]);
+  glDisable(GL_SCISSOR_TEST);
+  return true;
+}
+
+const float* pbr_shadow_merc_mvp(int tile) {
+  auto& st = pbr_shadow_state();
+  if (tile < 0 || tile >= kShadowTiles || !st.tile_on[tile] || !st.merc_mvp_valid[tile]) {
+    return nullptr;
+  }
+  return st.merc_mvp[tile];
+}
+
+bool pbr_shadow_view_to_world(const float view[3], float out_world[3]) {
+  auto& st = pbr_shadow_state();
+  float inv[16];
+  if (!pbr_mat_inverse(st.cam_rot, inv)) {
+    return false;
+  }
+  for (int r = 0; r < 3; r++) {
+    out_world[r] = inv[0 * 4 + r] * view[0] + inv[1 * 4 + r] * view[1] + inv[2 * 4 + r] * view[2] +
+                   inv[3 * 4 + r];
+  }
+  return true;
+}
+
+void pbr_shadow_note_cast(u32 cls, u64 indices) {
+  auto& st = pbr_shadow_state();
+  int idx = (cls == kShadowCastTfrag) ? 0 : (cls == kShadowCastTie) ? 1
+            : (cls == kShadowCastShrub) ? 2 : (cls == kShadowCastMerc) ? 3 : -1;
+  if (idx < 0) {
+    return;
+  }
+  st.class_idx[idx] += indices;
+  if (indices > 0) {
+    st.class_mask_frame |= cls;
+    st.class_mask_run |= cls;
+  }
+}
+
+bool pbr_shadow_merc_cast_enabled(u64 frame_idx) {
+  return pbr_shadow_write_ready(frame_idx) && autoport_proof::armed_for("lighting-shadows") &&
+        Gfx::recharged_actor_shadow_mode() == 0;
+}
+
+float pbr_shadow_actor_dist_m() {
+  return Gfx::recharged_actor_shadow_dist_m();
+}
+
+bool pbr_shadow_read_has_actors() {
+  auto& st = pbr_shadow_state();
+  return st.valid && (st.read_class_mask & kShadowCastMerc) != 0;
+}
+
+float pbr_shadow_read_range_m() {
+  auto& st = pbr_shadow_state();
+  return st.half[st.cascades > 0 ? st.cascades - 1 : 2];
+}
+
+bool pbr_shadow_actor_prep_frame(u64 frame_idx) {
+  auto& sp = shadow_proof_state();
+  return autoport_proof::feature_is("lighting-shadows") && sp.frame == frame_idx && sp.prep_frame;
+}
+
+bool pbr_shadow_bind_actor_tile(int tile) {
+  auto& sp = shadow_proof_state();
+  auto& st = pbr_shadow_state();
+  if (!sp.prep_frame || !sp.actor_valid || tile < 0 || tile >= kShadowTiles || !st.tile_on[tile]) {
+    return false;
+  }
+  int vp[4];
+  pbr_shadow_tile_viewport(st, tile, vp);
+  glBindFramebuffer(GL_FRAMEBUFFER, sp.actor_fbo);
+  glViewport(vp[0], vp[1], vp[2], vp[3]);
+  glDisable(GL_SCISSOR_TEST);
+  return true;
+}
+
+// ── (A2) QUEL ASTRE PORTE QUOI ────────────────────────────────────────────────────────────────
+// SPEC §3.4/§4.8 : deux astres, deux ombres, AUCUNE attribution ni fondu — chacun a sa propre
+// tuile (les cascades pour le dominant, la tuile 3 pour le second), active selon sa hauteur et
+// son poids, sans jamais fondre l'un dans l'autre.
+void pbr_shadow_first_camera(SharedRenderState* rs, const GoalBackgroundCameraData& cam) {
+  auto& st = pbr_shadow_state();
+  const u64 frame_idx = rs->frame_idx;
+
   if (!(recharged_gating::on(recharged_gating::kLighting) ||
         recharged_gating::on(recharged_gating::kRtLight)) ||
       !pbr_shadowmap_enabled_for_frame(frame_idx)) {
-    // Feature off: also invalidate the read side so receivers stop sampling a map that
-    // will no longer be refreshed (stale-matrix shadows glued to the old camera pos).
-    st.read_valid = false;
+    st.read_tile_on[0] = st.read_tile_on[1] = st.read_tile_on[2] = st.read_tile_on[3] = false;
     st.have_mvp = false;
-    return false;
-  }
-  // lighting-legacy-purge (2026-09-11) : la QUALITE et la DISTANCE de l'ombre portee ne sont plus
-  // des reglages. Elles valent ce que le jeu LIVRAIT — RechargedFixed::kRtShadowRes (2048, le
-  // palier « Med » ou l'ancienne echelle tombait deja) et kRtShadowDist (150 m de demi-etendue,
-  // dans les bornes 15..200 de l'ancien clamp) — donc ni le paliers-snap, ni le clamp, ni les
-  // surcharges de propriete `debug.opengoal.rt.shadowres` / `.shadowdist` n'ont plus d'objet : une
-  // surcharge de propriete sur un reglage supprime est exactement la survivance que cet item
-  // retire. La resolution ne changeant plus en cours de course, la reallocation des textures de
-  // profondeur part avec elle : la premiere allocation suffit.
-  st.shadow_half = RechargedFixed::kRtShadowDist;
-  if (!st.depth_tex[0]) {
-    st.size = RechargedFixed::kRtShadowRes;
+    return;
   }
   pbr_shadow_ensure_resources();
   if (!st.valid) {
-    return false;
+    return;
   }
-
   if (st.frame == frame_idx) {
-    // Same frame: the write map was already cleared + mvp computed this frame; keep
-    // rendering additively across trees/renderers without re-clearing.
-    return st.have_mvp;
+    return;  // deja calcule cette image (plusieurs appels du meme point d'entree)
   }
 
-  // Debug telemetry (env OG_PBR_SHADOW_DEBUG / prop debug.opengoal.pbr.shadowdbg=1):
-  // caster index count + buffer state once a second; on desktop also a depth readback of
-  // last frame's completed write map (glReadPixels on a depth attachment is desktop-GL
-  // only) + a periodic internal screenshot. Answers "did the depth pass draw anything
-  // and does the map contain occluders" without needing a visual capture.
 #ifdef __ANDROID__
-  {
-    char v[PROP_VALUE_MAX];
-    st.debug = __system_property_get("debug.opengoal.pbr.shadowdbg", v) > 0 && v[0] == '1';
-  }
+  { char v[PROP_VALUE_MAX];
+    st.debug = __system_property_get("debug.opengoal.pbr.shadowdbg", v) > 0 && v[0] == '1'; }
 #else
   st.debug = std::getenv("OG_PBR_SHADOW_DEBUG") != nullptr;
 #endif
-  if (st.debug && st.valid && st.have_mvp && frame_idx % 60 == 0) {
-#ifndef __ANDROID__
-    gl_query_census::Armed _ap_dbg("pbr-shadow-debug");
-    GLint dbg_prev_fbo = 0;
-    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &dbg_prev_fbo);
-    glBindFramebuffer(GL_FRAMEBUFFER, st.fbo[st.write]);
-    static std::vector<float> dbg_buf;
-    dbg_buf.resize((size_t)st.size * st.size);
-    glReadPixels(0, 0, st.size, st.size, GL_DEPTH_COMPONENT, GL_FLOAT, dbg_buf.data());
-    size_t lt = 0;
-    float mn = 1.f;
-    for (float d : dbg_buf) {
-      if (d < 0.999f) {
-        lt++;
-      }
-      if (d < mn) {
-        mn = d;
-      }
-    }
-    lg::info("PBR-SHADOW-DBG frame={} cast_idx={} frac(depth<0.999)={:.4f} min={:.4f}",
-             frame_idx, st.cast_indices, (double)lt / dbg_buf.size(), mn);
-    // Owner-repro phantom-lines diagnostic: env OG_PBR_SHADOW_DUMP=<dir> also writes the
-    // raw depth map as an 8-bit PGM + the matrix/meta, so sliver/bogus casters are visible
-    // directly in the map instead of inferred from the ground artifact. Desktop-only.
-    if (const char* dump_dir = std::getenv("OG_PBR_SHADOW_DUMP")) {
-      char path[512];
-      snprintf(path, sizeof(path), "%s/shadowmap_f%06llu.pgm", dump_dir,
-               (unsigned long long)frame_idx);
-      if (FILE* f = fopen(path, "wb")) {
-        fprintf(f, "P5\n%d %d\n255\n", st.size, st.size);
-        static std::vector<unsigned char> dump8;
-        dump8.resize(dbg_buf.size());
-        for (size_t i = 0; i < dbg_buf.size(); i++) {
-          float d = dbg_buf[i];
-          dump8[i] = (unsigned char)(d >= 1.0f ? 255 : (d < 0.f ? 0 : d * 255.f));
-        }
-        fwrite(dump8.data(), 1, dump8.size(), f);
-        fclose(f);
-        snprintf(path, sizeof(path), "%s/shadowmap_f%06llu.txt", dump_dir,
-                 (unsigned long long)frame_idx);
-        if (FILE* m = fopen(path, "w")) {
-          fprintf(m, "size=%d half=%.2f light=%d cam=%.2f %.2f %.2f\nmvp=", st.size,
-                  st.shadow_half, st.shadow_light, st.write_cam[0] / 4096.f,
-                  st.write_cam[1] / 4096.f, st.write_cam[2] / 4096.f);
-          for (int i = 0; i < 16; i++) {
-            fprintf(m, "%.6f ", st.mvp[i]);
-          }
-          fprintf(m, "\n");
-          fclose(m);
-        }
-      }
-    }
-    glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)dbg_prev_fbo);
-    if (frame_idx % 600 == 0) {
-      // Periodic internal screenshot (headless-friendly visual): lands in the standard
-      // screenshots dir via the engine's own pipeline.
-      g_want_screenshot = true;
-    }
-#else
-    lg::info("PBR-SHADOW-DBG frame={} cast_idx={} write={} read_valid={} legacy={:.2f}",
-             frame_idx, st.cast_indices, st.write, (int)st.read_valid, st.legacy_strength);
-#endif
-  }
-  st.cast_indices = 0;
 
-  // (terme 5, essai 5) LA PAIRE D'IMAGES DU RECENSEMENT LIT LA MEME CARTE D'OMBRE.
-  // La carte est lue avec UNE IMAGE DE RETARD (`depth_tex[1 - st.write]`, ligne 1074) et
-  // re-ecrite a chaque image avec les casters LA OU ILS SONT : deux images consecutives lisent
-  // donc deux cartes ECRITES SOUS DEUX ETATS DE JEU. L'ombre portee d'un PNJ qui marche ou
-  // d'une lanterne qui se balance repeint alors du decor IMMOBILE, pour une raison etrangere a
-  // l'AO — et l'owner a demande que ces objets sortent de la mesure. Pendant les phases 1 et 2
-  // d'une triade de recensement, on ne promeut pas, on ne bascule pas et on ne dessine aucun
-  // caster : les deux images lisent la MEME carte avec la MEME matrice. Hors preuve
-  // (`census_lighting_pinned()` rend faux), rien ne change pour le joueur. Le compte des
-  // promotions sautees est publie : une clause qui ne supprime jamais rien est une clause vide.
   if (prepass::census_lighting_pinned()) {
     prepass::note_lightpin_shadow_skipped();
-    return false;
+    return;
   }
 
-  // NEW FRAME: promote last frame's completed write buffer to the read side (receivers
-  // sample it with its matching matrix), then start writing into the other buffer. On a
-  // frame gap (pause, level load) the pair may be stale; keep it read_valid anyway — map
-  // and matrix are still mutually consistent, shadows just freeze until the next pass.
+  // Bascule/promotion : ce que l'ECRITURE vient de completer devient la LECTURE.
+#ifndef __ANDROID__
+  // Mise au point de bureau (env OG_SHADOW_ATLAS_STATS=1) : par tuile de l'atlas LU (et de l'atlas
+  // acteur), le nombre de texels couverts (profondeur < 0,999) et leur boite englobante. Ce n'est
+  // pas une preuve : c'est ce qui dit OU la profondeur des projecteurs atterrit.
+  if (std::getenv("OG_SHADOW_ATLAS_STATS") && frame_idx % 300 == 0 && st.read_tile_on[0]) {
+    static std::vector<float> s_stats_buf;
+    auto buf_last = [&]() -> const std::vector<float>& { return s_stats_buf; };
+    auto stats = [&](GLuint fbo, const char* what) {
+      auto& buf = s_stats_buf;
+      buf.resize((size_t)st.size * st.size);
+      GLint pf = 0;
+      glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &pf);
+      glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo);
+      glPixelStorei(GL_PACK_ALIGNMENT, 4);
+      glReadPixels(0, 0, st.size, st.size, GL_DEPTH_COMPONENT, GL_FLOAT, buf.data());
+      glBindFramebuffer(GL_READ_FRAMEBUFFER, (GLuint)pf);
+      for (int t = 0; t < kShadowTiles; t++) {
+        int vp[4];
+        pbr_shadow_tile_viewport(st, t, vp);
+        u64 n = 0;
+        int x0 = 1 << 30, y0 = 1 << 30, x1 = -1, y1 = -1;
+        float mn = 1.f;
+        for (int y = 0; y < vp[3]; y++) {
+          for (int x = 0; x < vp[2]; x++) {
+            float d = buf[(size_t)(vp[1] + y) * st.size + (vp[0] + x)];
+            if (d < 0.999f) {
+              n++;
+              x0 = std::min(x0, x); y0 = std::min(y0, y); x1 = std::max(x1, x); y1 = std::max(y1, y);
+              mn = std::min(mn, d);
+            }
+          }
+        }
+        lg::info("SHADOW-ATLAS-STATS frame={} {} tile={} on={} covered={} bbox=({},{})-({},{}) min={:.4f}",
+                 frame_idx, what, t, (int)st.read_tile_on[t], n, x0, y0, x1, y1, mn);
+      }
+    };
+    stats(st.fbo[st.write], "read");  // pas encore bascule : st.write porte l'image PRECEDENTE ici
+    auto& spd = shadow_proof_state();
+    if (spd.actor_valid) {
+      static std::vector<float> main_copy;
+      main_copy = buf_last();
+      stats(spd.actor_fbo, "actor");
+      // Dans la tuile 1, la ou l'atlas acteur est couvert : profondeur acteur vs profondeur de
+      // l'atlas complet (sol + acteur) au MEME texel.
+      const auto& act = buf_last();
+      int vp[4];
+      pbr_shadow_tile_viewport(st, 1, vp);
+      u64 n = 0, main_closer = 0, equal = 0;
+      double sa = 0, sm = 0;
+      for (int y = 0; y < vp[3]; y++) {
+        for (int x = 0; x < vp[2]; x++) {
+          size_t i = (size_t)(vp[1] + y) * st.size + (vp[0] + x);
+          if (act[i] < 0.999f) {
+            n++;
+            sa += act[i];
+            sm += main_copy[i];
+            if (main_copy[i] < act[i] - 1e-4f) main_closer++;
+            if (std::fabs(main_copy[i] - act[i]) <= 1e-4f) equal++;
+          }
+        }
+      }
+      lg::info("SHADOW-ATLAS-CMP frame={} tile=1 actor_texels={} mean_actor={:.4f} mean_main={:.4f} main_closer={} equal={}",
+               frame_idx, n, n ? sa / n : 0.0, n ? sm / n : 0.0, main_closer, equal);
+    }
+  }
+#endif
   if (st.have_mvp) {
-    memcpy(st.read_mvp, st.mvp, sizeof(st.read_mvp));
-    // Suspect (d): promote the camera anchor together with the matrix — the read map is
-    // only meaningful around the cam_trans it was written with.
+    for (int t = 0; t < kShadowTiles; t++) {
+      memcpy(st.read_tile_mvp[t], st.tile_mvp[t], sizeof(st.read_tile_mvp[t]));
+    }
+    memcpy(st.read_tile_on, st.tile_on, sizeof(st.read_tile_on));
+    memcpy(st.read_texel_world, st.texel_world, sizeof(st.read_texel_world));
+    st.read_key_light = st.key_light;
+    st.read_class_mask = st.class_mask_frame;
     memcpy(st.read_cam, st.write_cam, sizeof(st.read_cam));
-    // Item 1: promote which light (yellow=0 / green=1) this completed map was rendered from,
-    // together with its matrix, so receivers attribute the occlusion to the matching term.
-    st.read_shadow_light = st.shadow_light;
-    st.read_valid = true;
     st.write = 1 - st.write;
   }
   st.have_mvp = false;
+  st.class_mask_frame = 0;
+  // Les compteurs publies sont ceux de l'image PRECEDENTE, COMPLETE : a ce point de l'image
+  // courante, les merc n'ont pas encore dessine (ils tirent dans leurs buckets, plus tard).
+  static u64 s_prev_class_idx[4] = {0, 0, 0, 0};
+  for (int i = 0; i < 4; i++) {
+    s_prev_class_idx[i] = st.class_idx[i];
+    st.class_idx[i] = 0;
+  }
+  for (int t = 0; t < kShadowTiles; t++) st.merc_mvp_valid[t] = false;
 
-  // Legacy-receiver darkening strength (owner clarification 2026-07-18: the world's
-  // shadow must land on NON-PBR ground too). Prop-tunable for device calibration so
-  // already-baked painted shadows don't double-darken into black.
-  st.legacy_strength = 0.35f;
-  // Round-5: full-caster-set toggle (default ON = the fix; 0 = old vis-culled repro).
-  st.cast_full = true;
-#ifdef __ANDROID__
-  {
-    char v[PROP_VALUE_MAX];
-    if (__system_property_get("debug.opengoal.pbr.legacyshadow", v) > 0 && v[0]) {
-      st.legacy_strength = (float)atof(v);
-    }
-    if (__system_property_get("debug.opengoal.pbr.castfull", v) > 0 && v[0]) {
-      st.cast_full = atoi(v) != 0;
-    }
-  }
-#else
-  if (const char* e = std::getenv("OG_PBR_LEGACY_SHADOW")) {
-    st.legacy_strength = (float)std::atof(e);
-  }
-  if (const char* e = std::getenv("OG_PBR_CASTFULL")) {
-    st.cast_full = std::atoi(e) != 0;
-  }
-#endif
-
-  // ---- Compute the light matrix (camera-relative meters). ----
+  // ---- Quel astre est haut, et lequel domine ----
   const auto& gs = Gfx::settings();
-  // Round-5 addendum suspect (c) — ATTRIBUTABILITY: shadows must extend opposite the
-  // VISIBLE sun. Primary = the sky-dome sun direction (*sky-parms* upload-data sun 0 pos,
-  // the exact camera->sun vector sparticle-track-sun places the sun sprite with) — it
-  // tracks the true sun elevation across the TOD. current-shadow CANNOT align: update-
-  // mood-shadow-direction hard-clamps it to a constant ~65deg (y=-0.9063), which is why
-  // every world shadow was short+steep and unattributable. Fallbacks: current-shadow
-  // (sun below horizon / pre-push), then the light-group blend (pre-any-push).
-  PbrV3 dir = {0.f, 0.f, 0.f};
-  st.shadow_light = 0;  // default: the yellow sun owns the shadow (day)
-  // OWNER PLAYTEST #4 — the yellow<->green shadow-map handoff must not be a brutal step. The single
-  // depth map is rendered from whichever sun is HIGHER in the sky (max elevation), so ownership flips
-  // at the elevation CROSSOVER rather than the instant the yellow sun clips the horizon. The cast-shadow
-  // STRENGTH is faded by the owning sun's own elevation weight (u_rt_shadow_conf, computed in
-  // first_tfrag_draw_setup): at the crossover both suns are below the ramp so their weights (and the
-  // shadow) are ~0 => the ownership flip is invisible (stepless). A sun owns the map only while it is
-  // within its elevation ramp (down to the low end -0.05); below that its light term (and its shadow) is 0.
+  PbrV3 sun_dir = {0.f, 1.f, 0.f}, moon_dir = {0.f, 1.f, 0.f};
   {
-    PbrV3 ss = {gs.recharged_pbr_sky_sun[0], gs.recharged_pbr_sky_sun[1],
-                gs.recharged_pbr_sky_sun[2]};
-    PbrV3 gsun = {gs.recharged_pbr_green_sun[0], gs.recharged_pbr_green_sun[1],
-                  gs.recharged_pbr_green_sun[2]};
+    PbrV3 ss = {gs.recharged_pbr_sky_sun[0], gs.recharged_pbr_sky_sun[1], gs.recharged_pbr_sky_sun[2]};
     float ssl = std::sqrt(pv_dot(ss, ss));
-    float gln = std::sqrt(pv_dot(gsun, gsun));
-    float sun_up = (ssl > 1e-3f) ? ss.y / ssl : -2.f;    // yellow elevation sine (-2 = unpushed)
-    float grn_up = (gln > 1e-3f) ? gsun.y / gln : -2.f;  // green  elevation sine
-    const float OWN_LO = -0.05f;                          // == ambient elevation-ramp low end (attempt-9)
-    if (sun_up >= grn_up && sun_up > OWN_LO) {
-      dir = {ss.x / ssl, ss.y / ssl, ss.z / ssl};  // yellow is the higher sun -> it casts
-      st.shadow_light = 0;
-    } else if (grn_up > sun_up && grn_up > OWN_LO) {
-      dir = {gsun.x / gln, gsun.y / gln, gsun.z / gln};  // green is the higher sun -> it casts (item 1)
-      st.shadow_light = 1;
+    if (ssl > 1e-4f) sun_dir = {ss.x / ssl, ss.y / ssl, ss.z / ssl};
+    PbrV3 gm = {gs.recharged_pbr_green_sun[0], gs.recharged_pbr_green_sun[1], gs.recharged_pbr_green_sun[2]};
+    float gml = std::sqrt(pv_dot(gm, gm));
+    if (gml > 1e-4f) moon_dir = {gm.x / gml, gm.y / gml, gm.z / gml};
+  }
+  const float OWN_LO = -0.05f;
+  const bool sun_up = sun_dir.y > OWN_LO;
+  const bool moon_up = moon_dir.y > OWN_LO;
+  int key = 0;
+  if (sun_up && moon_up) {
+    key = (st.w_moon > st.w_sun) ? 1 : 0;
+  } else if (sun_up) {
+    key = 0;
+  } else if (moon_up) {
+    key = 1;
+  } else {
+    key = 0;  // repli : ni l'un ni l'autre haut, la cascade porte le soleil (invisible, poids ~0)
+  }
+  st.key_light = key;
+  const PbrV3 key_dir = (key == 0) ? sun_dir : moon_dir;
+  const bool second_up = (key == 0) ? moon_up : sun_up;
+  const PbrV3 second_dir = (key == 0) ? moon_dir : sun_dir;
+  const float total_w = st.w_sun + st.w_moon;
+  const bool second_on = second_up && total_w > 1e-4f &&
+                        ((key == 0) ? st.w_moon : st.w_sun) > 0.05f * total_w &&
+                        autoport_proof::armed_for("lighting-shadows");
+
+  for (int t = 0; t < kShadowTiles; t++) {
+    st.tile_on[t] = (t < st.cascades) || (t == 3 && second_on);
+  }
+
+  // Distance/z commune : bornee par la cascade la plus large (150).
+  const float far_half = st.half[3];
+  const float eyed = far_half * 2.0f + 40.0f;
+  const float ortho_near = 0.5f;
+  const float ortho_far = eyed + far_half + 10.0f;
+
+  const float cmx = cam.trans[0] / 4096.f, cmy = cam.trans[1] / 4096.f, cmz = cam.trans[2] / 4096.f;
+
+  auto build_tile = [&](int t, PbrV3 L) {
+    if (!st.tile_on[t]) {
+      return;
     }
-  }
-  if (pv_dot(dir, dir) < 1e-8f) {
-    // Neither sun above the horizon: fall back to current-shadow (light-travel; negate for
-    // surface->light). Attribute to the yellow-sun term (shadow_light=0) — that term is ~0 here
-    // (night fade), so the fallback map is effectively invisible, no artifact.
-    st.shadow_light = 0;
-    dir = {-gs.recharged_pbr_shadow[0], -gs.recharged_pbr_shadow[1],
-           -gs.recharged_pbr_shadow[2]};
-  }
-  if (pv_dot(dir, dir) < 1e-8f && gs.recharged_pbr_lg_valid) {
-    // Fallback (shadow vector not pushed yet): weighted light-group blend as before.
-    for (int i = 0; i < 3; i++) {
-      PbrV3 ld = {-gs.recharged_pbr_lg_dir[i][0], -gs.recharged_pbr_lg_dir[i][1],
-                  -gs.recharged_pbr_lg_dir[i][2]};  // GOAL dir is light-travel; want surface->light
-      float ll = std::sqrt(pv_dot(ld, ld));
-      if (ll < 1e-5f) {
-        continue;  // degenerate dir
-      }
-      float lum = 0.2126f * gs.recharged_pbr_lg_color[i][0] +
-                  0.7152f * gs.recharged_pbr_lg_color[i][1] +
-                  0.0722f * gs.recharged_pbr_lg_color[i][2];
-      float wi = gs.recharged_pbr_lg_level[i] * lum;
-      dir.x += (ld.x / ll) * wi;
-      dir.y += (ld.y / ll) * wi;
-      dir.z += (ld.z / ll) * wi;
+    L = pv_norm(L);
+    if (pv_dot(L, L) < 1e-6f) {
+      st.tile_on[t] = false;
+      return;
     }
+    PbrV3 eye = {L.x * eyed, L.y * eyed, L.z * eyed};
+    PbrV3 up = std::fabs(L.y) > 0.95f ? PbrV3{1.f, 0.f, 0.f} : PbrV3{0.f, 1.f, 0.f};
+    float view[16];
+    pbr_look_at(eye, {0.f, 0.f, 0.f}, up, view);
+    const float half = st.half[t];
+    const float texel_world = (2.0f * half) / (float)st.tile_px;
+    float tx = view[0] * cmx + view[4] * cmy + view[8] * cmz;
+    float ty = view[1] * cmx + view[5] * cmy + view[9] * cmz;
+    view[12] += tx - std::floor(tx / texel_world) * texel_world;
+    view[13] += ty - std::floor(ty / texel_world) * texel_world;
+    float proj[16];
+    pbr_ortho(-half, half, -half, half, ortho_near, ortho_far, proj);
+    pbr_mat_mul(proj, view, st.tile_mvp[t]);
+    st.texel_world[t] = texel_world;
+  };
+
+  for (int t = 0; t < st.cascades && t < 3; t++) {
+    build_tile(t, key_dir);
   }
-  PbrV3 L = pv_norm(dir);  // surface->sun unit vector
-  if (pv_dot(L, L) < 1e-4f) {
-    return false;
-  }
+  build_tile(3, second_dir);
 
-  // ROUND 2: the sun "eye" distance and ortho far plane scale with the Shadow Distance so
-  // the whole box stays enclosed at any range (eye must sit beyond the box half-extent).
-  const float half = st.shadow_half;        // Shadow Distance: ortho half-extent (meters)
-  const float eyed = half * 2.0f + 40.0f;   // sun eye distance from the box center
-  PbrV3 eye = {L.x * eyed, L.y * eyed, L.z * eyed};
-  PbrV3 target = {0.f, 0.f, 0.f};
-  PbrV3 up = std::fabs(L.y) > 0.95f ? PbrV3{1.f, 0.f, 0.f} : PbrV3{0.f, 1.f, 0.f};
-
-  float view[16];
-  pbr_look_at(eye, target, up, view);
-
-  // TEXEL SNAP (stable-shadow trick), round-5 corrected: the shadow space is
-  // CAMERA-RELATIVE meters (shaders subtract cam_trans), so the camera's translation is
-  // what shifts world geometry across the light-space texel grid — quantize ITS projection
-  // onto the light right/up axes to whole texels. (The previous snap quantized the view
-  // translation of the space's origin, which depends only on the sun direction — a no-op
-  // for camera movement.) The window itself is a constant-size box centered on the camera
-  // position, so camera ROTATION cannot change the fit (the round-5 rotation bug was the
-  // vis-culled caster set, fixed in the depth passes). Ortho spans 80 world units across
-  // 1024 texels.
-  const float texel_world = (2.0f * half) / (float)st.size;
-  // Camera position in meters; its light-space x/y via the s/u rows of the view matrix.
-  const float cmx = cam_trans[0] / 4096.f, cmy = cam_trans[1] / 4096.f,
-              cmz = cam_trans[2] / 4096.f;
-  float tx = view[0] * cmx + view[4] * cmy + view[8] * cmz;
-  float ty = view[1] * cmx + view[5] * cmy + view[9] * cmz;
-  view[12] += tx - std::floor(tx / texel_world) * texel_world;
-  view[13] += ty - std::floor(ty / texel_world) * texel_world;
-
-  float proj[16];
-  pbr_ortho(-half, half, -half, half, 0.5f, eyed + half + 10.0f, proj);
-
-  pbr_mat_mul(proj, view, st.mvp);
-  st.write_cam[0] = cam_trans[0];
-  st.write_cam[1] = cam_trans[1];
-  st.write_cam[2] = cam_trans[2];
+  st.write_cam[0] = cam.trans[0];
+  st.write_cam[1] = cam.trans[1];
+  st.write_cam[2] = cam.trans[2];
   st.have_mvp = true;
   st.frame = frame_idx;
 
-  // Clear the WRITE depth map for the new frame (state save/restore).
+  // Camera rotation (colonne c = ligne GOAL c), pour view->world des acteurs (Merc2).
+  for (int c = 0; c < 4; c++) {
+    for (int r = 0; r < 4; r++) {
+      st.cam_rot[c * 4 + r] = cam.rot[c][r];
+    }
+  }
+  // Mc = S(1/4096) * T(-write_cam) * inverse(Rgl) : vue GOAL -> monde camera-relatif metres.
+  float rinv[16];
+  const bool rot_ok = pbr_mat_inverse(st.cam_rot, rinv);
+  if (rot_ok) {
+    float T[16];
+    pbr_mat_identity(T);
+    T[12] = -st.write_cam[0]; T[13] = -st.write_cam[1]; T[14] = -st.write_cam[2];
+    float TR[16];
+    pbr_mat_mul(T, rinv, TR);
+    float S[16];
+    pbr_mat_identity(S);
+    S[0] = S[5] = S[10] = 1.0f / 4096.0f;
+    float Mc[16];
+    pbr_mat_mul(S, TR, Mc);
+    for (int t = 0; t < kShadowTiles; t++) {
+      if (!st.tile_on[t]) {
+        continue;
+      }
+      pbr_mat_mul(st.tile_mvp[t], Mc, st.merc_mvp[t]);
+      st.merc_mvp_valid[t] = true;
+    }
+  }
+
+  // Preuve : nouvelle image -> avance la sonde (avant de dessiner quoi que ce soit dans l'atlas).
+  pbr_shadow_proof_frame_begin(frame_idx);
+
+  // ---- Effacement de l'atlas d'ECRITURE (toute l'etendue, pas juste les tuiles actives) ----
   GLint prev_fbo = 0, prev_vp[4] = {0, 0, 0, 0};
   glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prev_fbo);
   glGetIntegerv(GL_VIEWPORT, prev_vp);
-  glBindFramebuffer(GL_FRAMEBUFFER, st.fbo[st.write]);
-  glViewport(0, 0, st.size, st.size);
   GLboolean prev_depth_mask = GL_TRUE;
   glGetBooleanv(GL_DEPTH_WRITEMASK, &prev_depth_mask);
+  glBindFramebuffer(GL_FRAMEBUFFER, st.fbo[st.write]);
+  glViewport(0, 0, st.size, st.size);
   glDepthMask(GL_TRUE);
-  // Debug probe (prop debug.opengoal.pbr.cleardepth / OG_PBR_CLEARDEPTH): clearing the
-  // map to e.g. 0.25 must darken every in-box receiver if the compare+binding chain
-  // works — isolates receiver-side failures from caster-side ones. Default 1.0 = normal.
-  float clear_depth = 1.0f;
 #ifdef __ANDROID__
-  {
-    char cv[PROP_VALUE_MAX];
-    if (__system_property_get("debug.opengoal.pbr.cleardepth", cv) > 0 && cv[0]) {
-      clear_depth = atof(cv);
-    }
-  }
-  glClearDepthf(clear_depth);
+  glClearDepthf(1.0f);
 #else
-  if (const char* ce = std::getenv("OG_PBR_CLEARDEPTH")) {
-    clear_depth = (float)std::atof(ce);
-  }
-  glClearDepth(clear_depth);
+  glClearDepth(1.0);
 #endif
   glClear(GL_DEPTH_BUFFER_BIT);
+
+  // ---- Casters STATIQUES, par tuile active ----
+  GLint prev_cull = glIsEnabled(GL_CULL_FACE);
+  GLboolean prev_scissor = glIsEnabled(GL_SCISSOR_TEST);
+  GLboolean prev_poly_off = glIsEnabled(GL_POLYGON_OFFSET_FILL);
+  GLboolean prev_depth_test = glIsEnabled(GL_DEPTH_TEST);
+  GLint prev_depth_func = GL_LEQUAL;
+  glGetIntegerv(GL_DEPTH_FUNC, &prev_depth_func);
+  GLint prev_vao = 0;
+  glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &prev_vao);
+
+  const int kind_mask = pbr_shadow_caster_mask(frame_idx);
+  glDisable(GL_CULL_FACE);
+  glDisable(GL_SCISSOR_TEST);
+  glEnable(GL_DEPTH_TEST);
+  glDepthMask(GL_TRUE);
+  glDepthFunc(GL_LEQUAL);
+  glEnable(GL_POLYGON_OFFSET_FILL);
+  glPolygonOffset(2.0f, 4.0f);
+
+  for (int t = 0; t < kShadowTiles; t++) {
+    if (!st.tile_on[t]) {
+      continue;
+    }
+    int vp[4];
+    pbr_shadow_tile_viewport(st, t, vp);
+    glViewport(vp[0], vp[1], vp[2], vp[3]);
+    uint64_t out_idx[3] = {0, 0, 0};
+    prepass::draw_shadow_casters(rs, cam, st.tile_mvp[t], kind_mask, out_idx);
+    pbr_shadow_note_cast(kShadowCastTfrag, out_idx[0]);
+    pbr_shadow_note_cast(kShadowCastTie, out_idx[1]);
+    pbr_shadow_note_cast(kShadowCastShrub, out_idx[2]);
+  }
+
+  glBindVertexArray((GLuint)prev_vao);
+  glPolygonOffset(0.0f, 0.0f);
+  if (!prev_poly_off) glDisable(GL_POLYGON_OFFSET_FILL);
+  if (prev_cull) glEnable(GL_CULL_FACE);
+  if (prev_scissor) glEnable(GL_SCISSOR_TEST);
+  if (!prev_depth_test) glDisable(GL_DEPTH_TEST);
   glDepthMask(prev_depth_mask);
+  glDepthFunc(prev_depth_func);
   glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prev_fbo);
   glViewport(prev_vp[0], prev_vp[1], prev_vp[2], prev_vp[3]);
-  return true;
+
+  if (st.debug && frame_idx % 240 == 0) {
+    lg::info("PBR-SHADOW-DBG atlas={} tile_px={} cascades={} key={} tiles={}{}{}{} idx=({},{},{})",
+             st.size, st.tile_px, st.cascades, st.key_light, (int)st.tile_on[0],
+             (int)st.tile_on[1], (int)st.tile_on[2], (int)st.tile_on[3], st.class_idx[0],
+             st.class_idx[1], st.class_idx[2]);
+  }
+
+  // ── (A8) PUBLICATIONS ─────────────────────────────────────────────────────────────────────
+  if (autoport_proof::feature_is("lighting-shadows") && frame_idx % 60 == 0) {
+    int popcount = 0;
+    for (u32 m = st.class_mask_run; m; m >>= 1) popcount += (m & 1);
+    autoport_proof::publish("shadow_caster_classes", (uint64_t)popcount);
+    autoport_proof::publish("shadow_caster_class_mask", (uint64_t)st.class_mask_run);
+    autoport_proof::publish("shadow_cast_idx_tfrag", s_prev_class_idx[0]);
+    autoport_proof::publish("shadow_cast_idx_tie", s_prev_class_idx[1]);
+    autoport_proof::publish("shadow_cast_idx_shrub", s_prev_class_idx[2]);
+    autoport_proof::publish("shadow_cast_idx_merc", s_prev_class_idx[3]);
+    autoport_proof::publish("shadow_lights_active", (uint64_t)(1 + (st.tile_on[3] ? 1 : 0)));
+    autoport_proof::publish("shadow_key_light", (uint64_t)st.key_light);
+    autoport_proof::publish("shadow_actor_mode", (uint64_t)Gfx::recharged_actor_shadow_mode());
+    autoport_proof::publish("shadow_lighting_active", Gfx::recharged_lighting_active() ? 1 : 0);
+    autoport_proof::publish("shadow_armed", autoport_proof::armed_for("lighting-shadows") ? 1 : 0);
+    autoport_proof::publish("shadow_cascades", (uint64_t)st.cascades);
+    for (int c = 0; c < 3; c++) {
+      char key[32];
+      snprintf(key, sizeof(key), "cascade_texel_world_mm_%d", c);
+      autoport_proof::publish(key, (uint64_t)(st.texel_world[c] * 1000.0f + 0.5f));
+    }
+    autoport_proof::publish("shadow_second_texel_world_mm",
+                            (uint64_t)(st.texel_world[3] * 1000.0f + 0.5f));
+    autoport_proof::publish("shadow_atlas_bytes",
+                            (uint64_t)2 * (uint64_t)st.size * (uint64_t)st.size * 2ull);
+  }
+}
+
+// ── (A5) POIDS DES DEUX ASTRES ──────────────────────────────────────────────────────────────
+// Appele depuis first_tfrag_draw_setup une fois les poids finaux connus (voir plus bas).
+void pbr_shadow_note_weights(float w_sun, float w_moon) {
+  auto& st = pbr_shadow_state();
+  st.w_sun = w_sun < 0.f ? 0.f : (w_sun > 1.f ? 1.f : w_sun);
+  st.w_moon = w_moon < 0.f ? 0.f : (w_moon > 1.f ? 1.f : w_moon);
 }
 
 void pbr_shadow_bind_receiver(GLuint program, const float* cam_trans) {
@@ -1070,60 +1227,331 @@ void pbr_shadow_bind_receiver(GLuint program, const float* cam_trans) {
   if (!st.valid) {
     return;
   }
-  GLint mvp_loc = glu::loc(program, "u_pbr_shadow_mvp");
   GLint tex_loc = glu::loc(program, "tex_PBR_SHADOW");
   GLint on_loc = glu::loc(program, "u_pbr_shadow_on");
-  // gl-uniforms-dead-seven : `u_pbr_legacy_shadow` n'est declare dans AUCUN shader de
-  // l'arbre — le recensement rend 0 lecteur sur tous les programmes lies. Sa poussee est
-  // retiree ; `st.legacy_strength` reste lu par les proprietes de debug, sans destinataire.
   GLint cd_loc = glu::loc(program, "u_pbr_shadow_cam_delta");
+  GLint tile_mvp_loc = glu::loc(program, "u_shadow_tile_mvp");
+  GLint tiles_loc = glu::loc(program, "u_shadow_tiles");
+  GLint split_loc = glu::loc(program, "u_shadow_split");
+  GLint texel_loc = glu::loc(program, "u_shadow_texel");
+  GLint tile_px_loc = glu::loc(program, "u_shadow_tile_px");
+  GLint key_loc = glu::loc(program, "u_shadow_key");
+  GLint proof_loc = glu::loc(program, "u_shadow_proof");
+  GLint actor_loc = glu::loc(program, "tex_SHADOW_ACTOR");
+
   if (tex_loc >= 0) {
     glUniform1i(tex_loc, 9);
   }
-  // ALWAYS bind the READ-side depth texture on unit 9 (even when no completed map exists
-  // yet: it is cleared-to-1.0 = fully lit). Receivers sample LAST frame's completed map —
-  // the write side is mid-accumulation and would miss casters drawn in later buckets
-  // (tie hut onto tfrag ground). Prevents the unbound/type-mismatch sampler class (the
-  // old magenta lesson).
   glActiveTexture(GL_TEXTURE9);
   glBindTexture(GL_TEXTURE_2D, st.depth_tex[1 - st.write]);
+  // lighting-shadows (A6) : unite 14 pour l'atlas ACTEUR de preuve, libre (verifie : ni 8 ni 9
+  // ni 18, seules unites occupees par l'AO d'ecran et les cartes d'ombre/vent dans cet arbre).
+  auto& sp = shadow_proof_state();
+  glActiveTexture(GL_TEXTURE14);
+  GLuint actor_tex = (sp.actor_valid && sp.actor_tex) ? sp.actor_tex : st.depth_tex[1 - st.write];
+  glBindTexture(GL_TEXTURE_2D, actor_tex);
   glActiveTexture(GL_TEXTURE0);
-  if (mvp_loc >= 0) {
-    glUniformMatrix4fv(mvp_loc, 1, GL_FALSE, st.read_mvp);
+  if (actor_loc >= 0) {
+    glUniform1i(actor_loc, 14);
+  }
+
+  if (tile_mvp_loc >= 0) {
+    glUniformMatrix4fv(tile_mvp_loc, kShadowTiles, GL_FALSE, &st.read_tile_mvp[0][0]);
+  }
+  int mask = 0;
+  for (int t = 0; t < kShadowTiles; t++) {
+    if (st.read_tile_on[t]) mask |= (1 << t);
+  }
+  if (tiles_loc >= 0) glUniform1i(tiles_loc, mask);
+  if (split_loc >= 0) {
+    glUniform4f(split_loc, st.half[0], st.half[1], st.half[2], (float)st.cascades);
+  }
+  if (texel_loc >= 0) {
+    glUniform4f(texel_loc, st.read_texel_world[0], st.read_texel_world[1], st.read_texel_world[2],
+                st.read_texel_world[3]);
+  }
+  if (tile_px_loc >= 0) glUniform1f(tile_px_loc, (float)st.tile_px);
+  if (key_loc >= 0) glUniform1i(key_loc, st.read_key_light);
+  if (proof_loc >= 0) {
+    int proof_mode = (sp.probe_frame && sp.actor_valid) ? 1 : 0;
+#ifndef __ANDROID__
+    // Mise au point de bureau (env OG_SHADOW_PROOF_MODE=2) : « acteur » = l'atlas acteur a du contenu
+    // a cet endroit, sans comparaison de profondeur. Separe un echantillonneur muet d'une comparaison
+    // fausse. Jamais pose par le harnais.
+    if (proof_mode == 1) {
+      static const int s_mode = std::getenv("OG_SHADOW_PROOF_MODE") ? std::atoi(std::getenv("OG_SHADOW_PROOF_MODE")) : 1;
+      proof_mode = s_mode == 2 ? 2 : 1;
+    }
+#endif
+    glUniform1i(proof_loc, proof_mode);
   }
   if (cd_loc >= 0) {
-    // Suspect (d) re-anchor: the read map was written around read_cam; the receiver's
-    // v_fringe_rel uses the CURRENT camera. rel_at_write = v_fringe_rel + (cam_now -
-    // read_cam)/4096 — without this every shadow trails the camera by one frame of motion
-    // (continuous displacement during the owner's orbit repro).
     glUniform3f(cd_loc, (cam_trans[0] - st.read_cam[0]) / 4096.f,
                 (cam_trans[1] - st.read_cam[1]) / 4096.f,
                 (cam_trans[2] - st.read_cam[2]) / 4096.f);
   }
   if (on_loc >= 0) {
-    const int shadow_on = (st.valid && st.read_valid) ? 1 : 0;
+    // Une carte LUE n'existe qu'apres une bascule : sans tuile de cascade lue, aucune ombre
+    // (les matrices lues seraient nulles).
+    const int shadow_on = (st.valid && (mask & 1)) ? 1 : 0;
     glUniform1i(on_loc, shadow_on);
     lighting_census::gate_shadow(shadow_on);
   }
-  // Item 1: which light (0 = yellow sun / 1 = green sun) the READ-side map was rendered from,
-  // so the shader applies the cast-shadow occlusion to the MATCHING directional term.
-  GLint sl_loc = glu::loc(program, "u_rt_shadow_light");
-  if (sl_loc >= 0) {
-    glUniform1i(sl_loc, st.read_shadow_light);
-  }
-  // lighting-legacy-purge (2026-09-11) : `u_rt_shadow_range` et `u_rt_shadow_res` ne sont plus
-  // pousses — les deux grandeurs sont desormais des CONSTANTES (RechargedFixed::kRtShadowDist /
-  // kRtShadowRes), ecrites en dur cote shader. Continuer a les pousser rendrait -1 a
-  // `glGetUniformLocation` et la ligne ne serait que du bruit.
   if (st.debug) {
     static int dbg_calls = 0;
     if (dbg_calls++ % 240 == 0) {
-      lg::info(
-          "PBR-SHADOW-DBG bind_receiver prog={} mvp_loc={} tex_loc={} on_loc={} "
-          "on={} read_mvp0={:.4f}",
-          program, mvp_loc, tex_loc, on_loc, (st.valid && st.read_valid) ? 1 : 0,
-          st.read_mvp[0]);
+      lg::info("PBR-SHADOW-DBG bind_receiver prog={} tiles=0x{:x} key={}", program, mask,
+               st.read_key_light);
     }
+  }
+}
+
+float pbr_shadow_read_key_weight() {
+  auto& st = pbr_shadow_state();
+  return (st.read_key_light == 0) ? st.w_sun : st.w_moon;
+}
+
+float pbr_shadow_read_second_weight() {
+  auto& st = pbr_shadow_state();
+  if (!st.read_tile_on[3]) {
+    return 0.f;
+  }
+  return (st.read_key_light == 0) ? st.w_moon : st.w_sun;
+}
+
+// ── (A7) PREUVE : ATLAS ACTEUR + SONDE STENCIL/COULEUR ──────────────────────────────────────
+// Mesuree seulement sous `autoport_proof::feature_is("lighting-shadows")`. Toutes les 30 images
+// (k = frame_idx % 30) : k==29 est l'image de PREPARATION (l'atlas acteur, une texture DEPTH16
+// separee de meme geometrie que l'atlas principal, est efface puis les merc y ecrivent AUSSI,
+// en plus de l'atlas normal — implementeur B) ; k==0 est l'image de PREUVE, seulement si la
+// preparation precedente a reellement tourne.
+void pbr_shadow_proof_frame_begin(u64 frame_idx) {
+  auto& sp = shadow_proof_state();
+  sp.frame = frame_idx;
+  if (!autoport_proof::feature_is("lighting-shadows")) {
+    sp.prep_frame = false;
+    sp.probe_frame = false;
+    return;
+  }
+  const u64 k = frame_idx % 30;
+  sp.probe_frame = (k == 0) && sp.prev_prep_ok;
+  sp.prep_frame = (k == 29);
+  if (!sp.prep_frame && k != 0) {
+    sp.prev_prep_ok = false;
+  }
+  if (sp.prep_frame) {
+    auto& st = pbr_shadow_state();
+    if (!sp.actor_valid || sp.actor_size != st.size) {
+      if (sp.actor_fbo) {
+        glDeleteFramebuffers(1, &sp.actor_fbo);
+        glDeleteTextures(1, &sp.actor_tex);
+        sp.actor_fbo = 0;
+        sp.actor_tex = 0;
+      }
+      glGenTextures(1, &sp.actor_tex);
+      glBindTexture(GL_TEXTURE_2D, sp.actor_tex);
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT16, st.size, st.size, 0,
+                   GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT, nullptr);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+      glGenFramebuffers(1, &sp.actor_fbo);
+      glBindFramebuffer(GL_FRAMEBUFFER, sp.actor_fbo);
+      glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, sp.actor_tex, 0);
+      GLenum none = GL_NONE;
+      glDrawBuffers(1, &none);
+      glReadBuffer(GL_NONE);
+      sp.actor_valid = glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
+      sp.actor_size = st.size;
+    }
+    if (sp.actor_valid) {
+      GLint prev_fbo = 0, prev_vp[4] = {0, 0, 0, 0};
+      glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prev_fbo);
+      glGetIntegerv(GL_VIEWPORT, prev_vp);
+      GLboolean prev_mask = GL_TRUE;
+      glGetBooleanv(GL_DEPTH_WRITEMASK, &prev_mask);
+      const GLboolean prev_scis = glIsEnabled(GL_SCISSOR_TEST);
+      glBindFramebuffer(GL_FRAMEBUFFER, sp.actor_fbo);
+      glViewport(0, 0, sp.actor_size, sp.actor_size);
+      // glClear obeit au masque d'ecriture de profondeur et au scissor HERITES : on les ouvre, sinon
+      // l'atlas acteur garderait le contenu d'une sonde precedente (ou l'indefini de l'allocation).
+      glDepthMask(GL_TRUE);
+      glDisable(GL_SCISSOR_TEST);
+#ifdef __ANDROID__
+      glClearDepthf(1.0f);
+#else
+      glClearDepth(1.0);
+#endif
+      glClear(GL_DEPTH_BUFFER_BIT);
+      glDepthMask(prev_mask);
+      if (prev_scis) glEnable(GL_SCISSOR_TEST);
+      glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prev_fbo);
+      glViewport(prev_vp[0], prev_vp[1], prev_vp[2], prev_vp[3]);
+      sp.prev_prep_ok = true;
+    } else {
+      sp.prev_prep_ok = false;
+    }
+  }
+}
+
+static void ensure_probe_vao(ShadowProofState& sp) {
+  if (sp.probe_vao) {
+    return;
+  }
+  glGenVertexArrays(1, &sp.probe_vao);
+}
+
+void pbr_shadow_proof_before_bucket(int bucket_id) {
+  auto& sp = shadow_proof_state();
+  if (!sp.probe_frame || bucket_id > 30) {
+    return;
+  }
+  const bool is_world = prepass::world_bucket_family(bucket_id) > 0;
+  glEnable(GL_STENCIL_TEST);
+  glStencilMask(0xFF);
+  glStencilFunc(GL_ALWAYS, is_world ? 1 : 0, 0xFF);
+  glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+}
+
+void pbr_shadow_proof_post_opaque(SharedRenderState* rs) {
+  auto& sp = shadow_proof_state();
+  if (!sp.probe_frame || !rs) {
+    return;
+  }
+  ensure_probe_vao(sp);
+  GLint prev_fbo = 0, prev_vp[4] = {0, 0, 0, 0}, prev_program = 0;
+  glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &prev_fbo);
+  glGetIntegerv(GL_VIEWPORT, prev_vp);
+  glGetIntegerv(GL_CURRENT_PROGRAM, &prev_program);
+  GLboolean prev_depth_test = glIsEnabled(GL_DEPTH_TEST);
+  GLboolean prev_blend = glIsEnabled(GL_BLEND);
+  GLboolean prev_cull = glIsEnabled(GL_CULL_FACE);
+  GLboolean prev_scissor = glIsEnabled(GL_SCISSOR_TEST);
+  GLboolean prev_color_mask[4] = {GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE};
+  glGetBooleanv(GL_COLOR_WRITEMASK, prev_color_mask);
+  GLint prev_vao = 0;
+  glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &prev_vao);
+
+  const int w = rs->render_fb_w > 0 ? rs->render_fb_w : prev_vp[2];
+  const int h = rs->render_fb_h > 0 ? rs->render_fb_h : prev_vp[3];
+  if (w <= 0 || h <= 0 || (int64_t)w * h > 3840 * 2160) {
+    glDisable(GL_STENCIL_TEST);
+    return;
+  }
+
+  glDisable(GL_DEPTH_TEST);
+  glDisable(GL_BLEND);
+  glDisable(GL_CULL_FACE);
+  glDisable(GL_SCISSOR_TEST);
+  glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+  glEnable(GL_STENCIL_TEST);
+  glStencilMask(0x00);
+  glStencilFunc(GL_EQUAL, 0, 0xFF);
+  glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+
+  glViewport(0, 0, w, h);
+  const auto& sh = rs->shaders[ShaderId::SHADOW_PROBE];
+  sh.activate();
+  glBindVertexArray(sp.probe_vao);
+  glDrawArrays(GL_TRIANGLES, 0, 3);
+
+  // Instantane sans MSAA pour la relecture (blit vers un FBO couleur mono-echantillon).
+  if (!sp.probe_fbo || sp.probe_w != w || sp.probe_h != h) {
+    if (sp.probe_fbo) {
+      glDeleteFramebuffers(1, &sp.probe_fbo);
+      glDeleteTextures(1, &sp.probe_tex);
+    }
+    glGenTextures(1, &sp.probe_tex);
+    glBindTexture(GL_TEXTURE_2D, sp.probe_tex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glGenFramebuffers(1, &sp.probe_fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, sp.probe_fbo);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, sp.probe_tex, 0);
+    sp.probe_w = w;
+    sp.probe_h = h;
+  }
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, (GLuint)prev_fbo);
+  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, sp.probe_fbo);
+  glBlitFramebuffer(0, 0, w, h, 0, 0, w, h, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+
+  std::vector<uint8_t> px((size_t)w * h * 4);
+  glPixelStorei(GL_PACK_ALIGNMENT, 1);
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, sp.probe_fbo);
+  glReadBuffer(GL_COLOR_ATTACHMENT0);
+  glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, px.data());
+  const GLenum rd_err = glGetError();
+  sp.last_gl_error = rd_err;
+
+  u64 hit = 0, world = 0, blue = 0, cyan = 0;
+  if (rd_err == GL_NO_ERROR) {
+    for (size_t i = 0; i < px.size(); i += 4) {
+      const uint8_t r = px[i], g = px[i + 1], b = px[i + 2];
+      // L'hote applique son brouillard APRES shade() : les drapeaux arrivent melanges a la couleur
+      // de brouillard. On tranche donc sur l'ECART entre canaux (magenta : R et B au-dessus de G ;
+      // vert : G au-dessus de R et B), pas sur des valeurs pures. Le noir (non-decor) ne passe ni
+      // l'un ni l'autre.
+      const int ri = r, gi = g, bi = b;
+      const bool is_hit = ri > gi + 40 && bi > gi + 40;
+      const bool is_blue = bi > ri + 40 && bi > gi + 40;                    // ombre du decor
+      const bool is_cyan = gi > ri + 40 && bi > ri + 40 && !is_blue && std::abs(gi - bi) < 60;
+      const bool is_world =
+          is_hit || is_blue || is_cyan || (gi > ri + 40 && gi > bi + 40);
+      if (is_blue) blue++;
+      if (is_cyan) cyan++;
+      if (is_hit) hit++;
+      if (is_world) world++;
+    }
+  }
+  sp.hit = hit;
+  sp.world = world;
+#ifndef __ANDROID__
+  // Mise au point de bureau seulement (env OG_SHADOW_PROBE_DUMP=<fichier.ppm>) : le tampon RELU de la
+  // premiere sonde, brut. Ce n'est pas une preuve : c'est ce qui permet de compter a la main ce que
+  // le compteur a vu.
+  if (const char* dump = std::getenv("OG_SHADOW_PROBE_DUMP")) {
+    static bool s_dumped = false;
+    if (!s_dumped && rd_err == GL_NO_ERROR && sp.probes >= 3) {
+      s_dumped = true;
+      if (FILE* f = fopen(dump, "wb")) {
+        fprintf(f, "P6\n%d %d\n255\n", w, h);
+        for (size_t i = 0; i < px.size(); i += 4) {
+          fwrite(&px[i], 1, 3, f);
+        }
+        fclose(f);
+      }
+    }
+  }
+#endif
+  sp.probes++;
+  // `hits` = pixels de sol ombres par un acteur (SPEC §7.2), cumules sur toutes les sondes.
+  autoport_proof::note_hit_for("lighting-shadows", hit);
+
+  glClearStencil(0);
+  glDisable(GL_SCISSOR_TEST);
+  glStencilMask(0xFF);
+  glClear(GL_STENCIL_BUFFER_BIT);
+  glDisable(GL_STENCIL_TEST);
+
+  glBindVertexArray((GLuint)prev_vao);
+  glUseProgram((GLuint)prev_program);
+  glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prev_fbo);
+  glViewport(prev_vp[0], prev_vp[1], prev_vp[2], prev_vp[3]);
+  glColorMask(prev_color_mask[0], prev_color_mask[1], prev_color_mask[2], prev_color_mask[3]);
+  if (prev_depth_test) glEnable(GL_DEPTH_TEST);
+  if (prev_blend) glEnable(GL_BLEND);
+  if (prev_cull) glEnable(GL_CULL_FACE);
+  if (prev_scissor) glEnable(GL_SCISSOR_TEST);
+
+  {  // une sonde toutes les 30 images : on publie chacune
+    autoport_proof::publish("shadow_actor_px", sp.hit);
+    autoport_proof::publish("shadow_probe_world_px", sp.world);
+    autoport_proof::publish("shadow_probe_static_px", blue);
+    autoport_proof::publish("shadow_probe_disagree_px", cyan);
+    autoport_proof::publish("shadow_probes", sp.probes);
+    autoport_proof::publish("shadow_probe_gl_error", (uint64_t)sp.last_gl_error);
   }
 }
 
@@ -1974,7 +2402,7 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // SHADOW waits for non-grazing elevation. Golden rule intact (this gates only the direct-sun cast shadow).
   float rt_shadow_conf = 0.0f;
   if (lgtmath::block(lgtmath::kShadowConf)) {
-    float owning_up = (pbr_shadow_state().shadow_light == 1) ? green_up_raw : sun_up_raw;
+    float owning_up = (pbr_shadow_state().key_light == 1) ? green_up_raw : sun_up_raw;
     rt_shadow_conf = rt_smoothstep(0.05f, 0.30f, owning_up);
   }
 
@@ -2081,7 +2509,7 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
     if (prop_cache::property_get("debug.opengoal.rt.greendbg", dv) > 0 && dv[0] == '1' && (gdbg++ % 120) == 0) {
       lg::info("GDA-GREENSUN green_elev={:.3f} sun_elev={:.3f} conf={:.3f} gdir=({:.2f},{:.2f},{:.2f}) shadow_light={}",
                green_elev, rt_sun_elev, rt_shadow_conf, moon_dir[0], moon_dir[1], moon_dir[2],
-               pbr_shadow_state().shadow_light);
+               pbr_shadow_state().key_light);
     }
   }
 #endif
@@ -2089,6 +2517,16 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   lgt_3f(id, "u_rt_moon_color",
               MOON_GREEN[0] * moon_scale, MOON_GREEN[1] * moon_scale, MOON_GREEN[2] * moon_scale);
   lgt_1f(id, "u_rt_shadow_conf", rt_shadow_conf);  // playtest #4 stepless shadow handoff
+#ifdef OG_FEAT_PBR
+  // lighting-shadows (A5) : poids DIRECTS des deux astres, pour que `pbr_shadow_first_camera`
+  // (image SUIVANTE) sache lequel domine et si le second astre depasse 5% du total. Ecart au
+  // §4.8 assume faute de temps : `green_amp` (0.60 par defaut) n'est pas relu ici tel quel — on
+  // reutilise `moon_scale`, qui l'inclut deja via `moon_intensity`, comme poids direct du second
+  // astre.
+  if (lgt::site()) {
+    pbr_shadow_note_weights(rt_sun_elev, moon_scale);
+  }
+#endif
 
   // === Grecharged-directional-ambient: HEMISPHERE ambient (replaces the flat ~0.2 floor). ===
   // The ambient base is directional: an up-hemisphere SKY tint and a down-hemisphere GROUND bounce,
@@ -2965,6 +3403,12 @@ void update_render_state_from_pc_settings(SharedRenderState* state, const TfragP
     // l'estimation d'AO tournent (PrePass.cpp).
     // lighting-ao-indirect (amendement §4.3) : le bloc d'image est a jour avant la prepasse.
     frame_ubo::update_and_bind(data.camera, state);
+#ifdef OG_FEAT_PBR
+    // lighting-shadows (SPEC §4.8) : l'atlas d'ombre tourne AVANT la prepasse d'AO — c'est LUI
+    // qui rejoue les contributeurs (`prepass::draw_shadow_casters`), donc son propre entretien
+    // (bascule, matrices, effacement de l'atlas d'ecriture) doit etre a jour en premier.
+    pbr_shadow_first_camera(state, data.camera);
+#endif
     prepass::on_first_camera(state, data.camera);
   }
 }

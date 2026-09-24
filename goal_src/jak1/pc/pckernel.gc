@@ -540,6 +540,16 @@
     (("ambient-occlusion") (set! (-> obj ambient-occlusion) (file-stream-read-int file)))
     (("ao-quality") (set! (-> obj ao-quality) (file-stream-read-int file)))
     (("ao-strength") (set! (-> obj ao-strength) (file-stream-read-int file)))
+    ;; lighting-shadows : cle absente d'un settings.ini d'avant cet item -> defaut 0 (vraies) / 40 m
+    ;; (`file-stream-read-int` n'est appele que si la clause matche, donc l'absence garde le champ
+    ;; a sa valeur de construction). Bornees comme les looks HD : une valeur hors carrousel retombe
+    ;; sur le defaut plutot que de figer un menu sur un index inexistant.
+    (("actor-shadows")
+     (let ((v (file-stream-read-int file)))
+       (set! (-> obj actor-shadows) (if (and (>= v 0) (<= v 2)) v 0))))
+    (("actor-shadow-dist")
+     (let ((v (file-stream-read-int file)))
+       (set! (-> obj actor-shadow-dist) (if (and (>= v 10) (<= v 200)) v 40))))
     (("recharged-enhanced-models?") (set! (-> obj recharged-enhanced-models?) (file-stream-read-symbol file)))
     ;; Grecharged-hd-models5: per-character HD LOOK selections (index entier).
     ;; CLAMPED on load (hd-models4 cycle 5): a look index is ALSO the carousell index, and the JAK
@@ -640,6 +650,9 @@
   (format file "ambient-occlusion = ~D~%" (-> obj ambient-occlusion))
   (format file "ao-quality = ~D~%" (-> obj ao-quality))
   (format file "ao-strength = ~D~%" (-> obj ao-strength))
+  ;; lighting-shadows: « Ombres d'acteurs » (0 vraies / 1 aplat PS2 / 2 aucune) + distance (m).
+  (format file "actor-shadows = ~D~%" (-> obj actor-shadows))
+  (format file "actor-shadow-dist = ~D~%" (-> obj actor-shadow-dist))
   (format file "recharged-enhanced-models? = ~A~%" (-> obj recharged-enhanced-models?))
   ;; Grecharged-hd-models5: per-character HD LOOK selections (index entier).
   (format file "hd-look-jak = ~D~%" (-> obj hd-look-jak))

@@ -3331,6 +3331,25 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   // that setup (same reason merc2/generic/emerc call pbr_push_debug_tag directly). No-op at mode 0,
   // and a no-op location (-1) on any program that does not declare the uniform.
   pbr_push_debug_tag(id);
+  // lighting-shadows (SPEC §4.8) : L'HERBE RECOIT L'ATLAS. Meme gating que TFragment.cpp — sans
+  // lui, en mode « ombres d'acteurs = vraies » Jak perd sa vraie ombre plate (l'aplat PS2 est
+  // saute quand l'atlas la porte) SANS que l'herbe la remplace, et le sol reste sombre a cote
+  // d'un carre d'herbe eclaire au plein. Hors regime, `u_pbr_shadow_on` est explicitement remis
+  // a 0 : jamais de valeur perimee d'une image ou le regime etait actif.
+  if ((recharged_gating::on(recharged_gating::kLighting) ||
+       recharged_gating::on(recharged_gating::kRtLight)) &&
+      pbr_shadow_state().valid) {
+    pbr_shadow_bind_receiver(id, rs->camera_pos.data());
+    glUniform2f(grass_uloc(id, "u_grass_shadow_w"), pbr_shadow_read_key_weight(),
+                pbr_shadow_read_second_weight());
+    glUniform1f(grass_uloc(id, "u_grass_shadow_floor"), 1.0f / 1.15f);
+    glActiveTexture(GL_TEXTURE0);
+  } else {
+    GLint on_loc = grass_uloc(id, "u_pbr_shadow_on");
+    if (on_loc >= 0) {
+      glUniform1i(on_loc, 0);
+    }
+  }
 #endif
   // ROUND#19: optional normal-tilt blend — blade growth axis = mix(world-up, ground-face normal, u_tilt).
   // 0.0 (default) is bit-identical to the world-up-only growth; the owner A/Bs ~0.30 via the debug prop.

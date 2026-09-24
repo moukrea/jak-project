@@ -26,6 +26,7 @@
 #include "game/graphics/opengl_renderer/hdr_output.h"
 #include "game/graphics/opengl_renderer/AmbientOcclusion.h"
 #include "game/graphics/opengl_renderer/PrePass.h"
+#include "game/graphics/opengl_renderer/background/background_common.h"
 #include "game/graphics/opengl_renderer/frame_ubo.h"
 #include "game/graphics/opengl_renderer/gl_uniform_cache.h"
 #include "game/graphics/opengl_renderer/prop_cache.h"
@@ -2028,6 +2029,9 @@ void AndroidOpenGLRenderer::dispatch_buckets_jak1(DmaFollower dma, ScopedProfile
       }
     }
     prepass::proof_before_bucket((int)bucket_id);
+#ifdef OG_FEAT_PBR
+    pbr_shadow_proof_before_bucket((int)bucket_id);
+#endif
     // perf-instruments : une paire de `glQueryCounter` autour de CE bucket (moissonnee trois
     // images plus tard, aucune synchronisation), cle `gpu_ms_<id>_<nom>`.
     lighting_census::pass_begin_bucket((int)bucket_id, renderer->name_and_id().c_str());
@@ -2070,6 +2074,9 @@ void AndroidOpenGLRenderer::dispatch_buckets_jak1(DmaFollower dma, ScopedProfile
     // sonde de preuve, inerte hors mesure.
     if (bucket_id == 31 - 1) {
       prepass::proof_post_opaque(&m_render_state);
+#ifdef OG_FEAT_PBR
+      pbr_shadow_proof_post_opaque(&m_render_state);
+#endif
     }
 
     // Grecharged-grass-poc: draw procedural grass over the training ground at the

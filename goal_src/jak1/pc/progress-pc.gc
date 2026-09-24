@@ -6607,6 +6607,11 @@
 ;; Grecharged-ambient-occlusion closing round: the AO strength carousell (Weaker/Default/Stronger),
 ;; a per-mode multiplier on the estimator intensity (ids #x1710-#x1712 + row label #x1713).
 (def-progress-carousell *carousell-ao-strength* (pc-text-ao-weaker pc-text-ao-default pc-text-ao-stronger))
+;; lighting-shadows: ACTOR SHADOWS (Vraies/Aplat PS2/Aucune, ids #x17ea-#x17ec, row label #x17e8) and
+;; ACTOR SHADOW DISTANCE (20/40/80/150 m, ids #x17ed-#x17f0, row label #x17e9). Same carousell motif
+;; as ao-strength, two rows right after it.
+(def-progress-carousell *carousell-actor-shadows* (pc-text-actor-shadow-real pc-text-actor-shadow-ps2 pc-text-actor-shadow-none))
+(def-progress-carousell *carousell-actor-shadow-dist* (pc-text-actor-shadow-dist-20 pc-text-actor-shadow-dist-40 pc-text-actor-shadow-dist-80 pc-text-actor-shadow-dist-150))
 ;; Grecharged-realtime-lighting: SHADOW QUALITY carousell (Low/Med/High = 1024/2048/4096 shadow-map res).
 ;; Reuses the AO low/med/high text-ids (they render LOW/MEDIUM/HIGH, which fits Shadow Quality).
 ;; Ggrass-density-presets (owner 2026-08-30): GRASS DENSITY carousell, five named steps. It REUSES the
@@ -7221,6 +7226,27 @@
             :option-type (game-option-type ao-strength)
             :name (text-id msaa)
             :scale #t)
+       ;; lighting-shadows (SPEC-refonte-lumiere §1.2 decision 2): ACTOR SHADOWS carousell row —
+       ;; Vraies (PBR atlas) / Aplat PS2 (stock) / Aucune. Same carousell motif as AO STRENGTH just
+       ;; above (placeholder :name, real label via *actor-shadows-label* name-override, no :on-change
+       ;; — respond-common's rch-choice-* trio backs up / writes the value back). Placed right after
+       ;; AO STRENGTH per owner decision (option 1): same fw-idx-offset motif, no :hint self-location.
+       (new 'static
+            'game-option
+            :option-type (game-option-type actor-shadows)
+            :name (text-id msaa)
+            :scale #t)
+       ;; lighting-shadows: ACTOR SHADOW DISTANCE carousell row — 20/40/80/150 m. Real label via
+       ;; *actor-shadow-dist-label*. Meaningless while ACTOR SHADOWS is Aucune, so it is greyed the
+       ;; same way AO QUALITY / AO STRENGTH are greyed while AMBIENT OCCLUSION is Off.
+       (new 'static
+            'game-option
+            :option-type (game-option-type actor-shadow-dist)
+            :name (text-id msaa)
+            :scale #t
+            :option-disabled-func
+            (lambda ()
+              (= (-> *pc-settings* actor-shadows) 2)))
        ;; Glighting-hdr / SPEC-refonte-lumiere 6.2 : RECHARGED LIGHTING On/Off, REMPLACE SUR PLACE
        ;; l'ancienne rangee REALTIME LIGHTING. Meme position, meme index : aucun bras fw-idx ne
        ;; bouge (la renumerotation est la classe de bug Gmenu-flag-off, cf. la garde [RCH-MENU]).
@@ -7828,6 +7854,12 @@
 ;; Grecharged-ambient-occlusion closing round: AO STRENGTH row label (id #x1713).
 (define *ao-strength-label* (new 'global 'string 128 (the-as string #f)))
 (format (clear *ao-strength-label*) "AO Strength")
+;; lighting-shadows: ACTOR SHADOWS / ACTOR SHADOW DISTANCE row labels (ids #x17e8/#x17e9), same
+;; buffer+scl10n-add-label! motif as *ao-strength-label*.
+(define *actor-shadows-label* (new 'global 'string 128 (the-as string #f)))
+(format (clear *actor-shadows-label*) "Actor Shadows")
+(define *actor-shadow-dist-label* (new 'global 'string 128 (the-as string #f)))
+(format (clear *actor-shadow-dist-label*) "Actor Shadow Distance")
 
 ;; Glang-mixed: re-format the name-override label buffers from the loaded text bank so
 ;; they follow (-> *pc-settings* text-language). Runs on every menu open (init-game-options
@@ -7896,6 +7928,9 @@
     (scl10n-add-label! #x170e *ambient-occlusion-label*)
     (scl10n-add-label! #x170f *ao-quality-label*)
     (scl10n-add-label! #x1713 *ao-strength-label*)
+    ;; lighting-shadows: unconditional rows, right after AO STRENGTH — same table, same motif.
+    (scl10n-add-label! #x17e8 *actor-shadows-label*)
+    (scl10n-add-label! #x17e9 *actor-shadow-dist-label*)
     (#when FLAG_PBR
       (scl10n-add-label! #x17cb *recharged-lighting-label*)
       ;; lighting-legacy-purge (2026-09-11) : les enregistrements l10n des rangees retirees partent
@@ -10448,6 +10483,8 @@
       (((game-option-type ambient-occlusion)) (set! lst *carousell-ambient-occlusion*))
       (((game-option-type ao-quality)) (set! lst *carousell-ao-quality*))
       (((game-option-type ao-strength)) (set! lst *carousell-ao-strength*))
+      (((game-option-type actor-shadows)) (set! lst *carousell-actor-shadows*))
+      (((game-option-type actor-shadow-dist)) (set! lst *carousell-actor-shadow-dist*))
       (((game-option-type grass-density)) (set! lst *carousell-grass-density*))
       (((game-option-type hd-look-jak)) (set! lst *carousell-hd-look-jak*))
       (((game-option-type hd-look-daxter)) (set! lst *carousell-hd-look-daxter*))
@@ -10464,6 +10501,16 @@
       (((game-option-type ambient-occlusion)) (set! idx (the int (-> *pc-settings* ambient-occlusion))))
       (((game-option-type ao-quality)) (set! idx (the int (-> *pc-settings* ao-quality))))
       (((game-option-type ao-strength)) (set! idx (the int (-> *pc-settings* ao-strength))))
+      (((game-option-type actor-shadows)) (set! idx (the int (-> *pc-settings* actor-shadows))))
+      ;; lighting-shadows: actor-shadow-dist stores METERS, not an index — map 20/40/80/150 -> 0..3.
+      ;; An unknown value (foreign settings.ini) maps to index 1 = 40 m, per spec.
+      (((game-option-type actor-shadow-dist))
+       (case (-> *pc-settings* actor-shadow-dist)
+         ((20) (set! idx 0))
+         ((40) (set! idx 1))
+         ((80) (set! idx 2))
+         ((150) (set! idx 3))
+         (else (set! idx 1))))
       (((game-option-type grass-density)) (set! idx (the int (-> *pc-settings* recharged-grass-density-preset))))
       (((game-option-type hd-look-jak)) (set! idx (the int (-> *pc-settings* hd-look-jak))))
       (((game-option-type hd-look-daxter)) (set! idx (the int (-> *pc-settings* hd-look-daxter))))
@@ -10479,6 +10526,11 @@
     (((game-option-type ambient-occlusion)) (set! (-> *pc-settings* ambient-occlusion) idx))
     (((game-option-type ao-quality)) (set! (-> *pc-settings* ao-quality) idx))
     (((game-option-type ao-strength)) (set! (-> *pc-settings* ao-strength) idx))
+    (((game-option-type actor-shadows)) (set! (-> *pc-settings* actor-shadows) idx))
+    ;; lighting-shadows: write back METERS, index -> 20/40/80/150 (inverse of rch-choice-current-index).
+    (((game-option-type actor-shadow-dist))
+     (set! (-> *pc-settings* actor-shadow-dist)
+           (cond ((= idx 0) 20) ((= idx 1) 40) ((= idx 2) 80) ((= idx 3) 150) (else 40))))
     (((game-option-type grass-density)) (set! (-> *pc-settings* recharged-grass-density-preset) idx))
     (((game-option-type hd-look-jak)) (set! (-> *pc-settings* hd-look-jak) idx))
     (((game-option-type hd-look-daxter)) (set! (-> *pc-settings* hd-look-daxter) idx))
@@ -11463,7 +11515,14 @@
   ;; crans trop tot — la classe de bug Gmenu-flag-off.
   ;; lighting-legacy-purge (2026-09-11) : le bloc PBR passe de 11 a 2 rangees (RECHARGED LIGHTING + HDR OUTPUT), PBR MATERIALS et les deux rangees de debug sortent du tableau. Longueur livree = 22, fw-idx = 9.
   ;; mesh-browser-removal : la rangee de debug est retiree, la queue perd 1 (14 -> 13).
-  (let ((fw-idx (if (= (-> *recharged-options-pc* length) (+ 14 (* 5 FLAG_HD_MODELS_N) (* 2 FLAG_PBR_N) FLAG_PHYSICS_N (if *rch-hdr-row-hidden?* -1 0)))
+  ;; lighting-shadows : +2 sur le terme INCONDITIONNEL (13 -> 15... voir ci-dessous : la valeur
+  ;; PRECEDENTE etait 14, la NOUVELLE est 16) pour les deux rangees ACTOR SHADOWS / ACTOR SHADOW
+  ;; DISTANCE, posees juste apres AO STRENGTH (fw-idx+3) et donc APRES fw-idx et tous les bras
+  ;; relatifs a fw-idx qui le precedaient : SEUL ce terme de longueur change, fw-idx lui-meme ne
+  ;; bouge pas (il pointe FOLIAGE WIND, avant l'insertion). Un 14 perime ferait lire un tableau
+  ;; PLEIN comme « collapse » et cablerait FOLIAGE WIND et toute la suite cinq crans trop tot.
+  ;; ANCIEN : (+ 14 ...). NOUVEAU : (+ 16 ...).
+  (let ((fw-idx (if (= (-> *recharged-options-pc* length) (+ 16 (* 5 FLAG_HD_MODELS_N) (* 2 FLAG_PBR_N) FLAG_PHYSICS_N (if *rch-hdr-row-hidden?* -1 0)))
                     (+ 5 (* 5 FLAG_HD_MODELS_N))
                     5)))
     (set! (-> *recharged-options-pc* fw-idx value-to-modify) (&-> *pc-settings* recharged-foliage-wind?))
@@ -11482,16 +11541,27 @@
     (set! (-> *recharged-options-pc* (+ fw-idx 3) value-to-modify) (&-> *progress-carousell* int-backup))
     (set! (-> *recharged-options-pc* (+ fw-idx 3) name-override) *ao-strength-label*)
     (set! (-> *recharged-options-pc* (+ fw-idx 3) gating-id) "ao-strength")
+    ;; lighting-shadows: ACTOR SHADOWS + ACTOR SHADOW DISTANCE carousell rows, right after AO STRENGTH
+    ;; (owner decision : option 1, same fw-idx-offset motif as the AO trio, no :hint self-location).
+    ;; They push fw-idx+4 (RECHARGED LIGHTING, below) to fw-idx+6.
+    (set! (-> *recharged-options-pc* (+ fw-idx 4) value-to-modify) (&-> *progress-carousell* int-backup))
+    (set! (-> *recharged-options-pc* (+ fw-idx 4) name-override) *actor-shadows-label*)
+    (set! (-> *recharged-options-pc* (+ fw-idx 4) gating-id) "actor-shadows")
+    (set! (-> *recharged-options-pc* (+ fw-idx 5) value-to-modify) (&-> *progress-carousell* int-backup))
+    (set! (-> *recharged-options-pc* (+ fw-idx 5) name-override) *actor-shadow-dist-label*)
+    (set! (-> *recharged-options-pc* (+ fw-idx 5) gating-id) "actor-shadow-dist")
     ;; Grecharged-realtime-lighting: wire the realtime-lighting rows (always present with --pbr, so they
-    ;; sit right after AO STRENGTH at fw-idx+4..+10, before Back). REALTIME/BAKED bind to the pc-settings
-    ;; symbols; AMBIENT STRENGTH/CONTRAST + SHADOW DISTANCE bind floats; AMBIENT MODEL + SHADOW QUALITY are
-    ;; carousells (int-backup scratch, mapped 1:1 to their pc-settings ints in respond-common).
+    ;; sit right after ACTOR SHADOW DISTANCE at fw-idx+6.. now, before Back). REALTIME/BAKED bind to the
+    ;; pc-settings symbols; AMBIENT STRENGTH/CONTRAST + SHADOW DISTANCE bind floats; AMBIENT MODEL +
+    ;; SHADOW QUALITY are carousells (int-backup scratch, mapped 1:1 to their pc-settings ints in
+    ;; respond-common).
     (#when FLAG_PBR
-      ;; Glighting-hdr : fw-idx+4 est DESORMAIS la rangee RECHARGED LIGHTING (remplacement sur
-      ;; place de REALTIME LIGHTING — meme slot, aucun decalage).
-      (set! (-> *recharged-options-pc* (+ fw-idx 4) value-to-modify) (&-> *pc-settings* recharged-lighting?))
-      (set! (-> *recharged-options-pc* (+ fw-idx 4) name-override) *recharged-lighting-label*)
-      (set! (-> *recharged-options-pc* (+ fw-idx 4) gating-id) "lighting")
+      ;; Glighting-hdr : cette rangee est RECHARGED LIGHTING (remplacement sur place de REALTIME
+      ;; LIGHTING). lighting-shadows : ANCIEN offset fw-idx+4, NOUVEAU fw-idx+6 (+2 pour les deux
+      ;; rangees ACTOR SHADOWS / ACTOR SHADOW DISTANCE inserees juste avant elle).
+      (set! (-> *recharged-options-pc* (+ fw-idx 6) value-to-modify) (&-> *pc-settings* recharged-lighting?))
+      (set! (-> *recharged-options-pc* (+ fw-idx 6) name-override) *recharged-lighting-label*)
+      (set! (-> *recharged-options-pc* (+ fw-idx 6) gating-id) "lighting")
       ;; lighting-legacy-purge (2026-09-11) : les bras +5..+8 (AMBIENT MODEL, AMBIENT STRENGTH,
       ;; SHADOW DISTANCE, SHADOW QUALITY), +10..+13 (TEXTURE RELIEF, SPECULAR INTENSITY,
       ;; DISPLACEMENT, MESH SUBDIVISION) et le bloc FLAG_PBR_DEBUG (+14/+15) sont RETIRES avec
@@ -11515,6 +11585,11 @@
                   (the int (game-option-type ao-quality))) (+! mis 1))
         (when (!= (the int (-> *recharged-options-pc* (+ fw-idx 3) option-type))
                   (the int (game-option-type ao-strength))) (+! mis 1))
+        ;; lighting-shadows: meme garde, deux temoins de plus (fw-idx+4/+5).
+        (when (!= (the int (-> *recharged-options-pc* (+ fw-idx 4) option-type))
+                  (the int (game-option-type actor-shadows))) (+! mis 1))
+        (when (!= (the int (-> *recharged-options-pc* (+ fw-idx 5) option-type))
+                  (the int (game-option-type actor-shadow-dist))) (+! mis 1))
         (format 0 "[RCH-MENU] pbr rows aligned: mis=~D fw=~D len=~D~%"
                 mis fw-idx (-> *recharged-options-pc* length)))
       ;; hdr-display-output essai 3 : la rangee HDR OUTPUT, AUTO-LOCALISEE par son marqueur `hint`
@@ -11633,8 +11708,10 @@
       ;; manquait le terme HDR : il calculait 31 pour une longueur reelle de 32. Les deux gardes
       ;; portent DESORMAIS le meme terme.
       ;; mesh-browser-removal : MEME terme que la garde fw-idx ci-dessus, MEME -1 (14 -> 13).
+      ;; lighting-shadows : MEME terme, MEME +2 que la garde fw-idx ci-dessus. ANCIEN : (+ 14 ...).
+      ;; NOUVEAU : (+ 16 ...) — deux rangees ACTOR SHADOWS / ACTOR SHADOW DISTANCE, inconditionnelles.
       (when (= (-> *recharged-options-pc* length)
-               (+ 14 (* 5 FLAG_HD_MODELS_N) (* 2 FLAG_PBR_N) FLAG_PHYSICS_N (if *rch-hdr-row-hidden?* -1 0)))
+               (+ 16 (* 5 FLAG_HD_MODELS_N) (* 2 FLAG_PBR_N) FLAG_PHYSICS_N (if *rch-hdr-row-hidden?* -1 0)))
         (let ((i 5))
           (while (< i (+ (* -5 FLAG_HD_MODELS_N) (-> *recharged-options-pc* length)))
             (set! (-> *recharged-options-pc* i) (-> *recharged-options-pc* (+ i (* 5 FLAG_HD_MODELS_N))))
@@ -11931,6 +12008,8 @@
                     (game-option-type ambient-occlusion)
                     (game-option-type ao-quality)
                     (game-option-type ao-strength)
+                    (game-option-type actor-shadows)
+                    (game-option-type actor-shadow-dist)
                     (game-option-type grass-density)
                     (game-option-type hd-look-jak)
                     (game-option-type hd-look-daxter)
@@ -12029,6 +12108,8 @@
                     (game-option-type ambient-occlusion)
                     (game-option-type ao-quality)
                     (game-option-type ao-strength)
+                    (game-option-type actor-shadows)
+                    (game-option-type actor-shadow-dist)
                     (game-option-type grass-density)
                     (game-option-type hd-look-jak)
                     (game-option-type hd-look-daxter)
@@ -12915,6 +12996,8 @@
                       (game-option-type ambient-occlusion)
                       (game-option-type ao-quality)
                       (game-option-type ao-strength)
+                      (game-option-type actor-shadows)
+                      (game-option-type actor-shadow-dist)
                       (game-option-type grass-density)
                       (game-option-type hd-look-jak)
                       (game-option-type hd-look-daxter)
@@ -13006,6 +13089,8 @@
                       (game-option-type ambient-occlusion)
                       (game-option-type ao-quality)
                       (game-option-type ao-strength)
+                      (game-option-type actor-shadows)
+                      (game-option-type actor-shadow-dist)
                       (game-option-type grass-density)
                       (game-option-type hd-look-jak)
                       (game-option-type hd-look-daxter)
@@ -13605,6 +13690,8 @@
       (scl10n-scan-carousell! *carousell-ambient-occlusion*)
       (scl10n-scan-carousell! *carousell-ao-quality*)
       (scl10n-scan-carousell! *carousell-ao-strength*)
+      (scl10n-scan-carousell! *carousell-actor-shadows*)
+      (scl10n-scan-carousell! *carousell-actor-shadow-dist*)
       (scl10n-scan-carousell! *carousell-grass-density*)
       (#when FLAG_HD_MODELS
         (scl10n-scan-carousell! *carousell-hd-look-jak*)

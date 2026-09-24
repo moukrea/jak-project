@@ -1,6 +1,11 @@
 #include "game/graphics/opengl_renderer/soft_draw_census.h"
 #include "Shadow2.h"
 
+#include <algorithm>
+
+#include "game/graphics/gfx.h"
+#include "game/graphics/opengl_renderer/background/background_common.h"
+#include "game/system/autoport_proof.h"
 #include "third-party/imgui/imgui.h"
 
 Shadow2::Shadow2(const std::string& name, int my_id) : BucketRenderer(name, my_id) {
@@ -61,6 +66,43 @@ void Shadow2::reset_buffers() {
   m_front_index_buffer_used = 0;
   m_back_index_buffer_used = 0;
   m_vertex_buffer_used = 0;
+  m_shadow_skip_key = nullptr;
+  m_shadow_skip_valid = false;
+  // Compteurs de CETTE image (publies une fois par image, au plus une fois toutes les 60 images).
+  m_blob_drawn = 0;
+  m_blob_skipped = 0;
+}
+
+bool Shadow2::actor_shadow_should_skip(const InputData& in) {
+  // Mode 1 (aplat) et mode 2 (aucune, GOAL ne pousse plus rien) : comportement d'origine
+  // inchange octet pour octet. Seul le mode 0 (vraies) peut sauter un decalque.
+  if (Gfx::recharged_actor_shadow_mode() != 0 || !pbr_shadow_read_has_actors()) {
+    return false;
+  }
+  // Meme acteur que le dernier volume traite : reutiliser la decision (capuchons et murs d'un
+  // meme acteur partagent le meme `top_vertex_data`, donc la meme reponse).
+  if (m_shadow_skip_valid && m_shadow_skip_key == in.top_vertex_data) {
+    return m_shadow_skip;
+  }
+  m_shadow_skip_key = in.top_vertex_data;
+  m_shadow_skip_valid = true;
+  m_shadow_skip = false;
+  if (in.top_vertex_data != nullptr) {
+    // Le premier sommet du capuchon superieur (adresse 0), en unites GOAL relatives a la camera.
+    // 4096 unites GOAL = 1 metre (meme convention que le reste du moteur).
+    math::Vector3f v0;
+    memcpy(v0.data(), in.top_vertex_data, 12);
+    const float dist_m = v0.length() / 4096.f;
+    const float atlas_range_m = pbr_shadow_read_range_m();
+    const float cutoff_m = std::min(pbr_shadow_actor_dist_m(), 0.9f * atlas_range_m);
+    m_shadow_skip = dist_m < cutoff_m;
+  }
+  if (m_shadow_skip) {
+    m_blob_skipped++;
+  } else {
+    m_blob_drawn++;
+  }
+  return m_shadow_skip;
 }
 
 void Shadow2::render(DmaFollower& dma, SharedRenderState* render_state, ScopedProfilerNode& prof) {
@@ -218,6 +260,15 @@ void Shadow2::render(DmaFollower& dma, SharedRenderState* render_state, ScopedPr
 
   ASSERT(have_color);
   draw_buffers(render_state, prof, frame_constants);
+  // lighting-shadows : publie l'aplat PS2 dessine/saute de CETTE image, au plus une fois toutes
+  // les 60 images, uniquement sous mesure de l'item.
+  if (autoport_proof::feature_is("lighting-shadows")) {
+    static uint64_t s_publish_frame = 0;
+    if ((s_publish_frame++ % 60) == 0) {
+      autoport_proof::publish("stencil_blob_draws", m_blob_drawn);
+      autoport_proof::publish("stencil_blob_skipped", m_blob_skipped);
+    }
+  }
   auto transfers = 0;
   while (dma.current_tag_offset() != render_state->next_bucket) {
     auto data = dma.read_and_advance();
@@ -230,6 +281,9 @@ void Shadow2::render(DmaFollower& dma, SharedRenderState* render_state, ScopedPr
 }
 
 void Shadow2::buffer_from_mscal2(const InputData& in) {
+  if (actor_shadow_should_skip(in)) {
+    return;
+  }
   // draw top caps.
   add_cap_tris(in.cap_index_data, in.top_vertex_data, false);
 
@@ -238,10 +292,16 @@ void Shadow2::buffer_from_mscal2(const InputData& in) {
 }
 
 void Shadow2::buffer_from_mscal4(const InputData& in) {
+  if (actor_shadow_should_skip(in)) {
+    return;
+  }
   add_wall_quads(in.wall_index_data, in.top_vertex_data, in.bottom_vertex_data);
 }
 
 void Shadow2::buffer_from_mscal6(const InputData& in) {
+  if (actor_shadow_should_skip(in)) {
+    return;
+  }
   // draw top caps.
   add_flippable_tris(in.cap_index_data, in.top_vertex_data, false);
   add_flippable_tris(in.cap_index_data, in.bottom_vertex_data, true);

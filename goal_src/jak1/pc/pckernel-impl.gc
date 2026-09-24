@@ -111,6 +111,8 @@
    (ambient-occlusion   int32) ;; Grecharged-ambient-occlusion: 0=off 1=ssao 2=hbao 3=gtao. Default OFF (0).
    (ao-quality          int32) ;; Grecharged-ambient-occlusion: 0=low 1=medium 2=high. Default MEDIUM (1). Ignored while AO off.
    (ao-strength         int32) ;; Grecharged-ambient-occlusion closing round: 0=weaker 1=default 2=stronger. Default DEFAULT (1). Per-mode multiplier on the AO estimator intensity.
+   (actor-shadows       int32) ;; lighting-shadows (SPEC-refonte-lumiere §1.2 decision 2): 0=vraies (atlas PBR) 1=aplat PS2 (stock) 2=aucune. Defaut VRAIES (0) ; sans eclairage recharge le C++ rend 1 (aplat) : les deux origines restent identiques.
+   (actor-shadow-dist   int32) ;; lighting-shadows: distance (m) de calcul/repli de l'ombre d'acteur. Carrousel 20/40/80/150. Default 40.
    (recharged-enhanced-models? symbol) ;; Grecharged-hd-models: load jak2 HD character models (Jak/Daxter/Samos/Keira, jak1-look) instead of stock low-poly. #f = stock. Only meaningful when the build ships the enhanced FR3 set.
    ;; Grecharged-hd-models5: per-character HD LOOK selection carousells. Each picks WHICH art variant
    ;; the enhanced-model loader uses for that character; index 0 is always the stock jak1 mesh, so the
@@ -218,6 +220,11 @@
 ;; Grecharged-ambient-occlusion: pushes (mode quality strength) to the C++ renderer (registered in kmachine.cpp).
 ;; mode 0=off/1=ssao/2=hbao/3=gtao, quality 0=low/1=medium/2=high, strength 0=weaker/1=default/2=stronger.
 (define-extern pc-set-ambient-occlusion! (function int int int none))
+;; lighting-shadows: pushes (mode dist-m) to the C++ renderer. mode 0=vraies/1=aplat PS2/2=aucune.
+(define-extern pc-set-actor-shadows! (function int int none))
+;; lighting-shadows §4.1: le C++ compose deja master > eclairage (Gfx::recharged_actor_shadow_mode) ;
+;; GOAL n'a qu'a demander le verdict pour sauter la famille shadow-* en mode « aucune ».
+(define-extern pc-actor-shadows-none? (function int))
 ;; Grecharged-foliage-wind: pushes the light wind sway toggle (0/1) to the renderer.
 (define-extern pc-set-foliage-wind! (function int none))
 ;; Grecharged-title-logo-fullres: pushes the CRISP TITLE LOGO toggle (0/1) to the renderer. ON draws
@@ -387,6 +394,8 @@
   (set! (-> obj ambient-occlusion) 0) ;; Grecharged-ambient-occlusion: default OFF
   (set! (-> obj ao-quality) 1) ;; Grecharged-ambient-occlusion: default MEDIUM quality
   (set! (-> obj ao-strength) 1) ;; Grecharged-ambient-occlusion closing round: default DEFAULT strength
+  (set! (-> obj actor-shadows) 0) ;; lighting-shadows: default VRAIES (SPEC 6.2 : « vraies » par defaut ; l'aplat reste le repli et le mode Original)
+  (set! (-> obj actor-shadow-dist) 40) ;; lighting-shadows: default 40 m
   (set! (-> obj recharged-enhanced-models?) #f)
   ;; Grecharged-hd-models5: per-character HD LOOK defaults — 1 = HD (the jak1-look enhanced model),
   ;; i.e. the pre-carousell ENHANCED MODELS behaviour. 0 = ORIGINAL (stock jak1 mesh) for every one.

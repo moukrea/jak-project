@@ -17,6 +17,26 @@ in float v_seed;         // class-2 cards: hang-texture select (0/1) instead of 
 // ruban. Combinee a gl_FrontFacing, elle separe la face eclairee de la face opposee du MEME brin —
 // sans elle, un brin reste un aplat sous tous les angles.
 in vec2 v_fwd_xz;
+// lighting-shadows : position du brin, camera-relative en metres (voir grass.vert).
+in vec3 v_shadow_rel;
+
+// lighting-shadows (SPEC §4.8) : RECEVEUR DE L'ATLAS TUILE, meme geometrie que
+// `background_common.cpp`/`shade.glsl`, mais SANS decalage de normale — un brin n'a pas de
+// normale stable (deux faces, vent) : le decalage anti-acne est un simple offset vertical fixe.
+uniform sampler2D tex_PBR_SHADOW;
+uniform int u_pbr_shadow_on;
+uniform vec3 u_pbr_shadow_cam_delta;
+uniform mat4 u_shadow_tile_mvp[4];
+uniform int u_shadow_tiles;
+uniform vec4 u_shadow_split;
+uniform vec4 u_shadow_texel;
+uniform float u_shadow_tile_px;
+// x = poids direct de l'astre CASCADES (image lue), y = poids direct du SECOND astre (0 si sa
+// tuile 3 est eteinte). Poussés par GrassRenderer.cpp depuis `pbr_shadow_read_*_weight()`.
+uniform vec2 u_grass_shadow_w;
+// Plancher multiplicatif d'un brin en pleine ombre portee : le meme rapport que le sol applique
+// dans son propre bras ombre (`u_rt_lit_boost` par defaut 1,15 -> 1/1,15).
+uniform float u_grass_shadow_floor;
 
 // Grecharged-grass-overhang7 ROUND 11 (design pivot): zone-3 hang cards sample the game's OWN
 // hang-alpha texels — the exact texture pages the native painted strip uses (already resident).
@@ -35,6 +55,88 @@ uniform int u_pbr_debug;
 uniform float u_shade_face;
 
 out vec4 color;
+
+// lighting-shadows : une tuile de l'atlas, 4-tap PCF (l'herbe n'a pas besoin des 16 du sol — un
+// brin est deja un petit texel a l'ecran, la penombre ne se voit pas). Rend -1 hors cadre.
+float grass_tile_vis(int t, vec3 P) {
+  vec3 sworld = P + u_pbr_shadow_cam_delta + vec3(0.0, u_shadow_texel[t] * 2.0, 0.0);
+  vec4 sp = u_shadow_tile_mvp[t] * vec4(sworld, 1.0);
+  vec3 suv = sp.xyz / sp.w * 0.5 + 0.5;
+  if (suv.x < 0.002 || suv.x > 0.998 || suv.y < 0.002 || suv.y > 0.998 || suv.z >= 1.0) {
+    return -1.0;
+  }
+  float ref = suv.z - 0.0010;
+  vec2 org = vec2(float(t & 1), float(t >> 1)) * 0.5;  // origine de la tuile dans l'atlas
+  float texel_uv = 0.5 / u_shadow_tile_px;
+  vec2 lo = vec2(texel_uv);
+  vec2 hi = vec2(1.0 - texel_uv);
+  const vec2 TAPS[4] = vec2[4](vec2(-0.9, -0.3), vec2(0.3, -0.9), vec2(0.9, 0.3), vec2(-0.3, 0.9));
+  float vis = 0.0;
+  for (int i = 0; i < 4; i++) {
+    vec2 uv = clamp(suv.xy + TAPS[i] * 1.5 * texel_uv, lo, hi);
+    vis += ref <= texture(tex_PBR_SHADOW, org + uv * 0.5).r ? 1.0 : 0.0;
+  }
+  return vis * 0.25;
+}
+
+// Visibilite de l'astre qui porte les cascades, cote LECTURE — meme choix de cascade que
+// `rt_key_vis` (shade.glsl), sans le N.L (l'offset est deja fixe dans `grass_tile_vis`).
+float grass_key_vis(vec3 P) {
+  float d = length(P);
+  int n = int(u_shadow_split.w);
+  for (int c = 0; c < 3; c++) {
+    if (c >= n) {
+      break;
+    }
+    float s = u_shadow_split[c];
+    if (d < s) {
+      float v = grass_tile_vis(c, P);
+      if (v < 0.0) {
+        return 1.0;
+      }
+      if (c + 1 < n && d > 0.9 * s) {
+        float v2 = grass_tile_vis(c + 1, P);
+        if (v2 >= 0.0) {
+          v = mix(v, v2, (d - 0.9 * s) / (0.1 * s));
+        }
+      }
+      if (c + 1 == n) {
+        v = mix(1.0, v, 1.0 - smoothstep(s * 0.72, s * 0.96, d));
+      }
+      return v;
+    }
+  }
+  return 1.0;
+}
+
+// Visibilite du SECOND astre (tuile 3, pas de cascade, juste un bord qui fond).
+float grass_sec_vis(vec3 P) {
+  if ((u_shadow_tiles & 8) == 0) {
+    return 1.0;
+  }
+  int n = int(u_shadow_split.w);
+  float s = u_shadow_split[n > 0 ? n - 1 : 2];
+  float d = length(P);
+  float v = grass_tile_vis(3, P);
+  if (v < 0.0) {
+    return 1.0;
+  }
+  return mix(1.0, v, 1.0 - smoothstep(s * 0.72, s * 0.96, d));
+}
+
+// Facteur multiplicatif applique au brin : 1,0 exactement si l'atlas est eteint (bit pres, herbe
+// hors regime recharge inchangee) ; sinon melange du plancher `u_grass_shadow_floor` par astre,
+// pondere par le poids direct de CET astre (SPEC §4.8 : deux astres, deux ombres, jamais fondues).
+float grass_shadow_factor() {
+  if (u_pbr_shadow_on == 0) {
+    return 1.0;
+  }
+  float key_vis = grass_key_vis(v_shadow_rel);
+  float sec_vis = grass_sec_vis(v_shadow_rel);
+  float g = mix(1.0, u_grass_shadow_floor, u_grass_shadow_w.x * (1.0 - key_vis));
+  g *= mix(1.0, u_grass_shadow_floor, u_grass_shadow_w.y * (1.0 - sec_vis));
+  return g;
+}
 
 void main() {
   float a = v_alpha;
@@ -57,7 +159,7 @@ void main() {
       discard;
     }
     // v_color = the ground's dynamic baked light (*2 factor), matching the native strip's own draw.
-    color = vec4(tx.rgb * v_color, a);
+    color = vec4(tx.rgb * v_color * grass_shadow_factor(), a);
   } else {
     if (v_is_card == 1) {
       // Cut the card quad into a few vertical sub-blades so it reads as a tuft.
@@ -100,7 +202,7 @@ void main() {
       gs_face_mul = mix(1.0, gs_face_mul, clamp(u_shade_face, 0.0, 1.0));
       gs_shaded = clamp(gs_shaded * gs_face_mul, vec3(0.0), vec3(1.5));
     }
-    color = vec4(gs_shaded, a);
+    color = vec4(gs_shaded * grass_shadow_factor(), a);
   }
 
   // ===== ROUND 23 COVERAGE TAG (see tfrag3.frag / hfrag.frag for the rationale) =====

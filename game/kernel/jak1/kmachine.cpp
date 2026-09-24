@@ -2427,6 +2427,36 @@ void pc_set_ambient_occlusion(u32 mode, u32 quality, u32 strength) {
   autoport_proof::publish("ao_push_altered_frames", s_ao_push_altered);
 }
 
+// lighting-shadows (SPEC-refonte-lumiere §1.2 decision 2) : push le reglage « Ombres d'acteurs »
+// depuis GOAL (-> *pc-settings* actor-shadows / actor-shadow-dist), a chaque image comme l'AO.
+// mode: 0 vraies / 1 aplat PS2 / 2 aucune. dist_m: 20/40/80/150 (carrousel), stocke tel quel — la
+// borne [10,200] est appliquee a la lecture (Gfx::recharged_actor_shadow_dist_m()), pas ici, pour
+// que `desired()` reste la valeur EXACTE que le menu doit reafficher.
+void pc_set_actor_shadows(u32 mode, u32 dist_m) {
+  int m = (int)mode;
+  if (m < 0 || m > 2) {
+    m = 1;
+  }
+  int d = (int)dist_m;
+  if (d < 10 || d > 200) {
+    d = 40;
+  }
+  if ((double)m != recharged_gating::desired(recharged_gating::kActorShadows) ||
+      (double)d != recharged_gating::desired(recharged_gating::kActorShadowDist)) {
+    lg::info("[recharged-shadows] actor-shadows -> {} dist -> {} m", m, d);
+  }
+  recharged_gating::set(recharged_gating::kActorShadows, m);
+  recharged_gating::set(recharged_gating::kActorShadowDist, d);
+}
+
+// lighting-shadows §4.1 : le SEUL point que GOAL consulte pour sauter la famille shadow-*. Passe
+// par `Gfx::recharged_actor_shadow_mode()`, donc par la MEME composition (master > eclairage) que
+// le C++ : hors eclairage recharge la fonction rend toujours 1 (aplat, jamais 2), donc cette porte
+// reste fermee et le chemin d'origine est intact sur les deux binaires temoins.
+u32 pc_actor_shadows_none() {
+  return Gfx::recharged_actor_shadow_mode() == 2 ? 1 : 0;
+}
+
 // Grecharged-foliage-wind: push the light-wind sway toggle from GOAL (pc-set-foliage-wind!).
 // 0 = off => byte-identical stock render (no palm/shrub displacement). Logs on CHANGE only
 // (update-to-os pushes this every frame), so a device log proves the GOAL->C++ link.
@@ -4994,6 +5024,9 @@ void InitMachine_PCPort() {
   // pre-subdivision, qui n'etait atteignable que sous le mode TESSELLATION jamais livre.
   // Grecharged-ambient-occlusion: AO algorithm (off/SSAO/HBAO/GTAO) + quality selector
   make_function_symbol_from_c("pc-set-ambient-occlusion!", (void*)pc_set_ambient_occlusion);
+  // lighting-shadows: actor shadow mode (real/PS2 blob/none) + distance
+  make_function_symbol_from_c("pc-set-actor-shadows!", (void*)pc_set_actor_shadows);
+  make_function_symbol_from_c("pc-actor-shadows-none?", (void*)pc_actor_shadows_none);
 #ifdef OG_FEAT_HD_MODELS
   // Grecharged-hd-models: enhanced (jak2 HD) character-models toggle + availability query
   make_function_symbol_from_c("pc-set-recharged-enhanced-models!", (void*)pc_set_recharged_enhanced_models);

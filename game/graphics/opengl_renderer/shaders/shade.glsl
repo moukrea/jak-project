@@ -46,7 +46,17 @@
 // Round-4 mandate B: classic sun SHADOW MAPPING. u_pbr_shadow_mvp maps camera-relative
 // meters (== v_fringe_rel) to the light's clip space; tex_PBR_SHADOW is the depth-only sun
 // map on unit 9, sampled as a HW-PCF compare sampler (LEQUAL). u_pbr_shadow_on gates it.
-uniform mat4 u_pbr_shadow_mvp;
+// lighting-shadows (SPEC §4.8) : ATLAS D'OMBRE TUILE. Remplace l'unique `u_pbr_shadow_mvp` par
+// 4 matrices de tuile — les cascades de l'astre DOMINANT (0..cascades-1) et la tuile 3 pour le
+// SECOND astre. Deux astres, deux ombres, aucun fondu ni attribution.
+uniform mat4 u_shadow_tile_mvp[4];
+uniform int u_shadow_tiles;    // bit t = tuile t active cette image (cote LECTURE)
+uniform vec4 u_shadow_split;   // demi-etendues des cascades 0..2 (m), w = nombre de cascades
+uniform vec4 u_shadow_texel;   // metres par texel, par tuile
+uniform float u_shadow_tile_px;
+uniform int u_shadow_key;      // 0 : le soleil porte les cascades, 1 : la lune verte
+uniform int u_shadow_proof;
+uniform sampler2D tex_SHADOW_ACTOR;
 uniform int u_pbr_shadow_on;
 // Round-5 suspect (d): the read-side map is anchored to the camera position of the frame
 // that WROTE it (camera-relative space), but v_fringe_rel uses the CURRENT camera —
@@ -105,14 +115,10 @@ uniform vec3 u_rt_sh[9];
 // vanishes here, leaving ONLY the ~0.2 sky-fill floor. Set identically for all four world
 // shaders (they share first_tfrag_draw_setup), so no path stays lit at night.
 uniform float u_rt_sun_elev;
-// Item 1 (owner playtest #3): which sun the single shadow map was rendered from this frame —
-// 0 = yellow sun (day), 1 = green sun (night, when the yellow is below the horizon). The cast-
-// shadow occlusion is applied to the MATCHING directional term so the green sun casts shadows too.
-uniform int u_rt_shadow_light;
-// OWNER PLAYTEST #4: shadow-handoff confidence [0..1]. 1 => one sun clearly dominates (full cast
-// shadow); ->0 near the yellow<->green elevation crossover / both-suns overlap (fade the shadow out
-// so the single-map ownership flip is stepless). Fades ONLY the direct-sun cast shadow (golden rule).
-uniform float u_rt_shadow_conf;
+// lighting-shadows (SPEC §4.8/§3.4) : `u_rt_shadow_light`/`u_rt_shadow_conf` (attribution +
+// fondu de confiance de l'ancienne carte UNIQUE) SONT RETIRES. L'atlas tuile porte les deux
+// astres SIMULTANEMENT (une tuile chacun) : il n'y a plus rien a attribuer ni a fondre —
+// `u_shadow_key` (ci-dessus) dit seulement laquelle des DEUX porte les cascades.
 // ROUND 5: 16-tap Poisson disk for a wide-penumbra SOFT PCF (replaces the round-4 3x3
 // grid — a regular grid aliases against the shadow-map texel lattice => the staircase the
 // owner still saw; a Poisson disk does not). Rotated per fragment (see the PCF loop).
@@ -189,6 +195,81 @@ struct Surface {
   float shadow_ndl;   // le N.L qui module cet offset
 };
 
+// lighting-shadows (SPEC §4.8) : L'ATLAS TUILE, ECHANTILLONNE PAR TUILE.
+// `rt_tile_vis` teste UNE tuile de l'atlas (16-tap Poisson, identique au round-5 par tuile) ;
+// rend -1.0 si le fragment tombe hors de son cadre. `rt_key_vis` choisit la cascade de l'astre
+// DOMINANT et fond en douceur cascade->cascade et cascade->bord ; `rt_sec_vis` fait la meme
+// chose pour la tuile UNIQUE du second astre (pas de cascade, juste un bord qui fond).
+float rt_tile_vis(int t, vec3 P_rel, vec3 sN, float sndl, float dist) {
+  float noff = u_shadow_texel[t] * (u_rt_light_on != 0 ? mix(1.5, 5.0, 1.0 - sndl)
+                                                       : mix(0.75, 2.0, 1.0 - sndl));
+  vec3 sworld = P_rel + u_pbr_shadow_cam_delta + sN * noff;
+  vec4 sp = u_shadow_tile_mvp[t] * vec4(sworld, 1.0);
+  vec3 suv = sp.xyz / sp.w * 0.5 + 0.5;
+  if (suv.x < 0.002 || suv.x > 0.998 || suv.y < 0.002 || suv.y > 0.998 || suv.z >= 1.0) {
+    return -1.0;
+  }
+  float bias = (u_rt_light_on != 0 ? 0.0010 : 0.0012) + u_pbr_shadow_bias;
+  float ref = suv.z - bias;
+  float pen = max(1.5 * u_shadow_texel[t], 0.02 + 0.015 * dist);  // penombre, en METRES
+  float rr = min(pen / (u_shadow_texel[t] * u_shadow_tile_px), 24.0 / u_shadow_tile_px);
+  vec2 org = vec2(float(t & 1), float(t >> 1)) * 0.5;  // origine de la tuile dans l'atlas (uv)
+  float hang = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) * 6.2831853;
+  vec2 hc = vec2(cos(hang), sin(hang));
+  mat2 hrot = mat2(hc.x, -hc.y, hc.y, hc.x);
+  float vis = 0.0;
+  vec2 lo = vec2(0.5 / u_shadow_tile_px);
+  vec2 hi = vec2(1.0 - 0.5 / u_shadow_tile_px);
+  for (int i = 0; i < 16; i++) {
+    vec2 o = hrot * (RT_POISSON16[i] * rr);
+    vec2 uv = clamp(suv.xy + o, lo, hi);
+    vis += ref <= texture(tex_PBR_SHADOW, org + uv * 0.5).r ? 1.0 : 0.0;
+  }
+  return vis * (1.0 / 16.0);
+}
+
+float rt_key_vis(vec3 P_rel, vec3 sN, float sndl) {
+  float d = length(P_rel);
+  int n = int(u_shadow_split.w);
+  for (int c = 0; c < 3; c++) {
+    if (c >= n) {
+      break;
+    }
+    float s = u_shadow_split[c];
+    if (d < s) {
+      float v = rt_tile_vis(c, P_rel, sN, sndl, d);
+      if (v < 0.0) {
+        return 1.0;
+      }
+      if (c + 1 < n && d > 0.9 * s) {
+        float v2 = rt_tile_vis(c + 1, P_rel, sN, sndl, d);
+        if (v2 >= 0.0) {
+          v = mix(v, v2, (d - 0.9 * s) / (0.1 * s));
+        }
+      }
+      if (c + 1 == n) {
+        v = mix(1.0, v, 1.0 - smoothstep(s * 0.72, s * 0.96, d));
+      }
+      return v;
+    }
+  }
+  return 1.0;
+}
+
+float rt_sec_vis(vec3 P_rel, vec3 sN, float sndl) {
+  if ((u_shadow_tiles & 8) == 0) {
+    return 1.0;
+  }
+  int n = int(u_shadow_split.w);
+  float s = u_shadow_split[n > 0 ? n - 1 : 2];
+  float d = length(P_rel);
+  float v = rt_tile_vis(3, P_rel, sN, sndl, d);
+  if (v < 0.0) {
+    return 1.0;
+  }
+  return mix(1.0, v, 1.0 - smoothstep(s * 0.72, s * 0.96, d));
+}
+
 // Rend la couleur ombree. Le brouillard, l'alpha et le discard restent a l'hote : ce n'est pas
 // de l'eclairage.
 // Le corps de l'ombrage. `sao` est l'AO d'ecran de ce fragment (1 = rien d'occulte) ; c'est le
@@ -200,84 +281,8 @@ vec4 shade_body(in Surface s, float sao) {
   bool ao_applied = false;
   vec3 N = s.N;
 
-    // Round-4 mandate B / ROUND-2 rewrite: sun shadow-map factor, a real PER-FRAGMENT
-    // world-position depth compare — the receiver projects ITS OWN s.P_rel (camera-
-    // relative meters, height included) into the light's clip space and tests depth, so the
-    // shadow DRAPES over whatever surface it lands on (owner round-2 defect #1: it must
-    // follow ground relief, not sit like a flat decal). The heavy lifting for acne is done
-    // by a WORLD-SPACE NORMAL OFFSET (push the sample toward the light hemisphere a couple
-    // of texels) instead of the old ~0.025 suv.z depth bias — that bias was ~5 m of depth
-    // slack, which peter-panned the contact AND flattened the shadow's response to bumps.
-    // Range/res come from the Shadow Distance / Shadow Quality settings.
-    float sm_shadow = 1.0;
-    if (u_pbr_shadow_on != 0) {
-      // lighting-legacy-purge : DISTANCE DES OMBRES figee (ex-reglage, item lighting-shadows)
-      float rng = 150.0;
-      // lighting-legacy-purge : RESOLUTION DES OMBRES figee (ex-reglage, item lighting-shadows)
-      float res = 2048.0;
-      float texel = 1.0 / res;
-      float texel_world = (2.0 * rng) / res;  // world meters per shadow texel
-      // La normale et le N.L qui pilotent l'OFFSET de la carte d'ombre viennent de Surface :
-      // ils DIFFERENT par hote et ce n'est pas une decision d'ombrage, c'est de la geometrie.
-      // tfrag3 pousse la normale de FACE (derivees de P_rel) et son N.L avec le soleil ;
-      // TIE/TIE_WIND/shrub poussent leur normale d'OMBRAGE et `dot(N, u_rt_sun_dir)`. Les deux
-      // formes existaient deja, chacune dans son fichier ; les fusionner en une seule aurait
-      // deplace les ombres de TIE et des arbustes. La forme est UNE, les entrees sont DEUX.
-      // Per-face WORLD normal for the normal-offset bias (camera-independent: s.P_rel
-      // is camera-TRANSLATED, not rotated). Double-sided for level tris.
-      // NORMAL OFFSET in world meters, scaled by texel size (so it stays ~constant in
-      // texels across every Shadow Quality / Distance combo) and by grazing angle. The
-      // sun-only (no-ambient) path needs a bit more (acne is unmasked without baked
-      // indirect); the pbr-materials path keeps a lighter offset.
-      float noff = texel_world * (u_rt_light_on != 0 ? mix(1.5, 5.0, 1.0 - s.shadow_ndl)
-                                                     : mix(0.75, 2.0, 1.0 - s.shadow_ndl));
-      vec3 sworld = s.P_rel + u_pbr_shadow_cam_delta + s.shadow_N * noff;
-      vec4 sp = u_pbr_shadow_mvp * vec4(sworld, 1.0);
-      vec3 suv = sp.xyz / sp.w * 0.5 + 0.5;
-      if (suv.x > 0.002 && suv.x < 0.998 && suv.y > 0.002 && suv.y < 0.998 && suv.z < 1.0) {
-        // Tiny residual constant depth bias; the normal offset does the acne work, so this
-        // stays small and the shadow stays in CONTACT at the caster base (no peter-panning).
-        // u_pbr_shadow_bias: debug override (prop ...pbr.shadowbias); +0.5 forces every
-        // in-box fragment SHADOWED — the binary compare-path test.
-        float bias = (u_rt_light_on != 0 ? 0.0010 : 0.0012) + u_pbr_shadow_bias;
-        float ref = suv.z - bias;
-        // ROUND-4 item #3 ANTI-PIXELATION (owner: a shadow must NEVER look pixelated
-        // anywhere in the FOV, ever). Distance-adaptive PCF: the kernel RADIUS grows with
-        // the fragment's camera distance, so a far caster's shadow (few shadow-texels per
-        // screen pixel = blocky) is smoothed into a soft gradient, while near casters stay
-        // crisp (small radius => the Shadow Quality resolution still reads as edge sharpness).
-        // The 9-tap grid is ROTATED by a per-fragment hash so no blocky grid pattern survives
-        // even at Very Low (512) where each texel is large. Manual compare (Adreno HW-compare
-        // returns constant 1.0 — proven this phase).
-        // ROUND-5 (owner: the round-4 3x3-grid blur FAILED — distant cast shadows were
-        // STILL staircased). A real wide-penumbra soft shadow: a 16-tap POISSON disk
-        // (a regular grid aliases against the shadow-texel lattice => staircase; a Poisson
-        // disk does not), ROTATED per fragment, with a penumbra RADIUS that grows STRONGLY
-        // with camera distance so a far caster's shadow becomes a wide soft gradient (never
-        // blocky) while a near caster stays crisp (small radius => the Shadow Quality
-        // resolution still reads as edge sharpness). Owner: "more blur is GOOD" — a distant
-        // occluder has a wide penumbra. Absolute: no staircase anywhere in the FOV, ever.
-        float sdist = length(s.P_rel);
-        float soft = 1.5 + 18.0 * smoothstep(0.0, rng, sdist);   // penumbra radius in texels
-        float rr = texel * soft;
-        float hang = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) * 6.2831853;
-        vec2 hc = vec2(cos(hang), sin(hang));
-        mat2 hrot = mat2(hc.x, -hc.y, hc.y, hc.x);
-        sm_shadow = 0.0;
-        for (int i = 0; i < 16; i++) {
-          vec2 o = hrot * (RT_POISSON16[i] * rr);
-          sm_shadow += ref <= texture(tex_PBR_SHADOW, suv.xy + o).r ? 1.0 : 0.0;
-        }
-        sm_shadow *= (1.0 / 16.0);
-        // ROUND-2 no-pop fade (owner defect #2): fade the CAST shadow smoothly to 'lit'
-        // toward the realtime-zone edge, tied to the Shadow Distance setting (rng), instead
-        // of the old hard 30..39 m band. (Round-4: just past the edge the whole surface then
-        // crossfades to the stock BAKED lighting — see the sun block below — so there is no
-        // hard cut and no flat/unshaded far; the shadow simply softens out first.)
-        float edge_fade = 1.0 - smoothstep(rng * 0.72, rng * 0.96, length(s.P_rel));
-        sm_shadow = mix(1.0, sm_shadow, edge_fade);
-      }
-    }
+    // lighting-shadows (SPEC §4.8) : le facteur d'ombre portee vient desormais de
+    // `rt_key_vis`/`rt_sec_vis` (definis plus haut, atlas tuile), pas d'un calcul inline ici.
     // ===================================================================
     // Grecharged-realtime-lighting (2026-07-19 REWRITE): SUN-ONLY path.
     // When ON this REPLACES every round-1..5 branch below. ONE light = the
@@ -290,27 +295,20 @@ vec4 shade_body(in Surface s, float sao) {
       // visible sun sprite (sky-sun dome dir when above the horizon).
       vec3 L = normalize(u_rt_sun_dir);
       float ndl = max(dot(N, L), 0.0);           // opposite side -> 0 = dark
-      // Stage 2: cast-shadow occlusion from the sun depth map (1.0 = lit, 0.0 = fully
-      // occluded; 1.0 when the map is off). occ is the RAW occlusion — the ~0.2 residual is
-      // NOT applied here anymore; it is folded into the uniform floor below (round-5 corr).
-      float occ = u_pbr_shadow_on != 0 ? sm_shadow : 1.0;
-      occ = mix(1.0, occ, u_rt_shadow_conf);  // playtest #4: fade shadow at the yellow<->green handoff (stepless)
-      // ROUND-5 CORRECTION (owner, correct physics 2026-07-19): the residual ~0.2 is a
-      // UNIFORM SKY-FILL FLOOR, not a cast-shadow-only term. A face turned AWAY from the
-      // sun is lit only by skylight EXACTLY like a cast shadow, so BOTH keep ~0.2 —
-      // nothing is pure black anywhere. floor = 0.2 (lighting-legacy-purge : la litterale
-      // livree de 1 - Shadow Strength, l'ancien reglage a disparu).
-      // The sun adds on top, gated by BOTH N.L and the cast-shadow occlusion:
-      //   final = floor + (1 - floor) * sun_color * max(N.L,0) * occ
-      // => away-from-sun faces AND cast shadows sit at the SAME floor level (measure both).
-      // ROUND-7 NIGHT FADE: multiply the direct-sun gate by the real sun-elevation fade so the
-      // sun (and any mood tint carried in u_rt_sun_color) goes to EXACTLY 0 at night. Identical
-      // in all four world shaders => no geometry stays lit at night.
-      // Item 1: the single shadow map is driven by whichever sun is the key this frame
-      // (u_rt_shadow_light: 0 = yellow by day, 1 = green at night). Apply the occlusion ONLY to
-      // that light's own term; the other light stays unshadowed (its map isn't the one drawn).
-      float sun_occ  = (u_rt_shadow_light == 1) ? 1.0 : occ;   // yellow-sun cast shadow (or 1 at night)
-      float moon_occ = (u_rt_shadow_light == 1) ? occ : 1.0;   // green-sun cast shadow (night)
+      // lighting-shadows (SPEC §4.8) : DEUX astres, DEUX ombres, aucune attribution ni fondu.
+      // `key` = l'astre qui porte les cascades (`u_shadow_key`) ; `sec` = l'autre, sur la
+      // tuile 3 s'il en a une. Chacun garde SA propre occlusion, jamais fondue dans l'autre.
+      float key = 1.0, sec = 1.0;
+      if (u_pbr_shadow_on != 0) {
+        float key_ndl = (u_shadow_key == 0) ? s.shadow_ndl
+                                            : clamp(dot(s.shadow_N, normalize(u_rt_moon_dir)), 0.0, 1.0);
+        float sec_ndl = (u_shadow_key == 0) ? clamp(dot(s.shadow_N, normalize(u_rt_moon_dir)), 0.0, 1.0)
+                                            : s.shadow_ndl;
+        key = rt_key_vis(s.P_rel, s.shadow_N, key_ndl);
+        sec = rt_sec_vis(s.P_rel, s.shadow_N, sec_ndl);
+      }
+      float sun_occ  = (u_shadow_key == 0) ? key : sec;
+      float moon_occ = (u_shadow_key == 0) ? sec : key;
       // ===================================================================================
       // BAKED-MODULATION — preserve the authored lighting as the non-PBR base.
       // The baked (s.baked * s.tex0, already sitting in `color`) already contains shading
@@ -440,6 +438,59 @@ vec4 shade(in Surface s) {
     sao = clamp(texture(tex_screen_ao, gl_FragCoord.xy * u_screen_ao_inv_size).r, 0.0, 1.0);
   }
   vec4 c = shade_body(s, sao);
+  // lighting-shadows (A7) : sonde de preuve — l'image de PREUVE (`u_shadow_proof`) sort un
+  // drapeau au lieu de la couleur : magenta si CE fragment tombe dans une cascade ET que
+  // l'atlas ACTEUR (rempli par les merc a la preparation) l'occulte alors que l'atlas complet
+  // dit aussi "ombre" ; vert sinon. `pbr_shadow_proof_before_bucket`/`post_opaque` (C++)
+  // isolent ensuite les pixels de SOL touches par cette couleur.
+  if (u_shadow_proof != 0) {
+    if (u_pbr_shadow_on == 0) {
+      return vec4(0.0, 1.0, 0.0, s.base.a);
+    }
+    float d = length(s.P_rel);
+    int n = int(u_shadow_split.w);
+    int cc = -1;
+    for (int c2 = 0; c2 < 3; c2++) {
+      if (c2 < n && d < u_shadow_split[c2]) {
+        cc = c2;
+        break;
+      }
+    }
+    bool hit = false, actor_occ = false, full_occ = false;
+    if (cc >= 0) {
+      float noff = u_shadow_texel[cc] * (u_rt_light_on != 0 ? mix(1.5, 5.0, 1.0 - s.shadow_ndl)
+                                                            : mix(0.75, 2.0, 1.0 - s.shadow_ndl));
+      vec3 sworld = s.P_rel + u_pbr_shadow_cam_delta + s.shadow_N * noff;
+      vec4 sp = u_shadow_tile_mvp[cc] * vec4(sworld, 1.0);
+      vec3 suv = sp.xyz / sp.w * 0.5 + 0.5;
+      if (suv.x >= 0.0 && suv.x <= 1.0 && suv.y >= 0.0 && suv.y <= 1.0 && suv.z < 1.0) {
+        float bias = (u_rt_light_on != 0 ? 0.0010 : 0.0012) + u_pbr_shadow_bias;
+        float ref = suv.z - bias;
+        vec2 org = vec2(float(cc & 1), float(cc >> 1)) * 0.5;
+        float actor = texture(tex_SHADOW_ACTOR, org + clamp(suv.xy, 0.0, 1.0) * 0.5).r;
+        float key_vis = rt_key_vis(s.P_rel, s.shadow_N, s.shadow_ndl);
+        // « Ombre par un acteur » = l'acteur est le PREMIER occulteur vers l'astre : sa profondeur
+        // est celle de l'atlas complet au meme texel. Un acteur lui-meme a l'ombre du decor ne
+        // compte pas (son ombre ne se voit pas).
+        float full_c = texture(tex_PBR_SHADOW, org + clamp(suv.xy, 0.0, 1.0) * 0.5).r;
+        actor_occ = (u_shadow_proof == 2) ? (actor < 0.999)
+                                          : (ref > actor && abs(full_c - actor) < 2e-4);
+        full_occ = key_vis < 0.5;
+        hit = actor_occ && full_occ;
+      }
+    }
+    // Quatre etats, pour que la sonde separe ses deux conditions : magenta = ombre d'acteur
+    // (les deux), bleu = ombre du decor seulement, cyan = l'atlas acteur occulte mais pas l'atlas
+    // complet (desaccord), vert = eclaire.
+    if (!hit && full_occ) {
+      return vec4(0.0, 0.0, 1.0, s.base.a);
+    }
+    if (!hit && actor_occ) {
+      return vec4(0.0, 1.0, 1.0, s.base.a);
+    }
+    // L'alpha d'origine est garde : le test d'alpha de l'hote doit trancher comme d'habitude.
+    return hit ? vec4(1.0, 0.0, 1.0, s.base.a) : vec4(0.0, 1.0, 0.0, s.base.a);
+  }
 #ifdef OG_HUT_COLOR
   if (u_hut_capture != 0) {
     vec4 without_ao = shade_body(s, 1.0);

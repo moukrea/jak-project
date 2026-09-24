@@ -111,6 +111,13 @@ const Row kOptions[kOptCount] = {
     {"ao-mode", kLighting, Kind::kMode, NOB, &GS::recharged_ao_mode, NOF, 0, true},
     {"ao-quality", kAoMode, Kind::kParamI, NOB, &GS::recharged_ao_quality, NOF, 1, true},
     {"ao-strength", kAoMode, Kind::kParamI, NOB, &GS::recharged_ao_strength, NOF, 1, true},
+    // lighting-shadows : `actor-shadows` est un Kind::kMode (0/1/2, STOCK = 1 aplat, cf.
+    // `Gfx::recharged_actor_shadow_mode()` qui rend 1 hors eclairage) — pas un kToggle, parce que
+    // « eteint » n'est pas absent mais « comme l'origine ». `actor-shadow-dist` est son
+    // sous-parametre continu, herite comme `ao-quality`.
+    {"actor-shadows", kLighting, Kind::kMode, NOB, &GS::recharged_actor_shadows, NOF, 1, true},
+    {"actor-shadow-dist", kActorShadows, Kind::kParamI, NOB, &GS::recharged_actor_shadow_dist, NOF,
+     40, true},
     {"rt-light", kLighting, Kind::kToggle, PB(recharged_rt_light_enable), NOI, NOF, 0, false},
     {"hdr", kLighting, Kind::kToggle, &GS::recharged_hdr, NOI, NOF, 0, false},
     {"hdr-knee", kHdr, Kind::kParamF, NOB, NOI, &GS::recharged_hdr_knee, 0.96, false},

@@ -3074,6 +3074,32 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
     }
   }
 
+  // lighting-shadows (partie B, SPEC .autoport/prompts/SPEC-refonte-lumiere.md §4.8/§4.13) :
+  // capture de l'ancre 'eichar' (Jak) en espace VUE merc (avant tout recalage monde — c'est
+  // exactement ce que `pbr_shadow_merc_mvp`/`pbr_shadow_view_to_world` consomment). Independant
+  // du toggle herbe : gate sur la feature elle-meme, pour ne rien couter hors mesure.
+  if (autoport_proof::feature_is("lighting-shadows") && i > 0 && std::strstr(name, "eichar")) {
+    int anchor_root_slot = input_data[0];
+    if (anchor_root_slot < MAX_SKEL_BONES) {
+      const float* t = reinterpret_cast<const float*>(&skel_matrix_buffer[anchor_root_slot]);
+      m_shadow_anchor_view[0] = t[12];
+      m_shadow_anchor_view[1] = t[13];
+      m_shadow_anchor_view[2] = t[14];
+      m_shadow_anchor_frame = render_state->frame_idx;
+      m_shadow_anchor_valid = true;
+    }
+  }
+
+  // lighting-shadows : distance camera de l'os RACINE du modele (le meme os que l'ancre ci-dessus,
+  // qui retrouve Jak a ~30 cm), pour le filtre de distance des projecteurs merc. L'os 0 du tampon
+  // de draw (`first_bone`) n'est PAS la racine : a Sandover il rendait > 40 m pour TOUS les acteurs
+  // (`shadow_merc_tot_far`), et aucun n'entrait dans l'atlas.
+  float shadow_root_dist_m = 1e9f;
+  if (input_data[0] < MAX_SKEL_BONES) {
+    const float* t = reinterpret_cast<const float*>(&skel_matrix_buffer[input_data[0]]);
+    shadow_root_dist_m = std::sqrt(t[12] * t[12] + t[13] * t[13] + t[14] * t[14]) / 4096.f;
+  }
+
   // === Ghd-skin-origin-stretch (cycle 4) — SONDE AU POINT DE CONSOMMATION GPU ==========
   // Owner 2026-09-02 : « Le modèle HD qui s'étire c'est pas corrigé du tout. » La preuve du
   // cycle 3 etait prise dans le SQUELETTE GOAL, sur x86. Ici on lit ce que le GPU va REELLEMENT
@@ -4021,6 +4047,7 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
 
   // allocate bones in shared bone buffer to be sent to GPU at flush-time
   u32 first_bone = alloc_bones(bone_count, skel_matrix_buffer);
+  m_shadow_root_dist.emplace_back(first_bone, shadow_root_dist_m);
 
   // allocate lights
   if (current_lights.w1) {
@@ -5156,6 +5183,14 @@ void Merc2::flush_draw_buckets(SharedRenderState* render_state,
                m_emerc_uniforms, edraws_prof, true, render_state, bones_base);
     }
 
+    // lighting-shadows (partie B) : les acteurs merc de ce seau entrent dans l'atlas d'ombres,
+    // APRES leurs draws normaux (memes buffers/UBO encore lies) et AVANT le fanion des draws
+    // natifs differes ci-dessous (qui ne concerne que le logo de titre).
+    {
+      auto shadow_prof = prof.make_scoped_child("cast-shadows");
+      cast_shadows(lev_bucket, lev, render_state, bones_base);
+    }
+
     // Grecharged-title-logo-fullres: this bucket's native-overlay draws are deliberately NOT
     // drawn here — keeping them out of the render-scaled scene FBO is the whole point. Snapshot
     // everything the replay needs that this flush is about to recycle (the bone window is
@@ -5196,8 +5231,299 @@ void Merc2::flush_draw_buckets(SharedRenderState* render_state,
 
   m_next_free_light = 0;
   m_next_free_bone_vector = 0;
+  m_shadow_root_dist.clear();
   m_next_free_level_bucket = 0;
   m_next_mod_vtx_buffer = 0;
+}
+
+// lighting-shadows (partie B, SPEC .autoport/prompts/SPEC-refonte-lumiere.md §4.8/§4.13) : seuls
+// les seaux MONDE jak1 ont le droit de projeter une ombre. `draw-bones-hud` (icones 3D du HUD)
+// calcule ses os en IDENTITE (deja en espace ecran, pas en espace vue camera) : autoriser ce
+// seau projetterait des ombres fantomes plaquees devant la camera.
+bool Merc2::shadow_cast_allowed_bucket() const {
+  using jak1::BucketId;
+  switch ((BucketId)m_current_bucket_id) {
+    case BucketId::MERC_TFRAG_TEX_LEVEL0:
+    case BucketId::MERC_TFRAG_TEX_LEVEL1:
+    case BucketId::MERC_AFTER_ALPHA:
+    case BucketId::MERC_PRIS_LEVEL0:
+    case BucketId::MERC_PRIS_LEVEL1:
+    case BucketId::MERC_EYES_AFTER_PRIS:
+    case BucketId::MERC_AFTER_PRIS:
+    case BucketId::MERC_WATER_LEVEL0:
+    case BucketId::MERC_WATER_LEVEL1:
+      return true;
+    default:
+      return false;
+  }
+}
+
+// lighting-shadows (partie B) : projette les draws OPAQUES de ce seau merc dans l'atlas d'ombres
+// (une passe par tuile), en rejouant EXACTEMENT le chemin geometrie/os de do_draws (VAO/MOD_VTX,
+// plage d'os), avec le shader MERC_SHADOW (profondeur seule, cree par A). Rien n'est fait si le
+// seau n'est pas un seau MONDE jak1 ou si les acteurs ne projettent pas cette image.
+void Merc2::cast_shadows(const LevelDrawBucket& lev_bucket,
+                         const LevelData* lev,
+                         SharedRenderState* render_state,
+                         u32 bones_base) {
+  // Pourquoi un appel ne tire pas : un compteur PAR raison, publie sous mesure. Un zero de
+  // `shadow_cast_idx_merc` doit dire s'il vient du bucket, de la porte, d'une liste vide ou du
+  // programme — pas se lire comme « aucun acteur a l'ecran ».
+  static u64 s_calls = 0, s_no_bucket = 0, s_no_gate = 0, s_no_draws = 0, s_no_loc = 0;
+  static u64 s_kept_empty = 0, s_tot_alpha = 0, s_tot_far = 0, s_tot_oob = 0, s_tot_kept = 0;
+  static float s_min_dist_m = 1e9f;  // plus petite distance camera d'un draw opaque, depuis la derniere publication
+  static u64 s_diag_frame = UINT64_MAX;
+  s_calls++;
+  if (autoport_proof::feature_is("lighting-shadows") && render_state->frame_idx % 60 == 0 &&
+      s_diag_frame != render_state->frame_idx) {
+    s_diag_frame = render_state->frame_idx;
+    autoport_proof::publish("shadow_merc_calls", s_calls);
+    autoport_proof::publish("shadow_merc_out_bucket", s_no_bucket);
+    autoport_proof::publish("shadow_merc_out_gate", s_no_gate);
+    autoport_proof::publish("shadow_merc_out_empty", s_no_draws);
+    autoport_proof::publish("shadow_merc_out_noloc", s_no_loc);
+    autoport_proof::publish("shadow_merc_out_kept_empty", s_kept_empty);
+    autoport_proof::publish("shadow_merc_tot_alpha", s_tot_alpha);
+    autoport_proof::publish("shadow_merc_tot_far", s_tot_far);
+    autoport_proof::publish("shadow_merc_tot_bone_oob", s_tot_oob);
+    autoport_proof::publish("shadow_merc_tot_kept", s_tot_kept);
+    autoport_proof::publish("shadow_merc_min_dist_dm",
+                            s_min_dist_m < 1e8f ? (u64)(s_min_dist_m * 10.f) : 999999);
+    s_min_dist_m = 1e9f;
+  }
+  if (render_state->version != GameVersion::Jak1) {
+    return;
+  }
+  if (!shadow_cast_allowed_bucket()) {
+    s_no_bucket++;
+    return;
+  }
+  const bool casting = pbr_shadow_merc_cast_enabled(render_state->frame_idx);
+  const bool prepping = pbr_shadow_actor_prep_frame(render_state->frame_idx);
+  if (!casting && !prepping) {
+    s_no_gate++;
+    return;
+  }
+  if (lev_bucket.next_free_draw == 0 && lev_bucket.next_free_envmap_draw == 0) {
+    s_no_draws++;
+    return;
+  }
+
+  // Trouve (une fois) l'uniforme de la matrice merc-vue -> tuile-clip du shader MERC_SHADOW.
+  Shader& shadow_shader = render_state->shaders[ShaderId::MERC_SHADOW];
+  if (!m_shadow_smvp_loc_looked_up) {
+    m_shadow_smvp_loc_looked_up = true;
+    m_shadow_smvp_loc = glGetUniformLocation(shadow_shader.id(), "u_merc_smvp");
+  }
+  if (m_shadow_smvp_loc < 0) {
+    s_no_loc++;
+    return;
+  }
+
+  // Tri des draws opaques + rejet par distance camera, une seule fois (les deux mêmes draws
+  // servent a toutes les tuiles, ecriture ET preparation).
+  const float max_dist_m = pbr_shadow_actor_dist_m();
+  std::vector<const Draw*> kept;
+  kept.reserve(lev_bucket.next_free_draw + lev_bucket.next_free_envmap_draw);
+  u64 skipped_far = 0, skipped_alpha = 0;
+  auto consider = [&](const Draw* arr, u32 count) {
+    for (u32 di = 0; di < count; di++) {
+      const Draw& d = arr[di];
+      if (d.mode.get_ab_enable() || !d.mode.get_depth_write_enable() || !d.mode.get_zt_enable()) {
+        skipped_alpha++;
+        s_tot_alpha++;
+        continue;
+      }
+      // Translation X (bone racine du draw), lue dans le tampon CPU AVANT l'ajout de
+      // bones_base (celui-ci n'a de sens qu'au moment de la LIAISON GPU) — memes indices que
+      // alloc_bones : 4 vecteurs de tmat puis 3 de nmat par os, 8 vecteurs par os.
+      float dist_m = -1.f;
+      for (const auto& rd : m_shadow_root_dist) {
+        if (rd.first == d.first_bone) {
+          dist_m = rd.second;
+          break;
+        }
+      }
+      if (dist_m < 0.f) {  // modele sans racine connue : on ne devine pas, on ne projette pas
+        skipped_far++;
+        s_tot_oob++;
+        continue;
+      }
+      if (dist_m < s_min_dist_m) {
+        s_min_dist_m = dist_m;
+      }
+      if (dist_m > max_dist_m) {
+        skipped_far++;
+        s_tot_far++;
+        continue;
+      }
+      s_tot_kept++;
+      kept.push_back(&d);
+    }
+  };
+  consider(lev_bucket.draws.data(), lev_bucket.next_free_draw);
+  consider(lev_bucket.envmap_draws.data(), lev_bucket.next_free_envmap_draw);
+
+  if (kept.empty()) {
+    s_kept_empty++;
+    if (casting) {
+      pbr_shadow_note_cast(kShadowCastMerc, 0);
+    }
+    return;
+  }
+
+  // Sauvegarde de l'etat GL touche ci-dessous.
+  GLint prev_program = 0, prev_vao = 0, prev_fbo = 0;
+  GLint prev_viewport[4] = {0, 0, 0, 0};
+  GLboolean prev_depth_test = glIsEnabled(GL_DEPTH_TEST);
+  GLint prev_depth_func = 0;
+  GLboolean prev_depth_mask = GL_TRUE;
+  GLboolean prev_cull = glIsEnabled(GL_CULL_FACE);
+  GLboolean prev_scissor = glIsEnabled(GL_SCISSOR_TEST);
+  GLboolean prev_blend = glIsEnabled(GL_BLEND);
+  GLboolean prev_poly_offset = glIsEnabled(GL_POLYGON_OFFSET_FILL);
+  GLfloat prev_poly_factor = 0.f, prev_poly_units = 0.f;
+  GLboolean prev_color_mask[4] = {GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE};
+  glGetIntegerv(GL_CURRENT_PROGRAM, &prev_program);
+  glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &prev_vao);
+  glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &prev_fbo);
+  glGetIntegerv(GL_VIEWPORT, prev_viewport);
+  glGetIntegerv(GL_DEPTH_FUNC, &prev_depth_func);
+  glGetBooleanv(GL_DEPTH_WRITEMASK, &prev_depth_mask);
+  glGetFloatv(GL_POLYGON_OFFSET_FACTOR, &prev_poly_factor);
+  glGetFloatv(GL_POLYGON_OFFSET_UNITS, &prev_poly_units);
+  glGetBooleanv(GL_COLOR_WRITEMASK, prev_color_mask);
+
+  // Etat commun aux deux passes (ecriture + preparation) : profondeur seule.
+  glEnable(GL_DEPTH_TEST);
+  glDepthFunc(GL_LEQUAL);
+  glDepthMask(GL_TRUE);
+  glDisable(GL_BLEND);
+  glDisable(GL_CULL_FACE);
+  glDisable(GL_SCISSOR_TEST);
+  glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+  glEnable(GL_POLYGON_OFFSET_FILL);
+  glPolygonOffset(2.0f, 4.0f);
+  shadow_shader.activate();
+#ifdef __ANDROID__
+  glBindBufferBase(GL_UNIFORM_BUFFER, 0, m_bones_buffer);
+#endif
+
+  // Rejoue la liste de draws conservee dans une passe (ecriture d'atlas ou preparation) : meme
+  // geometrie/liaison d'os que do_draws, sans texture ni eclairage (profondeur seule).
+  auto draw_pass = [&](bool (*bind_tile)(int)) {
+    u64 indices_drawn = 0;
+    bool normal_vtx_buffer_bound = true;
+    glBindVertexArray(m_vao);
+    for (int tile = 0; tile < kShadowTiles; tile++) {
+      const float* mvp = pbr_shadow_merc_mvp(tile);
+      if (!mvp || !bind_tile(tile)) {
+        continue;
+      }
+      glUniformMatrix4fv(m_shadow_smvp_loc, 1, GL_FALSE, mvp);
+      s64 last_first_bone = -1;
+      for (const Draw* dp : kept) {
+        const Draw& d = *dp;
+        if (d.flags & MOD_VTX) {
+          glBindVertexArray(d.mod_vtx_buffer.vao);
+          glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, lev->merc_indices);
+          glBindBuffer(GL_ARRAY_BUFFER, lev->merc_vertices);
+          normal_vtx_buffer_bound = false;
+        } else if (!normal_vtx_buffer_bound) {
+          glBindVertexArray(m_vao);
+          glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, lev->merc_indices);
+          glBindBuffer(GL_ARRAY_BUFFER, lev->merc_vertices);
+          normal_vtx_buffer_bound = true;
+        }
+        if ((s64)d.first_bone != last_first_bone) {
+          glBindBufferRange(
+              GL_UNIFORM_BUFFER, 1, m_bones_buffer,
+              sizeof(math::Vector4f) * (bones_base + d.first_bone),
+              std::min((GLsizeiptr)(128 * sizeof(ShaderMercMat)),
+                       (GLsizeiptr)(MAX_SHADER_BONE_VECTORS * sizeof(math::Vector4f) -
+                                    sizeof(math::Vector4f) * (bones_base + d.first_bone))));
+          last_first_bone = d.first_bone;
+        }
+        glDrawElements(d.no_strip ? GL_TRIANGLES : GL_TRIANGLE_STRIP, d.index_count,
+                       GL_UNSIGNED_INT, (void*)(sizeof(u32) * d.first_index));
+        indices_drawn += d.index_count;
+      }
+    }
+    return indices_drawn;
+  };
+
+  if (casting) {
+    const u64 drawn = draw_pass(&pbr_shadow_bind_write_tile);
+    pbr_shadow_note_cast(kShadowCastMerc, drawn);
+    if (autoport_proof::feature_is("lighting-shadows")) {
+      autoport_proof::publish("shadow_merc_draws_cast", (u64)kept.size());
+      autoport_proof::publish("shadow_merc_draws_skipped_far", skipped_far);
+      autoport_proof::publish("shadow_merc_draws_skipped_alpha", skipped_alpha);
+    }
+  }
+  if (prepping) {
+    draw_pass(&pbr_shadow_bind_actor_tile);
+  }
+
+  // lighting-shadows : publie l'erreur de l'ancre eichar (vue -> monde), au plus une fois toutes
+  // les 60 images, uniquement sous mesure de CET item.
+  if (autoport_proof::feature_is("lighting-shadows") && m_shadow_anchor_valid &&
+      m_shadow_anchor_frame == render_state->frame_idx) {
+    const auto& jt = Gfx::settings().recharged_jak_pos;
+    if (jt[3] > 0.5f &&
+        (m_shadow_last_publish_frame == UINT64_MAX ||
+         render_state->frame_idx - m_shadow_last_publish_frame >= 60)) {
+      float w[3] = {0.f, 0.f, 0.f};
+      if (pbr_shadow_view_to_world(m_shadow_anchor_view, w)) {
+        m_shadow_last_publish_frame = render_state->frame_idx;
+        const float dx = w[0] - jt[0], dy = w[1] - jt[1], dz = w[2] - jt[2];
+        const float err_cm =
+            std::sqrt(dx * dx + dy * dy + dz * dz) / 4096.f * 100.f;
+        const long y_cm = std::lround(dy / 4096.f * 100.f);
+        autoport_proof::publish("shadow_merc_anchor_err_cm", (u64)std::lround(err_cm));
+        autoport_proof::publish_text("shadow_merc_anchor_y_cm", std::to_string(y_cm).c_str());
+      }
+    }
+  }
+
+  // Restaure l'etat GL sauvegarde, et relaisse le VAO/tampons de niveau lies comme do_draws les
+  // attend pour tout ce qui suit dans ce flush.
+  glBindVertexArray(m_vao);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, lev->merc_indices);
+  glBindBuffer(GL_ARRAY_BUFFER, lev->merc_vertices);
+  glUseProgram(prev_program);
+  glBindVertexArray(prev_vao);
+  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, prev_fbo);
+  glViewport(prev_viewport[0], prev_viewport[1], prev_viewport[2], prev_viewport[3]);
+  if (prev_depth_test) {
+    glEnable(GL_DEPTH_TEST);
+  } else {
+    glDisable(GL_DEPTH_TEST);
+  }
+  glDepthFunc(prev_depth_func);
+  glDepthMask(prev_depth_mask);
+  if (prev_cull) {
+    glEnable(GL_CULL_FACE);
+  } else {
+    glDisable(GL_CULL_FACE);
+  }
+  if (prev_scissor) {
+    glEnable(GL_SCISSOR_TEST);
+  } else {
+    glDisable(GL_SCISSOR_TEST);
+  }
+  if (prev_blend) {
+    glEnable(GL_BLEND);
+  } else {
+    glDisable(GL_BLEND);
+  }
+  if (prev_poly_offset) {
+    glEnable(GL_POLYGON_OFFSET_FILL);
+  } else {
+    glDisable(GL_POLYGON_OFFSET_FILL);
+  }
+  glPolygonOffset(prev_poly_factor, prev_poly_units);
+  glColorMask(prev_color_mask[0], prev_color_mask[1], prev_color_mask[2], prev_color_mask[3]);
 }
 
 /*!

@@ -80,6 +80,13 @@ uniform vec4 persp0;
 uniform vec4 persp1;
 uniform mat4 cam_no_persp;
 
+// lighting-shadows (SPEC §4.8) : la prepasse REJOUE aussi les casters STATIQUES de l'atlas
+// d'ombre. u_pre_light == 1 court-circuite l'etie ET la projection tfrag3 : la geometrie part
+// directement dans l'espace de la tuile visee (metres camera-relatifs / 4096, comme
+// pbr_depth.vert), par la matrice `u_pre_smvp` posee par `prepass::draw_shadow_casters`.
+uniform int u_pre_light;
+uniform mat4 u_pre_smvp;
+
 // shrub : ligne 0 de tex_T18 = l'etat du ressort natif par instance, ligne 1 = l'ancre de contact.
 // Jumeau ligne pour ligne de shrub.vert:73-91.
 layout (location = 9) in int shrub_inst_in;
@@ -149,7 +156,10 @@ vec3 prepass_world_position() {
 
 void main() {
   vec3 wpos = prepass_world_position();
-  if (u_pre_etie == 1) {
+  if (u_pre_light == 1) {
+    vec3 vert = wpos - cam_trans.xyz;
+    gl_Position = u_pre_smvp * vec4(vert * (1.0 / 4096.0), 1.0);
+  } else if (u_pre_etie == 1) {
     // etie_base.vert:55-83, ligne pour ligne, sur la MEME position deplacee (la-bas
     // `position_sway`, ici `wpos`). Aucune constante n'est reecrite : c'est la seule facon
     // d'obtenir le meme bit de profondeur que la passe de base de l'envmap.

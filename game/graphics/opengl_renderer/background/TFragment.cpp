@@ -720,13 +720,6 @@ void TFragment::render_tree(int geom,
                       m_cache.vis_temp.data());
 
   u32 total_tris;
-#ifdef OG_FEAT_PBR
-  // Round-4 mandate B: index count of the buffer currently bound to
-  // GL_ELEMENT_ARRAY_BUFFER, for the sun shadow depth pass below.
-  //   no_multidraw path: the freshly-built single-draw index list (length = idx_buffer_size).
-  //   multidraw path: the resident static full index buffer (tree.index_count, from load).
-  u32 pbr_depth_index_count = 0;
-#endif
   if (render_state->no_multidraw) {
     u32 idx_buffer_size = make_index_list_from_vis_string(
         m_cache.draw_idx_temp.data(), m_cache.index_temp.data(), *tree.draws, m_cache.vis_temp,
@@ -743,152 +736,19 @@ void TFragment::render_tree(int geom,
     }
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, idx_buffer_size * sizeof(u32), m_cache.index_temp.data(),
                  GL_STREAM_DRAW);
-#ifdef OG_FEAT_PBR
-    pbr_depth_index_count = idx_buffer_size;
-#endif
   } else {
     total_tris = make_multidraws_from_vis_string(
         m_cache.multidraw_offset_per_stripdraw.data(), m_cache.multidraw_count_buffer.data(),
         m_cache.multidraw_index_offset_buffer.data(), *tree.draws, m_cache.vis_temp);
-#ifdef OG_FEAT_PBR
-    pbr_depth_index_count = tree.index_count;
-#endif
   }
 
   prof.add_tri(total_tris);
 
 #ifdef OG_FEAT_PBR
-  // Grecharged-pbr-materials round-4 mandate B: sun shadow depth pass. Seulement pour la
-  // geometrie tfrag NORMALE (kind == NORMAL). The tree
-  // VAO + element buffer are already bound; primitive restart is enabled process-wide for
-  // these strips (see the glEnable(GL_PRIMITIVE_RESTART[_FIXED_INDEX]) above). Renders the
-  // camera-vis-culled geometry into the 1024 depth FBO from the mood-sun direction, in the
-  // SAME camera-relative-meters space as the tfrag3.vert v_fringe_rel varying.
-  // begin_frame runs for EVERY tree kind (not just NORMAL casters): the frame transition
-  // inside it promotes last frame's completed map to the read side, which receivers of
-  // any kind need before their draws sample it.
-  // Round-5 addendum 2 (mandate F, world-wide): aucune condition de matiere — l'ombre du soleil
-  // s'applique au monde entier quand la fonction est allumee.
-  const bool pbr_shadow_frame_ok =
-      (recharged_gating::on(recharged_gating::kLighting) ||
-       recharged_gating::on(recharged_gating::kRtLight)) &&
-      pbr_shadow_begin_frame(render_state->frame_idx, settings.camera.trans.data());
-  // cast_full: the vis-culled count being 0 (camera facing away from every caster) is
-  // EXACTLY the owner's pop-on-rotation repro — the full static buffer must still cast.
-  // ROUND 2 (owner defect #3 — complete caster set): cast from ALL opaque tfrag kinds, not
-  // just NORMAL. TRANS / LOWRES_TRANS / WATER are transparent and are deliberately excluded.
-  // OWNER #4 (phantom straight shadow lines): LOWRES is EXCLUDED from the caster set. The
-  // lowres far-LOD hull is a coarse duplicate of the world (e.g. ~1900 tris, mean edge
-  // 85m) that sits up to +57m ABOVE the walkable hires ground in 465 measured 2m-cells; the
-  // main pass hides it near the player (PVS / hires draws instead) but cast_full ignores
-  // vis, so its giant straight-edged plates shadowed the real terrain from nothing — the
-  // long straight phantom lines. The hires NORMAL/DIRT/ICE kinds cover every surface the
-  // player sees inside the shadow box; distant-surround shading is already in the baked.
-  const bool pbr_tfrag_opaque_caster =
-      tree.kind == tfrag3::TFragmentTreeKind::NORMAL ||
-      tree.kind == tfrag3::TFragmentTreeKind::DIRT ||
-      tree.kind == tfrag3::TFragmentTreeKind::ICE;
-  if (pbr_shadow_frame_ok && pbr_tfrag_opaque_caster &&
-      (pbr_shadow_caster_mask(render_state->frame_idx) & 1) &&
-      (pbr_depth_index_count > 0 ||
-       (pbr_shadow_state().cast_full && tree.index_count > 0))) {
-    auto& sh_st = pbr_shadow_state();
-    // Save the GL state the depth pass mutates.
-    GLint prev_program = 0, prev_fbo = 0, prev_vp[4] = {0, 0, 0, 0}, prev_depth_func = GL_LEQUAL;
-    GLboolean prev_scissor = glIsEnabled(GL_SCISSOR_TEST);
-    GLboolean prev_cull = glIsEnabled(GL_CULL_FACE);
-    GLboolean prev_poly_off = glIsEnabled(GL_POLYGON_OFFSET_FILL);
-    // DEPTH_TEST is per-DrawMode state (setup_opengl_from_draw_mode) — whatever the last
-    // draw left. Depth WRITES only happen when the test is enabled, so the depth-only
-    // pass must force it on (device chain reaches here with it off → empty map).
-    GLboolean prev_depth_test = glIsEnabled(GL_DEPTH_TEST);
-    GLboolean prev_depth_mask = GL_TRUE;
-    glGetIntegerv(GL_CURRENT_PROGRAM, &prev_program);
-    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prev_fbo);
-    glGetIntegerv(GL_VIEWPORT, prev_vp);
-    glGetIntegerv(GL_DEPTH_FUNC, &prev_depth_func);
-    glGetBooleanv(GL_DEPTH_WRITEMASK, &prev_depth_mask);
-
-    glBindFramebuffer(GL_FRAMEBUFFER, sh_st.fbo[sh_st.write]);
-    glViewport(0, 0, sh_st.size, sh_st.size);
-    glDisable(GL_SCISSOR_TEST);
-    glDisable(GL_CULL_FACE);
-    glEnable(GL_DEPTH_TEST);
-    glDepthMask(GL_TRUE);
-    glDepthFunc(GL_LEQUAL);
-    glEnable(GL_POLYGON_OFFSET_FILL);
-    glPolygonOffset(2.0f, 4.0f);
-
-    const auto& depth_sh = render_state->shaders[ShaderId::PBR_DEPTH];
-    depth_sh.activate();
-    GLuint depth_id = depth_sh.id();
-    glUniformMatrix4fv(glu::loc(depth_id, "u_smvp"), 1, GL_FALSE, sh_st.mvp);
-    // cam_trans = the SAME source the main pass uploads (settings.camera.trans).
-    const auto& ct = settings.camera.trans;
-    glUniform4f(glu::loc(depth_id, "cam_trans"), ct[0], ct[1], ct[2], ct[3]);
-
-    if (sh_st.debug) {
-      gl_query_census::Armed _ap("pbr-shadow-debug");
-      while (glGetError() != GL_NO_ERROR) {
-      }
-    }
-    // Ce passage de profondeur pleine-arborescence dessine dans le FBO de l'ombre du SOLEIL
-    // (sh_st.fbo ci-dessus), jamais dans le tampon de profondeur de la vue principale : il ne
-    // peut pas y laisser d'occulteur invisible.
-    if (sh_st.cast_full && tree.index_count > 0) {
-      // Round-5 owner bug fix: the caster set must IGNORE camera visibility (an off-screen
-      // hut must keep casting its on-screen shadow — vis-culled casters pop shadows in/out
-      // on camera rotation). Draw the FULL static tree index buffer, then rebind the
-      // frame's element buffer for the main pass.
-      glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, tree.index_buffer);
-      lighting_census::note_world_draw(lighting_census::Kind::DepthOnly);
-      glDrawElements(tree.draw_mode, tree.index_count, GL_UNSIGNED_INT, nullptr);
-      soft_draw_census::record("tfrag", tree.index_data, tree.index_count, 0, tree.index_count, tree.draw_mode);
-      sh_st.cast_indices += (u64)tree.index_count;
-      glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, render_state->no_multidraw
-                                                ? tree.single_draw_index_buffer
-                                                : tree.index_buffer);
-    } else {
-      lighting_census::note_world_draw(lighting_census::Kind::DepthOnly);
-      glDrawElements(tree.draw_mode, pbr_depth_index_count, GL_UNSIGNED_INT, nullptr);
-      soft_draw_census::record("tfrag", render_state->no_multidraw ? m_cache.index_temp.data() : tree.index_data, render_state->no_multidraw ? m_cache.index_temp.size() : tree.index_count, 0, pbr_depth_index_count, tree.draw_mode);
-      sh_st.cast_indices += (u64)pbr_depth_index_count;
-    }
-    if (sh_st.debug) {
-      gl_query_census::Armed _ap("pbr-shadow-debug");
-      GLenum dbg_err = glGetError();
-      if (dbg_err != GL_NO_ERROR) {
-        lg::warn("PBR-SHADOW-DBG tfrag depth pass glerr=0x{:x} idx={}", (u32)dbg_err,
-                 pbr_depth_index_count);
-      }
-    }
-
-    // Restore everything.
-    glUseProgram((GLuint)prev_program);
-    glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prev_fbo);
-    glViewport(prev_vp[0], prev_vp[1], prev_vp[2], prev_vp[3]);
-    if (prev_scissor) {
-      glEnable(GL_SCISSOR_TEST);
-    } else {
-      glDisable(GL_SCISSOR_TEST);
-    }
-    if (prev_cull) {
-      glEnable(GL_CULL_FACE);
-    } else {
-      glDisable(GL_CULL_FACE);
-    }
-    if (prev_poly_off) {
-      glEnable(GL_POLYGON_OFFSET_FILL);
-    } else {
-      glDisable(GL_POLYGON_OFFSET_FILL);
-    }
-    glPolygonOffset(0.0f, 0.0f);
-    if (!prev_depth_test) {
-      glDisable(GL_DEPTH_TEST);
-    }
-    glDepthMask(prev_depth_mask);
-    glDepthFunc(prev_depth_func);
-  }
+  // lighting-shadows (SPEC §4.8) : le caster STATIQUE ne tourne plus ici, camera-vis-culle et
+  // par arbre — il tourne UNE fois par image, au premier passage camera, sur la geometrie
+  // COMPLETE de la prepasse d'AO (`pbr_shadow_first_camera`, background_common.cpp), dans
+  // chaque tuile active de l'atlas. Seul le receveur reste pose au fil des arbres.
   // Round-4 mandate B receiver bind: bind the shadow matrix + sampler on the TFRAG3
   // program for this tree's draws. Runs regardless of whether the depth pass ran this
   // frame (last frame's map, or the cleared-to-1.0 map, is acceptable).

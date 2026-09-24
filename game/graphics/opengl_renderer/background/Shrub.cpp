@@ -1004,71 +1004,9 @@ void Shrub::render_tree(int idx,
     glPrimitiveRestartIndex(UINT32_MAX);
 #endif
 #ifdef OG_FEAT_PBR
-    // Grecharged-realtime-lighting round-3 (owner defect B): shrubs must CAST into the sun
-    // shadow map (foliage occludes the sun). Depth-only pass over the FULL static strip
-    // buffer, mirroring the TFragment / Tie3 caster passes. pbr_shadow_begin_frame is
-    // idempotent per frame (accumulates additively across tfrag/tie/shrub). SHRUB is the
-    // active program on entry (first_tfrag_draw_setup above); we restore it after.
-    if ((recharged_gating::on(recharged_gating::kLighting) ||
-         recharged_gating::on(recharged_gating::kRtLight)) &&
-        tree.index_count > 0 &&
-        (pbr_shadow_caster_mask(render_state->frame_idx) & 4) &&
-        pbr_shadow_begin_frame(render_state->frame_idx, settings.camera.trans.data())) {
-      auto& sh_st = pbr_shadow_state();
-      GLint prev_program = 0, prev_fbo = 0, prev_vp[4] = {0, 0, 0, 0}, prev_depth_func = GL_LEQUAL;
-      GLboolean prev_scissor = glIsEnabled(GL_SCISSOR_TEST);
-      GLboolean prev_cull = glIsEnabled(GL_CULL_FACE);
-      GLboolean prev_poly_off = glIsEnabled(GL_POLYGON_OFFSET_FILL);
-      GLboolean prev_depth_test = glIsEnabled(GL_DEPTH_TEST);
-      GLboolean prev_depth_mask = GL_TRUE;
-      glGetIntegerv(GL_CURRENT_PROGRAM, &prev_program);
-      glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prev_fbo);
-      glGetIntegerv(GL_VIEWPORT, prev_vp);
-      glGetIntegerv(GL_DEPTH_FUNC, &prev_depth_func);
-      glGetBooleanv(GL_DEPTH_WRITEMASK, &prev_depth_mask);
-
-      glBindFramebuffer(GL_FRAMEBUFFER, sh_st.fbo[sh_st.write]);
-      glViewport(0, 0, sh_st.size, sh_st.size);
-      glDisable(GL_SCISSOR_TEST);
-      glDisable(GL_CULL_FACE);
-      glEnable(GL_DEPTH_TEST);
-      glDepthMask(GL_TRUE);
-      glDepthFunc(GL_LEQUAL);
-      glEnable(GL_POLYGON_OFFSET_FILL);
-      glPolygonOffset(2.0f, 4.0f);
-
-      const auto& depth_sh = render_state->shaders[ShaderId::PBR_DEPTH];
-      depth_sh.activate();
-      GLuint depth_id = depth_sh.id();
-      glUniformMatrix4fv(glu::loc(depth_id, "u_smvp"), 1, GL_FALSE, sh_st.mvp);
-      const auto& ct = settings.camera.trans;
-      glUniform4f(glu::loc(depth_id, "cam_trans"), ct[0], ct[1], ct[2], ct[3]);
-
-      // Full static shrub geometry (ignore per-frame vis: an off-screen bush must keep
-      // casting its on-screen shadow). Owner #4 phantom-lines fix: draw the SANITIZED
-      // GL_TRIANGLES caster list (built at load, giant cross-instance sliver tris dropped)
-      // instead of the raw strip stream — the slivers were the long straight phantom
-      // shadow lines (the X on the ground), under both suns since the map is shared.
-      glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, tree.caster_index_buffer);
-      lighting_census::note_world_draw(lighting_census::Kind::DepthOnly);
-      glDrawElements(GL_TRIANGLES, tree.caster_index_count, GL_UNSIGNED_INT, nullptr);
-      soft_draw_census::record("shrub", tree.soft_caster_indices.data(), tree.soft_caster_indices.size(), 0, tree.caster_index_count, GL_TRIANGLES);
-      sh_st.cast_indices += (u64)tree.caster_index_count;
-
-      // Restore the state the main shrub draw expects.
-      glUseProgram((GLuint)prev_program);
-      glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)prev_fbo);
-      glViewport(prev_vp[0], prev_vp[1], prev_vp[2], prev_vp[3]);
-      if (prev_scissor) glEnable(GL_SCISSOR_TEST); else glDisable(GL_SCISSOR_TEST);
-      if (prev_cull) glEnable(GL_CULL_FACE); else glDisable(GL_CULL_FACE);
-      if (prev_poly_off) glEnable(GL_POLYGON_OFFSET_FILL); else glDisable(GL_POLYGON_OFFSET_FILL);
-      glPolygonOffset(0.0f, 0.0f);
-      if (!prev_depth_test) glDisable(GL_DEPTH_TEST);
-      glDepthMask(prev_depth_mask);
-      glDepthFunc(prev_depth_func);
-      glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,
-                   render_state->no_multidraw ? tree.single_draw_index_buffer : tree.index_buffer);
-    }
+    // lighting-shadows (SPEC §4.8) : le caster shrub ne tourne plus ici, par arbre — il tourne
+    // une fois par image dans `pbr_shadow_first_camera` (background_common.cpp), via la
+    // prepasse d'AO (memes plages alpha-testees que l'AO). Shrub reste receveur seulement.
     // Shrub RECEIVER bind (defect B): sample the sun map so shrubs receive cast shadows.
     // SHRUB is the active program here, so pbr_shadow_bind_receiver's glUniform calls land on it.
     if ((recharged_gating::on(recharged_gating::kLighting) ||

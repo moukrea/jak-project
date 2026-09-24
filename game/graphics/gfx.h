@@ -349,6 +349,17 @@ struct GfxGlobalSettings {
   // (full-res, full samples). Only read when recharged_ao_mode != 0.
   int recharged_ao_quality = 1;
   int recharged_ao_strength = 1;  // Grecharged-ambient-occlusion closing round: 0 weaker, 1 default, 2 stronger
+
+  // lighting-shadows (SPEC-refonte-lumiere §1.2 decision 2, §4.1, §6.1, §6.2) : le reglage
+  // « Ombres d'acteurs ». Pose depuis GOAL par `pc-set-actor-shadows!`, SOUS l'eclairage recharge
+  // (`kActorShadows` a pour parent `kLighting`, recharged_gating.cpp) : sa rangee de menu vit dans
+  // le meme sous-menu « Recharged Lighting » que l'AO.
+  // 0 = vraies (l'ombre projetee dans l'atlas PBR, quand elle y est) ; 1 = aplat PS2 (le comportement
+  // d'origine, inconditionnel) ; 2 = aucune (la famille shadow-* est desactivee cote GOAL).
+  int recharged_actor_shadows = 1;
+  // Distance (en metres) au-dela de laquelle l'aplat PS2 sert de repli meme en mode « vraies »,
+  // et jusqu'a laquelle GOAL calcule l'ombre. Sous-parametre de `kActorShadows`.
+  int recharged_actor_shadow_dist = 40;
 };
 
 namespace Gfx {
@@ -661,6 +672,35 @@ inline bool lighting_active(bool feature_flag) {
 
 inline int lighting_active_mode(int feature_mode) {
   return recharged_lighting_active() ? feature_mode : 0;
+}
+
+// lighting-shadows : le mode d'ombre d'acteur EFFECTIF. Hors eclairage recharge (master OFF ou
+// « Recharged Lighting » OFF), les deux origines restent identiques a l'aplat PS2 d'origine
+// (SPEC §1.1/§6.2) : le reglage n'a donc AUCUN effet tant que l'eclairage n'est pas actif, et le
+// mode rendu est fige a 1 (aplat), quelle que soit la valeur memorisee par le joueur.
+inline int recharged_actor_shadow_mode() {
+  if (!recharged_lighting_active()) {
+    return 1;
+  }
+  int m = settings().recharged_actor_shadows;
+  if (m < 0 || m > 2) {
+    m = 1;
+  }
+  return m;
+}
+
+// lighting-shadows : la distance (metres) au-dela de laquelle l'aplat sert de repli / jusqu'a
+// laquelle GOAL calcule l'ombre. Bornee a [10, 200], defaut 40 — la meme borne cote GOAL
+// (carrousel 20/40/80/150).
+inline float recharged_actor_shadow_dist_m() {
+  float d = (float)settings().recharged_actor_shadow_dist;
+  if (!(d >= 10.f)) {
+    d = 40.f;
+  }
+  if (d > 200.f) {
+    d = 200.f;
+  }
+  return d;
 }
 
 // water-ocean-mesh : LE seul composeur des trois niveaux pour l'EAU (master > eau > sous-reglage).

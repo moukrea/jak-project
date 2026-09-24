@@ -259,7 +259,8 @@ void emit_locked() {
                      id == "soft-surface-truth" || id == "soft-support-map" ||
                      id == "grass-path-transitions" || id == "hud-3d-pickups" ||
                      id == "hud-eco-gauge" || id == "hud-heart" ||
-                     id == "recharged-hud-toggle" || id == "grass-wind")
+                     id == "recharged-hud-toggle" || id == "grass-wind" ||
+                     id == "lighting-shadows")
                         ? site_hits_ref()[id]
                         : g_hits;
     if (id == "water-ocean-mesh") {

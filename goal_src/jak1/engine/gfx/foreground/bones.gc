@@ -1418,7 +1418,11 @@
                   (set! (-> dma-buf base) (draw-bones-generic-merc arg0 (the pointer matrix-data) (the pointer s2-0) 0))
                   (set! s2-0 (-> dma-buf base))))
               ;; draw shadow!
-              (when (-> arg0 shadow)
+              ;; lighting-shadows (SPEC-refonte-lumiere §1.2 decision 2, §4.1) : le cran « aucune »
+              ;; desactive la famille shadow-* cote GOAL. `pc-actor-shadows-none?` compose deja
+              ;; master > eclairage cote C++ (Gfx::recharged_actor_shadow_mode) : hors eclairage
+              ;; recharge elle rend toujours faux, donc ce garde ne change rien aux deux origines.
+              (when (and (-> arg0 shadow) (zero? (pc-actor-shadows-none?)))
                 (when #t
                   (set! s2-0 (draw-bones-shadow arg0 (the pointer matrix-data) (the pointer s2-0)))
                   (set! (-> dma-buf base) (the-as pointer s2-0))))
