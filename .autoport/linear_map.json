@@ -36,7 +36,7 @@
    "url": "https://linear.app/moukrea/document/e1fe9500339a"
   }
  },
- "_gen": 359,
+ "_gen": 373,
  "_ids": {
   "labels": {
    "ok": "000e105b-24ba-4fa3-a579-bc3bf0869242",
@@ -85,6 +85,14 @@
   ],
   "state_at": "2026-09-23T05:07:23.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-194/la-jauge-deco-du-hud-recharge-ne-peut-plus-regresser-un-acquis-la"
+ },
+ "acquis-lighting-bake": {
+  "hash": "0d5c15cac6d98a8916979699442018892283fb96",
+  "identifier": "JAK-275",
+  "issue_id": "a7d1451a-4cdc-4e4c-9c7c-7d705c91c7c2",
+  "last_state": "Todo",
+  "pulled_at": "2026-09-24T14:18:23.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-275/la-separation-de-leclairage-en-ambiante-soleil-validee-ne-peut-plus"
  },
  "acquis-perf-dma-chain-copies": {
   "hash": "39b00ec13c1fadcb7152a770194098cb109f2e54",
@@ -700,11 +708,13 @@
   "url": "https://linear.app/moukrea/issue/JAK-162/la-fabrication-des-apk-reprend-apres-un-refus-de-donnees-precalculees"
  },
  "harness-device-acquis-hardening": {
-  "hash": "e1d3abb3060c546e9165402c458e1e4f86eda5b7",
+  "hash": "46b3f0ac6c6faa04b9776b6ec77696b53c005db7",
   "identifier": "JAK-260",
   "issue_id": "5af913a5-e4b9-4c00-814d-549f8e27cfbb",
-  "last_state": "Todo",
+  "last_state": "In Progress",
+  "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-23T06:08:38.000Z",
+  "state_at": "2026-09-24T14:07:27.205Z",
   "url": "https://linear.app/moukrea/issue/JAK-260/les-acquis-sur-appareil-partagent-une-seule-garde-de-preuve-ont-leur"
  },
  "harness-device-deploy-gate-must-compare-the-asset-pack": {
@@ -1524,18 +1534,17 @@
   "url": "https://linear.app/moukrea/issue/JAK-48/locclusion-ambiante-multiplie-lindirect-plus-limage-finale"
  },
  "lighting-bake": {
-  "build_announced": "c57be8182982",
-  "hash": "a1bcb4fb21c44ccdfbef128e3ffda5ca3d99e96f",
+  "hash": "7327edff6fabcec43140852bf4354c60deea175a",
   "identifier": "JAK-49",
   "issue_id": "6afb5cac-bb1a-4dd8-b308-1fedc50f69c0",
-  "last_state": "In Review",
+  "last_state": "Done",
   "last_verdict_announced": "validator-004.txt",
-  "pulled_at": "2026-09-24T09:18:35.234Z",
+  "pulled_at": "2026-09-24T14:16:59.952Z",
   "relations": [
    "ao-prepass-tie-alpha",
    "lighting-ao-indirect"
   ],
-  "state_at": "2026-09-24T09:38:22.089Z",
+  "state_at": "2026-09-24T14:17:46.426Z",
   "url": "https://linear.app/moukrea/issue/JAK-49/le-baked-devient-lindirect-et-loriginal-reste-intact"
  },
  "lighting-census": {
@@ -1547,7 +1556,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-46/fiabiliser-les-comparaisons-onoff-pour-corriger-les-blancs-hdr"
  },
  "lighting-interiors": {
-  "hash": "cb1e485085b3d802556aadb38e2ddfb0c27d6fc2",
+  "hash": "7b0d09193a381ac2e32d0d1b89813c85cbdd5444",
   "identifier": "JAK-53",
   "issue_id": "2cce07e7-1627-4bb3-8833-65ca0ef722c6",
   "last_state": "Backlog",
@@ -1613,29 +1622,30 @@
   "url": "https://linear.app/moukrea/issue/JAK-56/du-redmi-au-snapdragon-8-elite-des-paliers-et-chaque-ajout-debrayable"
  },
  "lighting-regimes": {
-  "hash": "5c117c5836e50b208e5b9a6305f527b197394b0b",
+  "hash": "ace86b23c034b2437e368456fac54ea6f993d98d",
   "identifier": "JAK-50",
   "issue_id": "c0ae94ec-54bb-4d1d-bd7c-880e12a25428",
-  "last_state": "Backlog",
+  "last_state": "Todo",
   "pulled_at": "2026-09-17T05:36:55.000Z",
   "relations": [
    "lighting-bake"
   ],
+  "state_at": "2026-09-24T14:17:47.562Z",
   "url": "https://linear.app/moukrea/issue/JAK-50/la-lumiere-cle-nest-pas-toujours-un-soleil"
  },
  "lighting-shadows": {
-  "hash": "2a0da065e2c4a9ed7a1c1e8ca72fd5ab17dda5e8",
+  "hash": "4a594e2ffc3d7f4fa475346c757a3b2560b87ffa",
   "identifier": "JAK-51",
   "issue_id": "923462dc-521a-4c79-ba5f-2e2e8cc4c758",
-  "last_state": "In Progress",
+  "last_state": "Todo",
   "last_verdict_announced": "validator-003.txt",
-  "pulled_at": "2026-09-17T05:36:55.000Z",
+  "pulled_at": "2026-09-24T14:38:59.790Z",
   "relations": [
    "ao-prepass-tie-alpha",
    "lighting-ao-indirect",
    "perf-merc-defuse"
   ],
-  "state_at": "2026-09-24T12:18:13.673Z",
+  "state_at": "2026-09-24T14:18:23.007Z",
   "url": "https://linear.app/moukrea/issue/JAK-51/deux-astres-deux-jeux-dombres-et-les-acteurs-qui-en-projettent"
  },
  "menu-back-label": {
