@@ -36,7 +36,7 @@
    "url": "https://linear.app/moukrea/document/e1fe9500339a"
   }
  },
- "_gen": 438,
+ "_gen": 444,
  "_ids": {
   "labels": {
    "ok": "000e105b-24ba-4fa3-a579-bc3bf0869242",
@@ -963,10 +963,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-229/la-synchro-linear-ne-cree-jamais-deux-tickets-pour-un-meme-chantier-et"
  },
  "harness-linear-watch-comment-matches-its-period": {
-  "hash": "f2c7c27202710c9a7d7570393e1bda8e40b7a222",
+  "hash": "7c0b0eddadc831bdd578e0296eae74c6b305071c",
   "identifier": "JAK-201",
   "issue_id": "950f1254-febe-46ed-ba63-a740fb5ed2de",
   "last_state": "In Progress",
+  "last_verdict_announced": "validator-002.txt",
   "pulled_at": "2026-09-22T22:24:54.000Z",
   "state_at": "2026-09-24T23:33:37.673Z",
   "url": "https://linear.app/moukrea/issue/JAK-201/le-commentaire-de-linear-watchsh-dit-la-vraie-frequence-de-la-veille"
@@ -1646,12 +1647,12 @@
  },
  "lighting-regimes": {
   "build_announced": "57102cdfce40",
-  "hash": "285bb517275911e8a956e3974547b5200142518a",
+  "hash": "93515157a7f302838dd34b23869fad33d46ab433",
   "identifier": "JAK-50",
   "issue_id": "c0ae94ec-54bb-4d1d-bd7c-880e12a25428",
   "last_state": "In Review",
   "last_verdict_announced": "validator-003.txt",
-  "pulled_at": "2026-09-24T20:46:16.993Z",
+  "pulled_at": "2026-09-24T23:41:21.091Z",
   "relations": [
    "lighting-bake"
   ],
@@ -1659,7 +1660,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-50/la-lumiere-cle-nest-pas-toujours-un-soleil"
  },
  "lighting-shadows": {
-  "hash": "7f28102f4d7823a383b51b7a5ab1ab1b2a6c0ef6",
+  "hash": "e236cc69485912d464fd900281a4c50346563761",
   "identifier": "JAK-51",
   "issue_id": "923462dc-521a-4c79-ba5f-2e2e8cc4c758",
   "last_state": "Backlog",
@@ -1817,6 +1818,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-78/le-compilateur-goal-utilise-les-31-registres-de-larm64"
  },
  "perf-codegen-arm64-scalar": {
+  "build_announced": "16773c2c135b",
   "hash": "0aaa4e21dacfe62a53e9fae6bf187fe7ec62b791",
   "identifier": "JAK-77",
   "issue_id": "1a43f366-ec9e-40f1-bcb2-4e1698505d53",
