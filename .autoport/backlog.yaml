@@ -5481,7 +5481,7 @@ items:
   delivered: '2026-09-24'
 - id: lighting-regimes
   feature: La lumiere cle n'est pas toujours un soleil
-  status: in-progress
+  status: to-test
   priority: 24
   owner_feedback:
   - date: '2026-09-03'
@@ -5572,14 +5572,14 @@ items:
   gate_verdict:
     result: porte-tenue
     date: '2026-09-24'
-    proof_sha: f0408bb07f81fe46
-    proof_bytes: 88170
-    attempt: 1
-    journal: validator-001.txt
+    proof_sha: e77f9a9e3be0e989
+    proof_bytes: 88365
+    attempt: 2
+    journal: validator-002.txt
   delivered: '2026-09-24'
 - id: lighting-shadows
   feature: Deux astres, deux jeux d'ombres, et les acteurs qui en projettent
-  status: open
+  status: in-progress
   priority: 28
   owner_feedback:
   - date: '2026-09-03'
@@ -17995,8 +17995,8 @@ items:
 - id: owner-level-teleport-menu
   feature: Un menu de teleportation vers n'importe quel niveau, ouvert par une combinaison de touches,
     pour que l'owner teste vite partout
-  status: open
-  priority: 23
+  status: validated
+  priority: null
   code_scope: jeu
   device: true
   owner_test: true
@@ -18045,11 +18045,23 @@ items:
       source: supervisor
       at: '2026-09-24T17:27:17+00:00'
       by: autoport feedback
+  - date: '2026-09-24'
+    text: Pourquoi c'est toujours in progress ? Ça aurait dû être in review, parce que tu me demandes
+      de tester ! En tout cas c'est validé, ça fonctionne !
+    via:
+      comment: 43d34c8d-9139-4082-a374-4c4b74d34742
+      ticket: 369d9397-a686-4914-b66f-33b6c4b774fa
+      at: '2026-09-24T18:03:39.202Z'
   gate_verdict:
     result: porte-tenue
     date: '2026-09-24'
-    proof_sha: b0cdd57f9ed9b84e
-    proof_bytes: 85572
-    attempt: 1
-    journal: validator-001.txt
+    proof_sha: 0696a4a1da5704c3
+    proof_bytes: 86072
+    attempt: 2
+    journal: validator-002.txt
   delivered: '2026-09-24'
+  owner_ok:
+    date: '2026-09-24'
+    text: Pourquoi c'est toujours in progress ? Ça aurait dû être in review, parce que tu me demandes
+      de tester ! En tout cas c'est validé, ça fonctionne !
+    build_sha: 57f311fd79d7c778
