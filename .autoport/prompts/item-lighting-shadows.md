@@ -5,13 +5,15 @@
 # Deux astres, deux jeux d'ombres, et les acteurs qui en projettent
 
 ## Defaut cite
-- 2026-09-05 : « Ça fait une éternité qu'on bosse sur des trucs de merde sans… »
+- 2026-09-24 : « Alors j'ai activé les vraies ombres… ça reste les à plats PS… »
 
 ## Cause connue
 LIS D'ABORD prompts/SPEC-refonte-lumiere.md : c'est le contrat, il porte le detail que ce prompt ne repete pas. Une seule cascade attribuee a « l'astre le plus haut », avec fondu et EMA pour cacher une bascule qui n'a pas lieu d'etre : les deux astres sont leves ENSEMBLE 3 h 30 par jour. Et aucun acteur n'entre dans la carte. SPEC 3.4 et 4.8.
 
+RETOUR DE TEST DE L'OWNER (24/09, build 60d16fa6, sur telephone) : avec le reglage « vraies ombres », il voit TOUJOURS les aplats PS2 ; seul « Aucune » ch […suite dans le contrat]
+
 ## Livrable
-Atlas unique tuile, cascades stabilisees pour l'astre dominant, une tuile pour le second, les acteurs dans la passe de profondeur avec leur maillage skinne, ombres de contact sur la prepasse. L'aplat PS2 reste le repli et le mode Original. SPEC 4.8. PREUVE : `FEATURE lighting-shadows armed=1 hits=<pixels de sol ombres par un acteur>` + la ligne `shadow_caster_classes=` seule sur sa ligne ; `--off` doit rendre `armed=0 hits=0` dans la MEME scene. Le publicateur EXISTE : game/system/autoport_proof.{h,cpp} — appelle armed_for("lighting-shadows"), jamais armed(), et n'en ecris pas un second. AMENDEMENT 09-09 (perf) : une seule passe Z merc partagee entre prepasse (4.6), atlas (4.8) et aplat 47, VAO persistant par niveau (API setup_merc_vao conservee). Menu « Ombres d'acteurs » a trois crans vraies / aplat PS2 / aucune + fade-dist expose ; le cran « aucune » desactive la famille shadow-* cote […suite dans le contrat]
+Atlas unique tuile, cascades stabilisees pour l'astre dominant, une tuile pour le second, les acteurs dans la passe de profondeur avec leur maillage skinne, ombres de contact sur la prepasse. L'aplat PS2 reste le repli et le mode Original. SPEC 4.8. PREUVE : `FEATURE lighting-shadows armed=1 hits=<pixels de sol ombres par un acteur>` + la ligne `shadow_caster_classes=` seule sur sa ligne ; `--off` doit rendre `armed=0 hits=0` dans la MEME scene. Le publicateur EXISTE : game/system/autoport_proof […suite dans le contrat]
 
 ## Preuve exigee
 `shadow_caster_classes == 4` dans `reports/lighting-shadows/proof.txt`.
