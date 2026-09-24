@@ -60,6 +60,18 @@ def test_harness_state_is_never_part_of_a_worker_commit(orch, repo):
         "the supervisor's edit must survive the worker's commit, uncommitted"
 
 
+def test_an_item_with_the_right_carries_directives_in_its_checkpoint(orch, monkeypatch):
+    """harness-directives-promises-are-implemented : DIRECTIVES.md suit le checkpoint de l'item
+    qui en a le DROIT declare (`harness_writes`), et de lui seul ; state.json jamais."""
+    monkeypatch.setattr(orch, "dirty_paths", lambda *a, **k: [
+        ".autoport/DIRECTIVES.md", ".autoport/state.json", "game/x.cpp"])
+    right = {"id": "x", "harness_writes": [".autoport/DIRECTIVES.md", ".autoport/state.json"]}
+    paths = orch.worker_paths(right)
+    assert ".autoport/DIRECTIVES.md" in paths and "game/x.cpp" in paths
+    assert ".autoport/state.json" not in paths
+    assert ".autoport/DIRECTIVES.md" not in orch.worker_paths()
+
+
 def test_nothing_to_commit_is_not_an_error(orch, repo):
     assert orch.git_commit_paths("demo", "WIP", []) is False
     assert orch.git_commit_paths("demo", "WIP", ["does/not/exist"]) is False

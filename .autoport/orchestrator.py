@@ -1787,6 +1787,24 @@ def _is_harness_state(path: str) -> bool:
             or path.startswith(_HARNESS_STATE_PREFIXES))
 
 
+# LE DROIT D'ECRIRE UN FICHIER DU HARNAIS (harness-directives-promises-are-implemented, 25/09).
+# DIRECTIVES.md est ecarte du checkpoint pour que les retouches du SUPERVISEUR ne partent pas
+# dans le commit d'un worker. Mais un item dont c'est le travail de le modifier le commitait a
+# la main, par chemin, ou le perdait. Il le reclame desormais dans le backlog :
+#     harness_writes: [.autoport/DIRECTIVES.md]
+# et SEULS les chemins de cette liste blanche peuvent etre reclames : state.json, backlog.yaml
+# et les journaux restent hors de tout commit de worker, droit declare ou non.
+_ITEM_WRITABLE_HARNESS_FILES = frozenset({".autoport/DIRECTIVES.md"})
+
+
+def item_harness_writes(item) -> set:
+    """Les fichiers du harnais que CET item a le droit d'emporter dans son checkpoint."""
+    raw = (item or {}).get("harness_writes") if isinstance(item, dict) else None
+    if not isinstance(raw, (list, tuple)):
+        return set()
+    return {str(p).strip() for p in raw if isinstance(p, str)} & _ITEM_WRITABLE_HARNESS_FILES
+
+
 def dirty_paths() -> list[str]:
     """Every path git reports as changed, renames counted on both sides.
 
@@ -1816,9 +1834,12 @@ def dirty_paths() -> list[str]:
     return out
 
 
-def worker_paths() -> list[str]:
-    """The dirty paths a worker's checkpoint may carry."""
-    return sorted({p for p in dirty_paths() if p and not _is_harness_state(p)})
+def worker_paths(item=None) -> list[str]:
+    """The dirty paths a worker's checkpoint may carry — plus the harness files `item`
+    has the declared right to modify (`item_harness_writes`)."""
+    allowed = item_harness_writes(item)
+    return sorted({p for p in dirty_paths()
+                   if p and (not _is_harness_state(p) or p in allowed)})
 
 
 # ============================================================
@@ -2452,6 +2473,26 @@ def close_gate(item: dict, pre_dirty_engine=(), validator_ok: bool = True,
     # 2026-09-11 — SIGNALEMENTS DU WORKER. Ce qu'il a vu de casse sans le corriger doit devenir
     # un chantier ou etre ecarte devant l'owner, jamais dormir dans un rapport ferme. Voir
     # lib/findings_gate.sh : alerte par defaut, bloquant avec `.autoport/.findings_gate_strict`.
+    # GATE DIRECTIVES — LE RAPPORT PERIME EST REFUSE (harness-directives-promises-are-implemented).
+    # MARQUEUR : CLOSE-GATE/directives
+    # Le bloc DIRECTIVES promettait depuis le 03/09 « le validateur recalcule la version et refuse
+    # un rapport qui en porte une perimee » : aucun code ne le faisait. La version est recalculee
+    # ICI, pour cet item, contre les versions emises sous la serie COURANTE (`accepted_for`) : un
+    # rapport sans ligne `DIRECTIVES v…`, ou qui en porte une d'une serie abandonnee, ne ferme
+    # rien. Un juge illisible refuse aussi — jamais un passage silencieux.
+    try:
+        _lib = str(AUTOPORT_DIR / "lib")
+        if _lib not in sys.path:
+            sys.path.insert(0, _lib)
+        import directives as _dv
+        _dok, _dwhy = _dv.report_verdict(iid, AUTOPORT_DIR / "reports" / iid / "report.txt",
+                                         item=item)
+    except Exception as e:  # noqa: BLE001
+        _dok, _dwhy = False, f"juge illisible : {e}"
+    if not _dok:
+        log(f"close-gate directives : {_dwhy}", "red")
+        return ("fail", f"CLOSE-GATE/directives: {_dwhy}")
+
     _fg = AUTOPORT_DIR / "lib" / "findings_gate.sh"
     if _fg.exists():
         try:
@@ -3456,7 +3497,7 @@ def run_attempt(item: dict, state: dict) -> Outcome:
     if BACKEND == "codex" and (pstate.cli_failed or not pstate.result_seen) and rc == 0:
         rc = 1
 
-    touched = worker_paths()          # ce que l'essai a laissé dans l'arbre
+    touched = worker_paths(item)      # ce que l'essai a laissé dans l'arbre
     did_work = (pstate.tokens_in + pstate.tokens_out) > 0 or pstate.tool_calls > 0
 
     def _checkpoint(label: str) -> bool:
@@ -3466,7 +3507,8 @@ def run_attempt(item: dict, state: dict) -> Outcome:
         the close-gate run between the worker's exit and this commit."""
         ok, paths = False, []
         try:
-            paths = worker_paths()
+            # Relu : un droit `harness_writes` accorde PENDANT l'essai vaut pour son checkpoint.
+            paths = worker_paths(_reread_item(iid, item))
             ok = git_commit_paths(iid, label, paths)
         except Exception as e:  # noqa: BLE001 — never let checkpointing crash the loop
             log(f"checkpoint impossible : {e}", "yellow")
@@ -3513,7 +3555,7 @@ def run_attempt(item: dict, state: dict) -> Outcome:
                 "yellow" if reap["survived"] == 0 else "red")
         saved = "aucun travail à sauver"
         try:
-            paths = worker_paths()
+            paths = worker_paths(item)
             if paths and git_commit_paths(
                     ARCHIVE_CUT_LABEL, f"travail de {iid} (essai {seq}) coupé {stage} par "
                     f"l'archivage de l'owner — sauvé, ni jugé ni compté", paths):

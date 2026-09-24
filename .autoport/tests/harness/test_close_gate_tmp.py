@@ -31,6 +31,10 @@ def acquis_bench(request, orch, sandbox, monkeypatch):
                     registry_entries=0, self_added=0, over_budget=0)
 
     monkeypatch.setattr(orch.suite_gate, "judge", suite_pass)
+    # La porte CLOSE-GATE/directives a ses propres bancs (test_directives.py, census) :
+    # ici, comme la suite, elle est tenue ouverte.
+    import directives as _dv
+    monkeypatch.setattr(_dv, "report_verdict", lambda *a, **k: (True, "banc"))
     acquis = sandbox / ".autoport" / "acquis"
     acquis.mkdir()
     journal = sandbox / "acquis.jsonl"

@@ -20,6 +20,10 @@ def gate(orch, sandbox, monkeypatch):
     monkeypatch.setattr(orch.suite_gate, "judge", lambda *a, **k: dict(
         verdict="pass", collected=1, failed=0, unwaived=0, duration_s=0, budget_s=240,
         registry_sha="banc", registry_entries=0, self_added=0, over_budget=0))
+    # La porte CLOSE-GATE/directives a ses propres bancs (test_directives.py, census) :
+    # ici, comme la suite, elle est tenue ouverte.
+    import directives as _dv
+    monkeypatch.setattr(_dv, "report_verdict", lambda *a, **k: (True, "banc"))
     ap = orch.AUTOPORT_DIR
     since = time.time() - 60
 

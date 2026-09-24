@@ -148,3 +148,31 @@ def test_capture_paragraph_is_rendered_only_for_a_visible_item():
     assert "--no-capture" in bv and "CLOSE-GATE/capture" in bv
     assert "<!--" not in bi and "<!--" not in bv
     assert directives.version("h", inv) != directives.version("h", vis)
+
+
+def test_report_verdict_accepte_la_version_courante():
+    item = {"id": "x-item", "owner_test": False}
+    with fake_tree() as ap:
+        rp = ap / "report.txt"
+        rp.write_text(f"Verdict.\nDIRECTIVES {directives.version('x-item', item)}\n", encoding="utf-8")
+        ok, why = directives.report_verdict("x-item", rp, item=item)
+        assert ok, why
+
+
+def test_report_verdict_refuse_une_version_de_la_serie_precedente():
+    item = {"id": "x-item", "owner_test": False}
+    with fake_tree() as ap:
+        directives.ISSUED.write_text("6 v6666666666 x-item\n", encoding="utf-8")
+        rp = ap / "report.txt"
+        rp.write_text("DIRECTIVES v6666666666\n", encoding="utf-8")
+        ok, why = directives.report_verdict("x-item", rp, item=item)
+        assert not ok and "v6666666666" in why
+
+
+def test_report_verdict_refuse_un_rapport_sans_ligne():
+    item = {"id": "x-item", "owner_test": False}
+    with fake_tree() as ap:
+        rp = ap / "report.txt"
+        rp.write_text("Verdict sans contrat.\n", encoding="utf-8")
+        ok, why = directives.report_verdict("x-item", rp, item=item)
+        assert not ok and "aucune ligne" in why

@@ -11,6 +11,9 @@ physics into every phase, cutscenes and fonts included, for ~1 % of on-topic tex
                       ACTUALLY inlined for that item. One version per item, so a
                       scope change kills only the attempts it concerns.
   block(item_id)   -> that text, plus the line the report must echo back.
+  report_verdict(item_id, path) -> (ok, why) : la porte de fermeture refuse un rapport
+                      sans ligne `DIRECTIVES v...` ou qui en porte une perimee (hors
+                      `accepted_for`). `.directives_issued` nomme l'item depuis le 25/09.
 
 Hard cap: MAX_BLOCK_BYTES. Over it, block() raises instead of truncating — a
 launch must fail loudly, because a silently trimmed contract is how the worker
@@ -133,15 +136,56 @@ def issued_for_current_serial():
     if ISSUED.exists():
         for ln in ISSUED.read_text(encoding="utf-8").splitlines():
             f = ln.split()
-            if len(f) == 2 and f[0].isdigit() and int(f[0]) == cur:
+            if len(f) in (2, 3) and f[0].isdigit() and int(f[0]) == cur:
                 out.add(f[1])
     out.add(version())
     return out
 
 
-def _record(ver):
+def accepted_for(item_id, item=None):
+    """Versions acceptables dans le rapport de CET item : celles emises sous la serie
+    COURANTE pour lui (lignes `<serie> <ver> <item>`), plus sa version courante.
+
+    Les lignes heritees a 2 champs (`<serie> <ver>`, ecrites avant le 25/09) ne nomment pas
+    d'item : elles restent acceptees sous la serie courante, pour ne pas refuser un essai
+    emis avant ce changement. Elles disparaissent d'elles-memes au prochain changement de serie."""
+    cur, out = serial(), set()
+    if ISSUED.exists():
+        for ln in ISSUED.read_text(encoding="utf-8").splitlines():
+            f = ln.split()
+            if not f or not f[0].isdigit() or int(f[0]) != cur:
+                continue
+            if len(f) == 2 or (len(f) == 3 and f[2] == item_id):
+                out.add(f[1])
+    out.add(version(item_id, item))
+    return out
+
+
+REPORT_VERSION_RX = re.compile(r"DIRECTIVES (v[0-9a-f]{10})\b")
+
+
+def report_verdict(item_id, report_path, item=None):
+    """(ok, raison). Stricte : UNE version perimee dans le texte suffit a refuser."""
+    p = Path(report_path)
+    txt = p.read_text(encoding="utf-8", errors="replace") if p.is_file() else ""
+    if not txt.strip():
+        return False, f"rapport absent : {p} (la ligne `DIRECTIVES v...` ne peut pas etre lue)"
+    found = sorted(set(REPORT_VERSION_RX.findall(txt)))
+    if not found:
+        return False, (f"le rapport ne porte aucune ligne `DIRECTIVES v...` ({p}) ; "
+                       f"attendu `DIRECTIVES {version(item_id, item)}`")
+    ok = accepted_for(item_id, item)
+    stale = [v for v in found if v not in ok]
+    if stale:
+        return False, (f"version(s) perimee(s) dans le rapport : {', '.join(stale)} ; "
+                       f"serie courante {serial()}, version courante de {item_id} : "
+                       f"{version(item_id, item)}")
+    return True, f"DIRECTIVES {', '.join(found)} acceptée (série {serial()})"
+
+
+def _record(ver, item_id=None):
     try:
-        line = "%d %s\n" % (serial(), ver)
+        line = ("%d %s %s\n" % (serial(), ver, item_id)) if item_id else ("%d %s\n" % (serial(), ver))
         if line not in (ISSUED.read_text(encoding="utf-8") if ISSUED.exists() else ""):
             with ISSUED.open("a", encoding="utf-8") as fh:
                 fh.write(line)
@@ -155,14 +199,14 @@ def block(item_id=None, record=True, item=None):
         item = _item(item_id)
     ver = version(item_id, item)
     if record:
-        _record(ver)
+        _record(ver, item_id)
     out = [
         "## DIRECTIVES — autorité supérieure à tout ce qui suit",
         "",
         f"Version courante : **DIRECTIVES {ver}**. Écris cette ligne, littéralement,",
-        f"dans ton rapport (`DIRECTIVES {ver}`). Le validateur recalcule la version et refuse",
-        "un rapport qui en porte une périmée : c'est ce qui empêche de travailler des heures",
-        "sur un périmètre abandonné.",
+        f"dans ton rapport (`DIRECTIVES {ver}`). La porte de fermeture recalcule la version",
+        "et refuse un rapport qui n'en porte aucune ou en porte une périmée : c'est ce qui",
+        "empêche de travailler des heures sur un périmètre abandonné.",
         "",
         "Chaque prompt de sous-agent commence par le périmètre de sa tâche et cette ligne.",
         "",
@@ -191,6 +235,11 @@ if __name__ == "__main__":
     item = sys.argv[2] if len(sys.argv) > 2 else None
     if cmd == "accepted":
         print(" ".join(sorted(issued_for_current_serial())))
+    elif cmd == "report":
+        rp = sys.argv[3] if len(sys.argv) > 3 else str(AUTOPORT / "reports" / (item or "") / "report.txt")
+        _ok, _why = report_verdict(item, rp, item=_item(item))
+        print(_why)
+        sys.exit(0 if _ok else 1)
     elif cmd == "size":
         print(len(block(item, record=False).encode("utf-8")))
     elif cmd == "block":
