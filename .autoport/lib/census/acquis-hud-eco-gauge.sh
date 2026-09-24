@@ -27,8 +27,10 @@ fi
 # une copie jetable, rejoue le juge, et doit rougir en AJOUTANT exactement le terme seme :
 #   size_<type> : la boite du type ramenee a 377/16, la taille de l'essai 17 que l'owner a
 #                 refusee (« au moins deux fois plus grosses ») ; les deux autres types intacts ;
-#   order       : une image ou la nuee part AVANT l'anneau ;
-#   blind_red   : la population rouge effacee — le juge doit dire « aveugle », pas « tenu ».
+#   order       : une image ou la nuee part AVANT l'anneau — le terme global rougit, et la faute
+#                 est attribuee au type de la fenetre ou elle tombe (order_<type>), ou a aucun ;
+#   blind_red   : la population rouge effacee — le juge doit dire « aveugle », pas « tenu », pour
+#                 la taille ET l'ordre du rouge (harness-device-acquis-hardening, 24/09).
 # Un controle qui ne mord pas compte 1 dans eco_gauge_acquis_defects : un juge qui ne distingue
 # rien ne protege rien.
 python3 - "$D/$ENGINE" "$D/notes" "$live_rc" "$context_rc" <<'PY'
@@ -55,7 +57,8 @@ def seed(key, value):
 
 cases = [('size_' + k, 'hud_gauge_t12_box_16th_' + k, 377, 'size_' + k) for k in ('blue', 'red', 'yellow')]
 cases += [('order', 'hud_gauge_t10_order_bad', 1, 'order'),
-          ('blind_red', 'hud_gauge_t12_n_red', None, 'size_red')]
+          ('blind_red', 'hud_gauge_t12_n_red', None, 'size_red,order_red')]
+ORDER_TERMS = {'order', 'order_blue', 'order_red', 'order_yellow'}
 out, dead = [], 0
 for name, key, value, want in cases:
     seeded, hits = seed(key, value)
@@ -68,7 +71,8 @@ for name, key, value, want in cases:
     # Le terme seme doit APPARAITRE, et lui seul : la difference avec le verdict vivant isole la
     # discrimination de l'etat du build. Un terme deja rouge en vrai ne peut pas prouver qu'il mord.
     added = set(faulty.split(',')) - set(live.get('eco_gauge_faulty', '').split(','))
-    bite = int(hits > 0 and run.returncode == 1 and added == {want})
+    named = ('order' in added and added <= ORDER_TERMS) if name == 'order' else added == set(want.split(','))
+    bite = int(hits > 0 and run.returncode == 1 and named)
     dead += 1 - bite
     shown = {'size_blue': 'x_box_16th_blue', 'size_red': 'x_box_16th_red',
              'size_yellow': 'x_box_16th_yellow', 'order': 'x_order_bad', 'blind_red': 'x_n_red'}[name]

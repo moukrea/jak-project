@@ -74,6 +74,7 @@ from lib import safe_reload
 from lib import suite_gate
 from lib import owner_capture
 from lib import pacing
+from lib import acquis_budget
 
 BACKEND = "claude"
 
@@ -2419,12 +2420,25 @@ def close_gate(item: dict, pre_dirty_engine=(), validator_ok: bool = True,
                     _rot.write_text(f"{_idx_neuf} {_depuis_neuf}\n")
                 except Exception:  # noqa: BLE001
                     pass
+                # 2026-09-24 — DELAI DERIVE DE LA COURSE (harness-device-acquis-hardening). Un
+                # plafond unique de 600 s coupait au milieu un acquis appareil dont la course
+                # perimee se relance (462 s murales pour 420 s de course) : `lib/acquis_budget.py`
+                # donne a chacun max(600, course + marge) et le dit ici.
+                try:
+                    _acq_items = load_backlog().get
+                except Exception:  # noqa: BLE001 — sans backlog, la duree mesuree reste
+                    _acq_items = None
                 for script in _choisis:
+                    _budget = acquis_budget.budget(script, AUTOPORT_DIR, _acq_items)
+                    log(f"· acquis {script.name} : delai {_budget['budget_s']} s — {_budget['why']}",
+                        "dim")
                     try:
                         r = subprocess.run(["bash", str(script), acq_serial], cwd=REPO_ROOT,
-                                           env=acq_env, capture_output=True, text=True, timeout=600)
+                                           env=acq_env, capture_output=True, text=True,
+                                           timeout=_budget["budget_s"])
                     except subprocess.TimeoutExpired:
-                        return ("fail", f"CLOSE-GATE/acquis: {script.name} n'a pas répondu en 600 s")
+                        return ("fail", f"CLOSE-GATE/acquis: {script.name} n'a pas répondu en "
+                                        f"{_budget['budget_s']} s ({_budget['why']})")
                     if r.returncode != 0:
                         tail = "\n".join((r.stdout + r.stderr).strip().splitlines()[-4:])
                         return ("fail",

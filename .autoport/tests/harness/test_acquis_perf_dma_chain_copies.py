@@ -55,7 +55,8 @@ def fixture_repo(tmp_path):
                       'build-android/lib/arm64-v8a', 'game', 'common', 'android', 'goal_src',
                       'template', 'fakebin'):
         (tmp_path / directory).mkdir(parents=True, exist_ok=True)
-    for relative in (SCRIPT, 'lib/impossible.py', 'lib/verdict_sources.sh'):
+    for relative in (SCRIPT, 'lib/impossible.py', 'lib/verdict_sources.sh',
+                     'lib/acquis_device.sh', 'lib/acquis_device_guard.py'):
         shutil.copy2(AP / relative, tmp_path / '.autoport' / relative)
     binary = tmp_path / BINARY
     binary.write_bytes(b'isolated Android library fixture\n')
@@ -85,6 +86,8 @@ def fixture_repo(tmp_path):
                   proof_census_keys='9', dma_acquis_cases='100', dma_acquis_passed='100',
                   dma_acquis_failed='0', dma_acquis_bench_rc='0', dma_acquis_live_rc='0',
                   dma_acquis_context_rc='0',
+                  proof_feature_hits_table='__unattributed:3,perf-dma-chain-copies:60',
+                  proof_feature_hits_table_truncated='0',
                   serial='USB123', device_serial='USB123', proof_binary_serial='USB123',
                   device_model='HONOR_fixture', local_lib_md5=md5, device_lib_md5=md5,
                   proof_binary_local_md5=md5, proof_binary_device_md5=md5,
@@ -316,3 +319,33 @@ def test_census_failure_never_retries(fixture_repo, key, value):
     assert run(fixture_repo, mode='proof').returncode == 1
     assert run(fixture_repo, mode='main').returncode != 0
     assert calls(fixture_repo) == []
+
+
+# LE SITE PROPRE (harness-device-acquis-hardening) : `FEATURE acquis-... hits=` est le compteur
+# GLOBAL ; le passage de l'acquis se lit au site de la feature gardee, dans la table du moteur.
+@pytest.mark.parametrize('table,truncated', [
+    ('__unattributed:3,lighting-unify:900', '0'),
+    ('__unattributed:3,perf-dma-chain-copies:0', '0'),
+    ('__unattributed:3,lighting-unify:900', '1')])
+def test_vacant_site_is_a_named_defect(fixture_repo, table, truncated):
+    change(fixture_repo, 'proof_feature_hits_table', table)
+    change(fixture_repo, 'proof_feature_hits_table_truncated', truncated)
+    result = run(fixture_repo, mode='proof')
+    assert result.returncode == 1
+    assert 'site' in result.stderr and 'perf-dma-chain-copies' in result.stderr
+    assert run(fixture_repo, mode='main').returncode != 0
+    assert calls(fixture_repo) == []
+
+
+def test_missing_site_table_reacquires(fixture_repo):
+    path = artifact(fixture_repo, 'proof')
+    path.write_text(''.join(line + '\n' for line in path.read_text().splitlines()
+                            if not line.startswith('proof_feature_hits_table=')))
+    reseal(fixture_repo)
+    assert run(fixture_repo, mode='proof').returncode == 2
+
+
+def test_own_site_hits_are_reported(fixture_repo):
+    result = run(fixture_repo, mode='proof')
+    assert result.returncode == 0, result.stderr
+    assert 'site=perf-dma-chain-copies prises=60' in result.stderr
