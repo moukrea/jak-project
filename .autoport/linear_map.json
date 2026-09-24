@@ -36,7 +36,7 @@
    "url": "https://linear.app/moukrea/document/e1fe9500339a"
   }
  },
- "_gen": 403,
+ "_gen": 405,
  "_ids": {
   "labels": {
    "ok": "000e105b-24ba-4fa3-a579-bc3bf0869242",
@@ -1644,11 +1644,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-50/la-lumiere-cle-nest-pas-toujours-un-soleil"
  },
  "lighting-shadows": {
-  "hash": "ef9785199eece72718b8b15012ac5024b79ec25d",
+  "hash": "65602f64da6cb839cccd572480e1a9c98faddc3c",
   "identifier": "JAK-51",
   "issue_id": "923462dc-521a-4c79-ba5f-2e2e8cc4c758",
   "last_state": "In Progress",
-  "last_verdict_announced": "validator-003.txt",
+  "last_verdict_announced": "validator-005.txt",
   "pulled_at": "2026-09-24T15:25:26.089Z",
   "relations": [
    "ao-prepass-tie-alpha",
