@@ -36,7 +36,7 @@
    "url": "https://linear.app/moukrea/document/e1fe9500339a"
   }
  },
- "_gen": 325,
+ "_gen": 337,
  "_ids": {
   "labels": {
    "ok": "000e105b-24ba-4fa3-a579-bc3bf0869242",
@@ -597,13 +597,13 @@
   "url": "https://linear.app/moukrea/issue/JAK-247/les-garde-fous-de-lecture-des-tickets-archives-redetectent-reellement"
  },
  "harness-backlog-write-cost": {
-  "hash": "deb4ebf8c1d55d0f8f94edab175ca1447267e9b5",
+  "hash": "fb7dc25ebbb3df0278b2b552fc849a419d4953df",
   "identifier": "JAK-259",
   "issue_id": "f4e659ac-81cd-4d34-95c7-6ad84e9d3de6",
-  "last_state": "À arbitrer",
+  "last_state": "Canceled",
   "last_verdict_announced": "validator-003.txt",
-  "pulled_at": "2026-09-23T16:49:43.215Z",
-  "state_at": "2026-09-23T16:36:50.559Z",
+  "pulled_at": "2026-09-24T09:02:02.081Z",
+  "state_at": "2026-09-24T09:03:14.892Z",
   "url": "https://linear.app/moukrea/issue/JAK-259/une-ecriture-du-backlog-ne-tient-plus-le-verrou-pendant-pres-dune"
  },
  "harness-builder-does-not-mistake-an-idle-gradle-daemon-for-a-build": {
@@ -659,14 +659,22 @@
   "pulled_at": "2026-09-22T22:24:55.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-202/un-superviseur-codex-lance-a-la-main-est-vu-vivant-par-le-harnais"
  },
+ "harness-copes-with-usage-pacing": {
+  "hash": "2a198eecf5f8f984549960607d4be592bf9e2bd0",
+  "identifier": "JAK-272",
+  "issue_id": "811880fe-3c98-4d64-8072-4de4ef7b88b1",
+  "last_state": "Todo",
+  "pulled_at": "2026-09-24T08:52:51.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-272/quand-le-frein-dusage-de-lowner-met-un-worker-en-pause-le-harnais"
+ },
  "harness-dead-dependency-is-named-never-silent": {
-  "hash": "1ed214939224d6de457f8542a20704a1c9c9815c",
+  "hash": "34c0f6cbb4011e15845cb30c01ce79cbb4363889",
   "identifier": "JAK-271",
   "issue_id": "f4881950-debe-4575-bc8f-413dc4a46cd9",
-  "last_state": "In Progress",
+  "last_state": "Todo",
   "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-23T15:23:52.000Z",
-  "state_at": "2026-09-23T20:17:55.882Z",
+  "state_at": "2026-09-23T21:01:44.367Z",
   "url": "https://linear.app/moukrea/issue/JAK-271/un-chantier-qui-depend-dun-chantier-archive-ou-supplante-nattend-plus"
  },
  "harness-delivery-stale-bake-recovery": {
@@ -1400,12 +1408,12 @@
   "url": "https://linear.app/moukrea/issue/JAK-176/la-jauge-deco-du-hud-recharge-base-vide-jauge-pleine-masquee-en"
  },
  "hud-eco-gauge-yellow-red-orb": {
-  "hash": "4d0b0fffb0df1571f60e9e4dfbb4952f33c5bb1c",
+  "hash": "9a43a9c1ec0fddcb7bf4fbda2fa0ba9f07f10355",
   "identifier": "JAK-257",
   "issue_id": "f6f0d498-7cf5-4c93-89c8-e4ad68df959c",
-  "last_state": "À arbitrer",
-  "pulled_at": "2026-09-23T06:13:34.640Z",
-  "state_at": "2026-09-23T06:14:32.000Z",
+  "last_state": "Canceled",
+  "pulled_at": "2026-09-24T09:32:47.965Z",
+  "state_at": "2026-09-24T09:33:49.641Z",
   "url": "https://linear.app/moukrea/issue/JAK-257/dans-la-jauge-deco-lorbe-jaune-et-lorbe-rouge-gardent-la-meme-taille"
  },
  "hud-heart": {
@@ -1498,17 +1506,17 @@
   "url": "https://linear.app/moukrea/issue/JAK-48/locclusion-ambiante-multiplie-lindirect-plus-limage-finale"
  },
  "lighting-bake": {
-  "hash": "32e5a3bfd48c7b37d07f9f81f7fa986f8758892e",
+  "hash": "3d3bd72fd7c5099bbbdd4c246e22eee2f6087acf",
   "identifier": "JAK-49",
   "issue_id": "6afb5cac-bb1a-4dd8-b308-1fedc50f69c0",
-  "last_state": "À arbitrer",
-  "last_verdict_announced": "validator-003.txt",
-  "pulled_at": "2026-09-17T05:36:55.000Z",
+  "last_state": "In Progress",
+  "last_verdict_announced": "validator-004.txt",
+  "pulled_at": "2026-09-24T09:18:35.234Z",
   "relations": [
    "ao-prepass-tie-alpha",
    "lighting-ao-indirect"
   ],
-  "state_at": "2026-09-23T18:45:46.038Z",
+  "state_at": "2026-09-24T08:43:43.759Z",
   "url": "https://linear.app/moukrea/issue/JAK-49/le-baked-devient-lindirect-et-loriginal-reste-intact"
  },
  "lighting-census": {
@@ -1586,7 +1594,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-56/du-redmi-au-snapdragon-8-elite-des-paliers-et-chaque-ajout-debrayable"
  },
  "lighting-regimes": {
-  "hash": "0f85382dbf970325e3d3a26780a1e6ce151b231d",
+  "hash": "5c117c5836e50b208e5b9a6305f527b197394b0b",
   "identifier": "JAK-50",
   "issue_id": "c0ae94ec-54bb-4d1d-bd7c-880e12a25428",
   "last_state": "Backlog",
