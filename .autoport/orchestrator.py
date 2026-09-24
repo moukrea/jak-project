@@ -73,6 +73,7 @@ from lib import gate_verdict
 from lib import safe_reload
 from lib import suite_gate
 from lib import owner_capture
+from lib import pacing
 
 BACKEND = "claude"
 
@@ -251,6 +252,26 @@ MAX_ABORTED_IN_A_ROW = 3
 # The worker's progress is judged on ARTIFACTS, not output.
 NO_PROGRESS_SEC = 45 * 60
 
+# ============================================================
+# FREIN-D-USAGE/ : LE CROCHET DE RYTHME DE L'OWNER N'EST PAS UNE PANNE (2026-09-24)
+# ============================================================
+# L'owner porte un crochet global UserPromptSubmit (`resetdeck-agent ... pacing-hook`) qui MET
+# EN PAUSE les sessions Claude pour tenir sous les limites d'usage hebdomadaires. VOULU, et il
+# tourne aussi dans nos workers. Le 23/09, NO_PROGRESS_SEC et STALL_HARD_SEC ont tue huit
+# essais d'affilee pendant ces pauses et bloque deux items sur « meme echec 3 fois ».
+# Owner : « faudrait pas que notre harnais explose a chaque fois qu'il est freine ! »
+# Tant qu'un crochet de rythme tourne sous le worker (`lib/pacing.py`, lecture de /proc, aucun
+# secret lu, crochet jamais touche) : les gardes no-progress / hard-silence / post-result sont
+# SUSPENDUES, et le temps freine est RENDU a leurs reperes a la sortie de la pause. Un essai
+# qui se termine pendant la pause sort en `paced` : ni compte, ni empreinte, pas de validateur.
+# L'etat « freine » est publie dans PACING_NOW (defini avec LOG_ROOT) pour `autoport status`
+# et le reveil du superviseur.
+# Les coupures qui sont NOTRE garde (et non un geste de l'owner ou un signal) : un essai coupe
+# par l'une d'elles alors qu'un crochet tournait est un `paced_attempts_killed`.
+# Une pause plus courte que ceci n'est pas publiee (le crochet tourne brievement a chaque outil).
+PACING_PUBLISH_AFTER_S = 60.0
+GUARD_KILLS = ("no-progress", "hard-silence", "post-result", "exit-stall", "tool-budget")
+
 # A handoff is a short note, not a report.
 HANDOFF_MAX_LINES = 30
 
@@ -377,6 +398,7 @@ BACKLOG_PATH = AUTOPORT_DIR / "backlog.yaml"
 BACKLOG_LIB = AUTOPORT_DIR / "lib" / "backlog.py"
 GENERIC_VALIDATOR = AUTOPORT_DIR / "validators" / "generic.sh"
 LOG_ROOT = AUTOPORT_DIR / "logs"
+PACING_NOW = LOG_ROOT / "pacing-now.json"   # FREIN-D-USAGE/ — gitignore : ce n'est pas un progres
 REPORTS_DIR = AUTOPORT_DIR / "reports"
 OWNER_OK_DIR = AUTOPORT_DIR / "owner-ok"
 SHIELD_GUARD = AUTOPORT_DIR / "shield_guard.sh"
@@ -445,7 +467,7 @@ def format_duration(seconds: float) -> str:
 
 STATE_KEYS = ("version", "retries", "fingerprints", "attempt_seq",
               "rate_interrupts", "aborted", "commit_paths", "foreign_cause",
-              "proof_impossible", "proof_writer", "last_update")
+              "proof_impossible", "proof_writer", "paced", "last_update")
 
 
 class StateConflict(Exception):
@@ -495,6 +517,9 @@ def load_state() -> dict:
         # Un compteur qu'on n'ecrit nulle part ne vaut rien : celui-ci est ECRIT ici, releve
         # par le recensement de `harness-proof-file-has-no-writer-lock`, et il nomme le pid.
         "proof_writer": dict(raw.get("proof_writer") or {}),
+        # FREIN-D-USAGE/ : le temps que le crochet de rythme de l'owner a tenu nos workers en
+        # pause, et les essais qu'il a interrompus. Compte a part de `retries`, comme `aborted`.
+        "paced": dict(raw.get("paced") or {}),
         "last_update": raw.get("last_update", ""),
     }
 
@@ -999,6 +1024,20 @@ def launcher_abort_from_log(path: Path) -> int | None:
     except OSError:
         return None
     return None
+
+
+def _paced_record(state: dict, item_id: str) -> dict:
+    """FREIN-D-USAGE/ : par item, `attempts` ayant connu une pause, `episodes`, `total_s` et
+    `max_s` freines, `void` = essais arretes pendant une pause (non comptes)."""
+    book = state.setdefault("paced", {})
+    rec = book.get(item_id) if isinstance(book.get(item_id), dict) else {}
+    rec = {"attempts": int(rec.get("attempts", 0) or 0),
+           "episodes": int(rec.get("episodes", 0) or 0),
+           "total_s": float(rec.get("total_s", 0) or 0),
+           "max_s": float(rec.get("max_s", 0) or 0),
+           "void": int(rec.get("void", 0) or 0)}
+    book[item_id] = rec
+    return rec
 
 
 def _aborted_record(state: dict, item_id: str) -> dict:
@@ -2861,6 +2900,7 @@ class Outcome:
       blocked         max_retries, missing input, fatal config
       aborted         the launcher killed the worker's background tasks: NOT counted
       interrupted     signal / scope change / duplicate worker: NOT counted
+      paced           stopped while the owner's usage-pacing hook held it: NOT counted
       archived        the owner archived the item mid-attempt: NOT counted, nothing written
       no-start        refused at the door, zero work: NOT counted
       infra           529 storm: NOT counted
@@ -3086,9 +3126,23 @@ def run_attempt(item: dict, state: dict) -> Outcome:
         inflight = {"ceiling_s": inflight_ceiling_s(item), "pid": 0, "how": "",
                     "waited_s": 0.0, "holds": 0, "expired": 0, "ended": 0}
 
+        # FREIN-D-USAGE/debut
+        # Le crochet de rythme de l'owner, suivi dans l'arbre de CE worker. `paced_at_kill` est
+        # releve AU MOMENT de la coupure, avant le SIGTERM qui emporte le crochet avec le groupe.
+        pace = pacing.Tracker(proc.pid, PACING_NOW, publish_after_s=PACING_PUBLISH_AFTER_S,
+                               item=iid, attempt=seq)
+        paced_at_kill = False
+        # FREIN-D-USAGE/fin
+
         def _kill(reason: str) -> None:
-            nonlocal abort_reason
+            nonlocal abort_reason, paced_at_kill
             abort_reason = reason
+            # FREIN-D-USAGE/debut
+            try:
+                paced_at_kill = bool(pacing.scan(proc.pid))
+            except Exception:  # noqa: BLE001 — la lecture de /proc ne tue jamais l'essai
+                paced_at_kill = False
+            # FREIN-D-USAGE/fin
             try:
                 os.killpg(proc.pid, signal.SIGTERM)
             except (ProcessLookupError, PermissionError):
@@ -3115,9 +3169,35 @@ def run_attempt(item: dict, state: dict) -> Outcome:
                     _kill("tool-budget")
                     break
                 if not ready:
-                    idle = time.monotonic() - last_event_at
                     if proc.poll() is not None:
                         break
+                    # FREIN-D-USAGE/debut
+                    # Tant qu'un crochet de rythme tourne, AUCUNE garde de silence ne court : le
+                    # worker est en pause par la volonte de l'owner. A la sortie, la duree de la
+                    # pause est RENDUE aux reperes — le temps freine ne compte pas.
+                    try:
+                        paced_now, pause_closed = pace.poll()
+                    except Exception:  # noqa: BLE001
+                        paced_now, pause_closed = False, 0.0
+                    if pause_closed:
+                        now_m = time.monotonic()
+                        last_event_at = min(now_m, last_event_at + pause_closed)
+                        last_progress_at = min(now_m, last_progress_at + pause_closed)
+                        if pause_closed >= 30:
+                            log(f"· frein d'usage levé après {pause_closed / 60:.0f} min — "
+                                f"les gardes reprennent (temps freiné non compté)", "dim")
+                    if paced_now:
+                        if pace.published and not pace.logged:
+                            pace.logged = True
+                            log(f"⏸ EN PAUSE : frein d'usage de l'owner depuis "
+                                f"{pacing.human_since(pace.since_epoch)} (crochet pid "
+                                f"{','.join(map(str, pace.pids))}) — on ATTEND, gardes "
+                                f"suspendues", "yellow")
+                        _maybe_emit_tick(pstate)
+                        continue
+                    pace.logged = False
+                    # FREIN-D-USAGE/fin
+                    idle = time.monotonic() - last_event_at
                     # claude said `result` but won't exit (TaskCreate re-engagements
                     # keep the process open in -p mode). Force the issue — SAUF si le worker a
                     # laisse une course de preuve EN VOL : la tuer detruit la preuve de son
@@ -3200,6 +3280,17 @@ def run_attempt(item: dict, state: dict) -> Outcome:
             _kill("signal")
             raise
         finally:
+            # FREIN-D-USAGE/debut
+            # Le processus s'est-il arrete PENDANT une pause ? Releve avant d'attendre sa fin :
+            # une coupure l'a note dans `_kill`, une sortie spontanee se lit sur le dernier
+            # releve, et seulement si le worker n'avait pas rendu son resultat.
+            try:
+                paced_at_end = paced_at_kill or (
+                    not pstate.result_seen and (pace.active or bool(pacing.scan(proc.pid))))
+            except Exception:  # noqa: BLE001
+                paced_at_end = paced_at_kill
+            pace.close()
+            # FREIN-D-USAGE/fin
             try:
                 rc = proc.wait(timeout=EXIT_WAIT_SEC)
             except subprocess.TimeoutExpired:
@@ -3224,6 +3315,8 @@ def run_attempt(item: dict, state: dict) -> Outcome:
                          ("pid", "how", "waited_s", "holds", "ceiling_s", "expired",
                           "ended", "idle_at_hold_s")},
             "tool_calls": pstate.tool_calls,
+            # FREIN-D-USAGE/ : le temps freine de CET essai, et s'il a fini pendant une pause.
+            "pacing": pace.record(paced_at_end), "abort_paced": bool(paced_at_kill),
             # LES JETONS DE L'ESSAI, COMPTES UNE FOIS (harness-usage-double-counted, 19/09).
             # `usage_source` dit d'ou sort le chiffre, `usage_results` combien de `result`
             # l'ont republie et `usage_dup_msgs` combien de republications ont ete IGNOREES :
@@ -3319,6 +3412,27 @@ def run_attempt(item: dict, state: dict) -> Outcome:
     if abort_reason == "scope":
         _checkpoint(f"essai {seq} annulé — changement de périmètre (non compté)")
         return Outcome("interrupted", "périmètre changé pendant l'essai")
+
+    # FREIN-D-USAGE/debut
+    # LE TEMPS FREINE, PUBLIE ; L'ESSAI QUI S'ARRETE PENDANT LA PAUSE, JAMAIS COMPTE.
+    # Comme un signal : le travail est commite, `retries` et `fingerprints` ne bougent pas, le
+    # validateur ne passe pas, et la regle « meme echec 3 fois » ne le voit donc jamais.
+    if pace.episodes:
+        rec = _paced_record(state, iid)
+        rec["attempts"] += 1
+        rec["episodes"] += pace.episodes
+        rec["total_s"] = round(rec["total_s"] + pace.total_s, 1)
+        rec["max_s"] = round(max(rec["max_s"], pace.max_s), 1)
+        if paced_at_end:
+            rec["void"] += 1
+        save_state(state)
+    if paced_at_end:
+        why = (f"le worker s'est arrêté ({abort_reason or f'sortie {rc}'}) pendant une pause "
+               f"du frein d'usage de l'owner ({pace.total_s / 60:.0f} min freinées)")
+        log(f"⏸ essai {seq} : {why} — NON COMPTÉ, ni empreinté, validateur non lancé", "yellow")
+        _checkpoint(f"essai {seq} arrêté pendant le frein d'usage (non compté)")
+        return Outcome("paced", why, seq=seq)
+    # FREIN-D-USAGE/fin
 
     # ---- L'ESSAI QUE LE LANCEUR A TUE ------------------------------------
     # Ni un echec du worker, ni un arbre a juger : la CLI a coupe les taches de fond
@@ -4030,6 +4144,17 @@ def main(argv: list[str] | None = None) -> int:
             _write_status(bk, iid, "open")
             log(f"⏹ {iid} : essai ABORTÉ — {out.reason}. Ni compté, ni empreinté, "
                 f"validateur non lancé. Le travail est commité.", "yellow")
+            nap(10)
+
+        elif out.kind == "paced":
+            # FREIN-D-USAGE/ : le worker s'est arrete pendant une pause voulue par l'owner.
+            # Ni compte, ni empreinte, ni validateur : on rouvre et on reprend.
+            _write_status(bk, iid, "open")
+            log(f"⏸ {iid} : {out.reason}. Ni compté, ni empreinté. Le travail est commité.",
+                "yellow")
+            no_start_streak = 0
+            if HALT:
+                break
             nap(10)
 
         elif out.kind == "archived":

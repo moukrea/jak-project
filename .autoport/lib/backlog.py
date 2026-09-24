@@ -262,6 +262,25 @@ OPS = {"==": lambda a, b: a == b, "!=": lambda a, b: a != b,
        ">": lambda a, b: a > b, ">=": lambda a, b: a >= b}
 
 
+def pacing_line(path=None):
+    """FREIN-D-USAGE/ : « En pause : frein d'usage depuis HH:MM » quand l'orchestrateur a publie
+    une pause en cours ET qu'elle est vraie maintenant (orchestrateur vivant, crochet vivant)."""
+    here = os.path.dirname(os.path.abspath(__file__))
+    try:
+        import importlib.util as _iu             # noqa: PLC0415 — importable sous tout nom
+        spec = _iu.spec_from_file_location("_autoport_pacing", os.path.join(here, "pacing.py"))
+        _pacing = _iu.module_from_spec(spec)
+        spec.loader.exec_module(_pacing)
+        rec = _pacing.current(path or os.path.join(os.path.dirname(here), "logs",
+                                                   "pacing-now.json"))
+    except Exception:                            # noqa: BLE001 — le statut ne meurt pas de ca
+        return ""
+    if not rec:
+        return ""
+    return ("En pause : frein d'usage depuis %s (voulu par l'owner ; le harnais attend, "
+            "rien n'est compté)" % _pacing.human_since(float(rec.get("since_epoch") or 0)))
+
+
 class BacklogError(Exception):
     pass
 
@@ -879,6 +898,13 @@ class Backlog:
             nxt = self.next_open()
             en_cours = ("## En cours\nRien en cours. Le prochain sujet est : %s"
                         % nxt.get("feature", nxt.get("id"))) if nxt else ""
+        # FREIN-D-USAGE/ (harness-copes-with-usage-pacing) : le worker est EN PAUSE par le crochet
+        # de rythme de l'owner, voulu. Dit ici pour qu'un chantier silencieux n'ait pas l'air
+        # mort. Hors de `_blocs_digest` exprès : une pause ne réveille pas le superviseur, et
+        # le repère est une HEURE fixe, jamais un âge qui changerait le texte à chaque lecture.
+        pause = pacing_line()
+        if pause:
+            en_cours = (en_cours + "\n" if en_cours else "## En cours\n") + pause
 
         # `owner_test: false` : la preuve est machine (empreinte, reproductibilite), il n'y a rien
         # que l'owner puisse regarder en jeu. Il l'a dit le 2026-09-04 : « s'il n'y a rien a
