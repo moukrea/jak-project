@@ -8190,6 +8190,12 @@ items:
       comment: 33e8a333-24e3-4510-a2ba-e4e0b484d81b
       ticket: 1a43f366-ec9e-40f1-bcb2-4e1698505d53
       at: '2026-09-24T23:48:22.886Z'
+  - date: '2026-09-24'
+    text: Alors le pc… tous les pc actuels sont en 64 bits si je dis pas de bêtises…
+    via:
+      comment: f934557c-67e2-46a0-b992-c4b3c97508fe
+      ticket: 1a43f366-ec9e-40f1-bcb2-4e1698505d53
+      at: '2026-09-24T23:51:30.089Z'
 - id: perf-codegen-arm64-regs
   feature: Le compilateur GOAL utilise les 31 registres de l'arm64
   status: open
@@ -22477,7 +22483,15 @@ items:
     de collision ou de la geometrie), ce qui rend le cout d''execution nul et corrige aussi tout autre
     lecteur de ces normales. Mesurer le cout du retournement au runtime sur le telephone (regimes alternes
     dans UNE course, memoire feedback_gain_measured_by_alternating_regimes_inside_one_run) et publier
-    l''ecart ; si la correction au chargement couvre tout, retirer le retournement du shader.'
+    l''ecart ; si la correction au chargement couvre tout, retirer le retournement du shader.
+
+    6. OU CORRIGER, par ordre de preference (owner 25/09 : « Et retourner dans les assets directement
+    histoire qu''on ait pas à compenser au runtime c''est pas mieux ? ») : (a) a l''EXTRACTION : le level_extractor
+    du decompilateur qui produit les .fr3 depuis l''ISO de l''utilisateur oriente les normales une fois
+    pour toutes (cout nul au jeu ET au chargement) ; ATTENTION : ces assets viennent de l''ISO de chaque
+    utilisateur (famille « extraits », Naughty Dog), on ne les livre pas : la correction vit dans l''extracteur,
+    et un .fr3 deja extrait doit etre re-extrait (prevoir la detection d''un .fr3 d''ancienne version)
+    ; (b) a defaut, au chargement ; (c) le retournement dans le shader seulement en dernier recours.'
   owner_feedback:
   - date: '2026-09-25'
     text: Top donc comme j'ai dit dans l'autre commentaire pour le soucis des faces qui était mal orientés
@@ -22496,6 +22510,13 @@ items:
       comment: 02422413-6c22-45f5-bbf7-ce7220d9d180
       ticket: a6c7bbd7-f461-4af9-8e7c-d653a2ed6979
       at: '2026-09-24T23:50:34.982Z'
+  - date: '2026-09-24'
+    text: Et retourner dans les assets directement histoire qu'on ait pas à compenser au runtime c'est
+      pas mieux ?
+    via:
+      comment: a7542adf-d841-43a9-94b0-f524c56fa16d
+      ticket: a6c7bbd7-f461-4af9-8e7c-d653a2ed6979
+      at: '2026-09-24T23:52:31.517Z'
 - id: acquis-lighting-regimes
   feature: 'La lumiere principale par creneau (validee) ne peut plus regresser : un acquis la protege'
   status: open

@@ -5,7 +5,7 @@
 # Aucune surface a l'envers ne tombe au noir, dans aucun niveau ni aucune famille de rendu (decor et personnages)
 
 ## Defaut cite
-- 2026-09-24 : « Le correctif actuel est un shader qui flip les normales au r… »
+- 2026-09-24 : « Et retourner dans les assets directement histoire qu'on ait… »
 
 ## Cause connue
 Demande de l'owner le 25/09 (ticket dedie). lighting-regimes a corrige a village3 un sol NOIR : des faces dont la normale pointait a l'envers (enroulement des strips tfrag = pile ou face, voir memoire feedback_tfrag_strip_winding_is_not_an_orientation). Correctif : dans shade() de game/graphics/opengl_renderer/shaders/shade.glsl, la normale est retournee vers la face vue (g_shade_flip, commit 57102cdfce). shade() est inclus par tfrag3, etie_base, tie_wind, shrub, grass, ocean_common : en principe tout le decor. MAIS rien ne prouve que c'est regle PARTOUT : la sonde sol (floor_probe.cpp, `floor_normal_flipped_ppm_<niveau>`) n'a tourne que sur quelques niveaux, et les personnages (merc) ne pas […suite dans le contrat]
