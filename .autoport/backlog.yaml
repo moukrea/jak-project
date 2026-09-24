@@ -21961,3 +21961,28 @@ items:
     4. `dead_dependency_leftovers` ; doit valoir 0.
 
     CONTROLE POSITIF + CONTROLE NEGATIF.'
+- id: acquis-lighting-bake
+  feature: 'La separation de l''eclairage en ambiante + soleil (validee) ne peut plus regresser : un acquis
+    la protege'
+  status: open
+  priority: 119
+  code_scope: harnais
+  device: false
+  owner_test: false
+  max_retries: 4
+  gate:
+    key: lighting_bake_acquis_defects
+    op: ==
+    value: 0
+  prompt: prompts/item-acquis-lighting-bake.md
+  where: 'Rien a regarder dans le jeu : garde-fou du harnais.'
+  known_cause: 'L''owner a VALIDE lighting-bake le 24/09 ; aucun `acquis/lighting-bake.sh` ne le protege.
+    La grandeur existe deja : le jeu verifie au chargement que ambiante + soleil recolles redonnent l''original
+    (bake_reconstruction_maxdelta, ecart d''un demi-cran sur 255) sur village1, swamp, lavatube, snow.'
+  deliverable: '1. `.autoport/acquis/lighting-bake.sh` : lit bake_reconstruction_maxdelta par niveau (4
+    niveaux) et rend non nul au-dela du seuil valide.
+
+    2. CONTROLE POSITIF : fausser la reconstruction d''un niveau -> l''acquis rougit et nomme le niveau.
+    CONTROLE NEGATIF : binaire courant -> 0.
+
+    3. Publier `lighting_bake_acquis_defects` et le nombre de niveaux mesures (0 niveau = defaut).'
