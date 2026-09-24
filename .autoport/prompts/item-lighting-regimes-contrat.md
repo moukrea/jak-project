@@ -17,6 +17,9 @@ ROUVERT LE 24/09 AVANT TEST, sur accord de l'owner (« go »), pour deux defauts
 1. DIRECTION INVERSEE : game/graphics/opengl_renderer/background/background_common.cpp (boucle kLightGroup, `light_dir = -lg_dir`) NEGUE la direction de creneau alors qu'elle pointe deja VERS la lumiere (tools/light_bake/main.cpp:475 la prend telle quelle) ; gfx.h:296 (recharged_pbr_lg_dir) a un commentaire faux « light-travel dirs ». La lumiere vient du mauvais cote.
 2. NUIT TROP ECLAIREE : la nuit, sur les niveaux sun-fade=1 (village1), la cle devient le creneau de nuit bleu zenithal classe « cle » avec un poids direct de 1, alors que l'ancien code eteignait le direct par l'elevation du soleil.
 
+RETOUR DE TEST DE L'OWNER (24/09, build f215fd) : OK sur les niveaux designes (marais, tube de lave). MAIS village3, premier ecran : le SOL est NOIR alors que le village est a ciel ouvert ; le PONT a cote reste eclaire par le haut ; avec l'eclairage recharge OFF, rien de tel. Ses captures : .autoport/owner-feedback/lighting-regimes/20260924T2046-1.jpg et -2.jpg (illustration, pas une preuve).
+PISTE (non prouvee) : lighting-bake n'a decompose QUE village1, swamp, lavatube, snow. Sur un niveau SANS compagnon de bake (village3), l'indirect/ambiante vaut peut-etre zero et le direct est eteint (creneau sans soleil visible) : le sol (tfrag) tombe au noir, alors que le pont (autre famille de rendu, TIE ?) garde l'ancien chemin.
+
 ## Livrable — le contrat, en entier
 
 Le shader lit le REGIME du creneau au lieu de supposer un soleil ; sun-fade module la part directe. La ou il y a un ciel, sa FORME est capturee et renormalisee sur amb-color : le ciel donne la distribution, la table donne le ton. SPEC 4.10 et 4.11. PREUVE : `FEATURE lighting-regimes armed=1 hits=<images dont le regime a ete lu dans la table>` + la ligne `regime_sun_override_wrong=` seule sur sa ligne ; `--off` doit rendre `armed=0 hits=0` dans la MEME scene. Le publicateur EXISTE : game/system/autoport_proof.{h,cpp} — appelle armed_for("lighting-regimes"), jamais armed(), et n'en ecris pas un second.
@@ -29,6 +32,8 @@ AJOUT DU 24/09 (preuve legere : UNE grandeur par defaut, l'oeil c'est l'owner) :
 A. Direction : retirer la negation fautive et corriger le commentaire de gfx.h ; grandeur : signe du produit scalaire entre la direction utilisee par le shader et la direction du creneau cuite (doit etre > 0 sur tous les creneaux des 4 niveaux).
 B. Nuit : sur un niveau sun-fade=1, le poids du direct suit l'elevation comme avant (0 quand l'astre est couche) ; grandeur : poids direct publie a une heure de nuit = 0.
 C. Puis livrer le build et passer en to-test ; pas de campagne multi-scenes.
+
+AJOUT APRES LE RETOUR OWNER (village3 noir) : aucun niveau ne doit tomber au noir sous l'eclairage recharge. Sur un niveau sans donnee de bake, retomber sur l'eclairage d'origine (ou le baked non decompose) au lieu de zero. UNE grandeur : pour CHAQUE niveau charge, luminance moyenne du sol recharge ON / OFF (ratio publie par niveau ; un ratio < 0,5 sur un niveau = defaut NOMME) ; au minimum village3 + un niveau decompose. Puis livrer ; l'owner juge.
 
 ## Hors perimetre
 
@@ -57,6 +62,9 @@ swamp et lavatube : la lumiere ne doit plus venir d'un soleil invisible
 
 ### 2026-09-24
 > go
+
+### 2026-09-24
+> Alors ça a l'air ok sur les niveaux que tu me dis de vérifier, mais sur le premier screen de village3 on voit le sol noir (pas le pont à côté) alors que le village est à ciel ouvert et que c'est pas du tout quasi noir avec les réglages rechargées à off… je sais pas si ça collide avec un autre chantier genre les astres mais il y a un truc qui fonctionne pas du tout comme ça devrait ! Est-ce que c'est parce que a l'heure où j'y suis le soleil n'est pas visible dans le ciel… peut-être mais alors pourquoi le pont est toujours éclairé par le haut ? C'est vraiment bizarre   ![71878.jpg](https://uploads.linear.app/a0a96fbe-70d3-4d8d-9350-9c6c972f09b2/94b59383-b01b-47b7-b1a1-a777314a4a0d/c03ddc12-4e0f-433a-a775-ffa0b30b03f6)  ![71879.jpg](https://uploads.linear.app/a0a96fbe-70d3-4d8d-9350-9c6c972f09b2/f642bea5-cdf0-440f-a7ad-533711bec0c4/579fa731-5875-4b3a-9613-e512efb7b0bb) [images enregistrees : .autoport/owner-feedback/lighting-regimes/20260924T2046-1.jpg ; .autoport/owner-feedback/lighting-regimes/20260924T2046-2.jpg]
 
 ## Pourquoi ce fichier existe
 
