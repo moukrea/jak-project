@@ -5,11 +5,13 @@
 # Un menu de teleportation vers n'importe quel niveau, ouvert par une combinaison de touches, pour que l'owner teste vite partout
 
 ## Defaut cite
-- 2026-09-24 : « Alors tu me demande d'aller vérifier à plein d'endroits… Fau… »
+- 2026-09-24 : « Alors le menu pour TP apparaît bien, mais vu que le joystick… »
 
 ## Cause connue
 Demande de l'owner le 24/09 sur lighting-regimes (voir owner_feedback) : il doit verifier l'eclairage a plein d'endroits et le trajet a pied rend les tests « un calvaire ». Il a demande de le faire DANS lighting-regimes ; le superviseur en a fait un chantier separe place JUSTE APRES, parce que l'essai en cours de lighting-regimes ne relit pas sa consigne en cours de route et aurait pu se fermer sans le menu.
 A VERIFIER AVANT D'ECRIRE : OpenGOAL a deja un menu de debug avec chargement de niveau et points de continuation (continue-point) ; le reutiliser plutot que reinventer. Le code GOAL ajoute vit sous goal_src/jak1/pc/ ; un fichier neuf doit etre liste dans game.gd ET engine.gd.
+
+RETOUR DE […suite dans le contrat]
 
 ## Livrable
 1. Combinaison de touches manette ET tactile (le telephone n'a pas forcement de manette) qui ouvre un menu listant les niveaux du jeu (et leurs points de continuation).

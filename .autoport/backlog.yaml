@@ -5481,7 +5481,7 @@ items:
   delivered: '2026-09-24'
 - id: lighting-regimes
   feature: La lumiere cle n'est pas toujours un soleil
-  status: open
+  status: in-progress
   priority: 24
   owner_feedback:
   - date: '2026-09-03'
@@ -17995,8 +17995,8 @@ items:
 - id: owner-level-teleport-menu
   feature: Un menu de teleportation vers n'importe quel niveau, ouvert par une combinaison de touches,
     pour que l'owner teste vite partout
-  status: in-progress
-  priority: 25
+  status: open
+  priority: 23
   code_scope: jeu
   device: true
   owner_test: true
@@ -18018,12 +18018,16 @@ items:
   known_cause: |-
     Demande de l'owner le 24/09 sur lighting-regimes (voir owner_feedback) : il doit verifier l'eclairage a plein d'endroits et le trajet a pied rend les tests « un calvaire ». Il a demande de le faire DANS lighting-regimes ; le superviseur en a fait un chantier separe place JUSTE APRES, parce que l'essai en cours de lighting-regimes ne relit pas sa consigne en cours de route et aurait pu se fermer sans le menu.
     A VERIFIER AVANT D'ECRIRE : OpenGOAL a deja un menu de debug avec chargement de niveau et points de continuation (continue-point) ; le reutiliser plutot que reinventer. Le code GOAL ajoute vit sous goal_src/jak1/pc/ ; un fichier neuf doit etre liste dans game.gd ET engine.gd.
+
+    RETOUR DE TEST DE L'OWNER (24/09, telephone, tactile) : le menu S'OUVRE bien, mais il est INUTILISABLE au tactile : le joystick virtuel n'est pas remplace par une croix directionnelle, donc Haut/Bas/Gauche/Droite ne sont pas accessibles pour naviguer.
   deliverable: |-
     1. Combinaison de touches manette ET tactile (le telephone n'a pas forcement de manette) qui ouvre un menu listant les niveaux du jeu (et leurs points de continuation).
     2. Choisir une entree teleporte Jak a cet endroit, jeu non casse ensuite (sauvegarde intacte, pas de plantage au changement de niveau).
     3. Utile en plus pour l'eclairage : choisir l'heure de la journee (matin / midi / soir / nuit) depuis le meme menu.
     4. Inactif par defaut pour un joueur normal si la combinaison peut se declencher par accident (a juger : combinaison peu probable ou reglage d'options).
     5. Preuve PROGRAMMATIQUE simple : le moteur publie le niveau atteint et la position apres une teleportation declenchee par le banc sur 3 niveaux ; `teleport_menu_defects` = teleportations ratees ; doit valoir 0. PAS de preuve visuelle : c'est l'owner qui juge le confort.
+
+    AJOUT DU 24/09 : NAVIGATION TACTILE. Au tactile, le menu doit se piloter sans manette : soit la surcouche tactile affiche une croix directionnelle a la place du joystick tant que le menu est ouvert, soit le joystick virtuel pousse Haut/Bas/Gauche/Droite, soit on touche directement une ligne pour la choisir (le plus simple a l'usage). Validation, retour et reglage de l'heure accessibles aussi. Preuve legere : UNE grandeur (evenements de navigation recus depuis la surcouche tactile pendant que le menu est ouvert > 0) ; l'owner juge le confort.
   owner_feedback:
   - date: '2026-09-24'
     text: Alors tu me demande d'aller vérifier à plein d'endroits… Faudrait que j'ai un moyen simple de
@@ -18034,3 +18038,18 @@ items:
       source: supervisor
       at: '2026-09-24T15:39:22+00:00'
       by: autoport feedback
+  - date: '2026-09-24'
+    text: Alors le menu pour TP apparaît bien, mais vu que le joystick n'est pas remplacé par un dpad
+      c'est pas utilisable
+    via:
+      source: supervisor
+      at: '2026-09-24T17:27:17+00:00'
+      by: autoport feedback
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-24'
+    proof_sha: b0cdd57f9ed9b84e
+    proof_bytes: 85572
+    attempt: 1
+    journal: validator-001.txt
+  delivered: '2026-09-24'
