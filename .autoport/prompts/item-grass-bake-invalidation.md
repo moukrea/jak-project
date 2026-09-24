@@ -6,6 +6,8 @@
 ## Cause connue
 SPEC herbe §5, qu'aucun item ne portait (audit superviseur 17/09 sur remarque owner : « on parle de refonte »). Defaut connu : GrassRenderer.cpp:1032-1036 compare la TAILLE du .fr3, pas une empreinte de contenu ; scripts/shell/build_grass_bakes.sh n'est appele par aucun script de build, cuisson manuelle et totale.
 
+SIGNALE LE 24/09 (worker de harness-census-seeds-anchored-structurally) : `lib/census/grass-bake-invalidation.sh:178` (WIRED_PREP) compte un appel a `build_grass_bakes.sh` dans `.autoport/prepare_delivery_bakes.sh`, et ce fichier n'en porte PLUS AUCUN (grep : 0). A verifier en premier : les bakes d'herbe sont-ils encore rebatis a la livraison ?
+
 ## Livrable
 `grass_bake_stale_defects` = 0, somme de termes publies SEPAREMENT.
 
