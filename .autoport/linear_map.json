@@ -36,7 +36,7 @@
    "url": "https://linear.app/moukrea/document/e1fe9500339a"
   }
  },
- "_gen": 354,
+ "_gen": 359,
  "_ids": {
   "labels": {
    "ok": "000e105b-24ba-4fa3-a579-bc3bf0869242",
@@ -1624,17 +1624,18 @@
   "url": "https://linear.app/moukrea/issue/JAK-50/la-lumiere-cle-nest-pas-toujours-un-soleil"
  },
  "lighting-shadows": {
-  "hash": "b877bd5d6cca50e552634978a7a6c587b32f2dbc",
+  "hash": "2a0da065e2c4a9ed7a1c1e8ca72fd5ab17dda5e8",
   "identifier": "JAK-51",
   "issue_id": "923462dc-521a-4c79-ba5f-2e2e8cc4c758",
   "last_state": "In Progress",
+  "last_verdict_announced": "validator-003.txt",
   "pulled_at": "2026-09-17T05:36:55.000Z",
   "relations": [
    "ao-prepass-tie-alpha",
    "lighting-ao-indirect",
    "perf-merc-defuse"
   ],
-  "state_at": "2026-09-24T10:20:05.307Z",
+  "state_at": "2026-09-24T12:18:13.673Z",
   "url": "https://linear.app/moukrea/issue/JAK-51/deux-astres-deux-jeux-dombres-et-les-acteurs-qui-en-projettent"
  },
  "menu-back-label": {
