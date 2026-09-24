@@ -7,6 +7,12 @@ La consigne ORDONNE de le lire : elle est un resume, pas le contrat.
 
 LIS D'ABORD prompts/SPEC-refonte-lumiere.md : c'est le contrat, il porte le detail que ce prompt ne repete pas. pc-set-pbr-sky-sun! est pousse sans garde et ecrase la lumiere cle : dans 16 niveaux sur 20 la clef du monde suit un soleil que le joueur ne voit pas. SPEC 3.2, 3.3 et l'annexe A.
 
+APPRIS PAR lighting-bake (24/09, reports/lighting-bake/FINDINGS.txt) — a lire AVANT de coder :
+* SPEC §5.2 : la formule baked = [amb*skyvis + lgt*N.L*vis]*art ne decrit PAS le bake de ND (village1 : mediane de art 3,45, 76 % hors bornes) ; avec l'ambiante PLATE (sans skyvis) mediane 0,954 et 2,5 % hors bornes.
+* La palette B est verifiee au chargement puis JETEE : aucun renderer ne la lit (interp_time_of_day reste sur A) ; l'amendement du 09-09 (trois LUT TOD, ping-pong, tod_uploads_per_frame) n'est pas fait.
+* swamp : 26,5 % des valeurs hors bornes de art (village1 2,5 %, snow 3,3 %, lavatube 13 %) : les creneaux « dome » (cone de 60 deg) decomposent mal. Hypothese de l'owner (24/09) : le marais est sous ciel couvert, soleil pas directement visible.
+* SPEC annexe A ne liste pas le 8e creneau (data[7]) : lavatube data[7] = source basse, village1 data[7] = ambiante.
+
 ## Livrable — le contrat, en entier
 
 Le shader lit le REGIME du creneau au lieu de supposer un soleil ; sun-fade module la part directe. La ou il y a un ciel, sa FORME est capturee et renormalisee sur amb-color : le ciel donne la distribution, la table donne le ton. SPEC 4.10 et 4.11. PREUVE : `FEATURE lighting-regimes armed=1 hits=<images dont le regime a ete lu dans la table>` + la ligne `regime_sun_override_wrong=` seule sur sa ligne ; `--off` doit rendre `armed=0 hits=0` dans la MEME scene. Le publicateur EXISTE : game/system/autoport_proof.{h,cpp} — appelle armed_for("lighting-regimes"), jamais armed(), et n'en ecris pas un second.

@@ -5681,7 +5681,7 @@ items:
       nouvelle tentative ni validation. Aucun dependant ne reference encore le parent.
 - id: lighting-bake
   feature: Le baked devient l'indirect, et l'original reste intact
-  status: in-progress
+  status: to-test
   priority: 22
   owner_feedback:
   - date: '2026-07-19'
@@ -5753,6 +5753,14 @@ items:
   spec: prompts/SPEC-refonte-lumiere.md
   hits_means: index de couleur reconstruits et verifies
   supervisor_recovery: true
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-24'
+    proof_sha: 3ff40ed210aa3cbf
+    proof_bytes: 74266
+    attempt: 4
+    journal: validator-004.txt
+  delivered: '2026-09-24'
 - id: lighting-regimes
   feature: La lumiere cle n'est pas toujours un soleil
   status: open
@@ -5795,7 +5803,25 @@ items:
   known_cause: 'LIS D''ABORD prompts/SPEC-refonte-lumiere.md : c''est le contrat, il porte le detail que
     ce prompt ne repete pas. pc-set-pbr-sky-sun! est pousse sans garde et ecrase la lumiere cle : dans
     16 niveaux sur 20 la clef du monde suit un soleil que le joueur ne voit pas. SPEC 3.2, 3.3 et l''annexe
-    A.'
+    A.
+
+
+    APPRIS PAR lighting-bake (24/09, reports/lighting-bake/FINDINGS.txt) — a lire AVANT de coder :
+
+    * SPEC §5.2 : la formule baked = [amb*skyvis + lgt*N.L*vis]*art ne decrit PAS le bake de ND (village1
+    : mediane de art 3,45, 76 % hors bornes) ; avec l''ambiante PLATE (sans skyvis) mediane 0,954 et 2,5
+    % hors bornes.
+
+    * La palette B est verifiee au chargement puis JETEE : aucun renderer ne la lit (interp_time_of_day
+    reste sur A) ; l''amendement du 09-09 (trois LUT TOD, ping-pong, tod_uploads_per_frame) n''est pas
+    fait.
+
+    * swamp : 26,5 % des valeurs hors bornes de art (village1 2,5 %, snow 3,3 %, lavatube 13 %) : les
+    creneaux « dome » (cone de 60 deg) decomposent mal. Hypothese de l''owner (24/09) : le marais est
+    sous ciel couvert, soleil pas directement visible.
+
+    * SPEC annexe A ne liste pas le 8e creneau (data[7]) : lavatube data[7] = source basse, village1 data[7]
+    = ambiante.'
   deliverable: 'Le shader lit le REGIME du creneau au lieu de supposer un soleil ; sun-fade module la
     part directe. La ou il y a un ciel, sa FORME est capturee et renormalisee sur amb-color : le ciel
     donne la distribution, la table donne le ton. SPEC 4.10 et 4.11. PREUVE : `FEATURE lighting-regimes
@@ -5914,7 +5940,16 @@ items:
   known_cause: 'LIS D''ABORD prompts/SPEC-refonte-lumiere.md : c''est le contrat, il porte le detail que
     ce prompt ne repete pas. Zero lumiere ponctuelle, alors que la donnee les nomme : 62 prototypes candidats,
     1192 instances, dont 16 jumeaux -glow.mb qui SONT les surfaces emissives authorees. SPEC 5.3.8 et
-    annexe C.'
+    annexe C.
+
+
+    APPRIS PAR lighting-bake (24/09, reports/lighting-bake/FINDINGS.txt) — a lire AVANT de coder :
+
+    * common/custom_data/LightBake.cpp (version 1) ecrit les sections PROBES, LIGHTS, LIGHTVIS VIDES (count=0)
+    : sondes, emetteurs et visibilite par lumiere ne sont pas encore cuits ; ce chantier doit les produire.
+
+    * Le compagnon derive part dans le pack de l''APK via android/build_custom_pack.sh (pas scripts/package_game_assets.sh
+    comme le dit la SPEC §5.6).'
   deliverable: 'light_emitters.txt cote assets (un verdict par prototype, residu publie), extraction hors
     ligne, grille de clusters remplie sur le fil de rendu, vacillement branche sur update-mood-flames.
     SPEC 4.9 et 5.7.1. PREUVE : `FEATURE lighting-local-lights armed=1 hits=<pixels eclaires par au moins
@@ -5957,7 +5992,16 @@ items:
   where: la hutte du Sage Vert et les huttes de Sandover, contre l'exterieur
   known_cause: 'LIS D''ABORD prompts/SPEC-refonte-lumiere.md : c''est le contrat, il porte le detail que
     ce prompt ne repete pas. La grille de sondes a ete supprimee et son remplacant est un degrade CPU
-    sans notion d''interieur : les huttes recoivent le ciel a travers leurs murs. SPEC 4.12.'
+    sans notion d''interieur : les huttes recoivent le ciel a travers leurs murs. SPEC 4.12.
+
+
+    APPRIS PAR lighting-bake (24/09, reports/lighting-bake/FINDINGS.txt) — a lire AVANT de coder :
+
+    * common/custom_data/LightBake.cpp (version 1) ecrit PROBES, LIGHTS, LIGHTVIS VIDES : les sondes d''interieur
+    ne sont pas encore cuites.
+
+    * Le compagnon derive part via android/build_custom_pack.sh (pas scripts/package_game_assets.sh, SPEC
+    §5.6).'
   deliverable: 'Volume de sondes epars L1 avec visibilite inter-sondes CUITE : etanche par construction,
     cout nul a l''execution. C''est aussi la source d''ambiante des 7 niveaux sans ciel. SPEC 4.12 et
     5.3.5. PREUVE : `FEATURE lighting-interiors armed=1 hits=<sondes echantillonnees par image>` + la
@@ -21704,7 +21748,7 @@ items:
 - id: harness-copes-with-usage-pacing
   feature: Quand le frein d'usage de l'owner met un worker en pause, le harnais attend au lieu de tuer
     l'essai, et ne compte jamais ce temps comme une panne
-  status: open
+  status: in-progress
   priority: 19
   code_scope: harnais
   device: false
@@ -21755,3 +21799,4 @@ items:
       source: supervisor
       at: '2026-09-24T08:52:41+00:00'
       by: autoport feedback
+  no_code: true
