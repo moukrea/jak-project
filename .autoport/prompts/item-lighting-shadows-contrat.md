@@ -14,6 +14,8 @@ CE QUE DIT LA SPEC (a respecter) : l'aplat PS2 ne SURVIT que comme repli hors po
 RETOUR DE TEST DE L'OWNER N°2 (24/09, build f215fd, telephone) : l'ombre atlas est LA et la projection est juste (soleil et astre de nuit), MAIS elle est a peine visible, « de l'ordre du pixel peeping », meme curseurs au maximum, meme HDR coupe. En l'etat : tres couteux pour un effet que personne ne verra. Les PNJ du village sont en interieur (eclairage interieur encore cuit, pas d'ombre) : Jak est le seul vrai temoin.
 PISTE (non prouvee) : l'ombre n'assombrit que le terme DIRECT ; depuis lighting-bake, l'eclairage peint par ND est rendu comme INDIRECT (ambiante + art) et porte l'essentiel de la luminosite du sol ; le direct temps reel ne pese alors presque rien et son ombre non plus. Voir SPEC « Dosage du direct (Fidelite) » et §5.2 (decomposition baked).
 
+RETOUR OWNER DU 25/09 (sur lighting-regimes, build 16773c) : l'ombre de Jak se voit enfin, MAIS a village1 elle DISPARAIT COMPLETEMENT sur les PONTS, alors qu'elle reste sur les sols et les murs. Piste : les ponts sont probablement des TIE (instances) et ne recoivent pas l'atlas d'ombre des acteurs, ou leur chemin de rendu ne lit pas la visibilite.
+
 ## Livrable — le contrat, en entier
 
 Atlas unique tuile, cascades stabilisees pour l'astre dominant, une tuile pour le second, les acteurs dans la passe de profondeur avec leur maillage skinne, ombres de contact sur la prepasse. L'aplat PS2 reste le repli et le mode Original. SPEC 4.8. PREUVE : `FEATURE lighting-shadows armed=1 hits=<pixels de sol ombres par un acteur>` + la ligne `shadow_caster_classes=` seule sur sa ligne ; `--off` doit rendre `armed=0 hits=0` dans la MEME scene. Le publicateur EXISTE : game/system/autoport_proof.{h,cpp} — appelle armed_for("lighting-shadows"), jamais armed(), et n'en ecris pas un second. AMENDEMENT 09-09 (perf) : une seule passe Z merc partagee entre prepasse (4.6), atlas (4.8) et aplat 47, VAO persistant par niveau (API setup_merc_vao conservee). Menu « Ombres d'acteurs » a trois crans vraies / aplat PS2 / aucune + fade-dist expose ; le cran « aucune » desactive la famille shadow-* cote GOAL.
@@ -25,13 +27,15 @@ C. PAS de campagne multi-scenes, PAS de comptage de pixels : l'OEIL, c'est l'own
 
 AJOUT APRES LE RETOUR N°2 : RENDRE L'OMBRE VISIBLE. Trouver pourquoi l'ombre est si faible (mesurer la part du direct dans la luminance du sol ensoleille sous Jak) la part du direct se corrige dans lighting-regimes (dependance ajoutee le 24/09, owner : ne pas faire le travail deux fois) ; ICI seulement l'application de la visibilite d'ombre, pas un noircissement artificiel. UNE grandeur : rapport de luminance sol-a-l'ombre-de-Jak / sol-au-soleil juste a cote, de jour au village, au reglage PAR DEFAUT ; publier aussi sa valeur a Force max. Viser une ombre nettement lisible (ordre de grandeur : le sol ombre au moins 35 % plus sombre au reglage par defaut) ; l'owner juge a l'oeil ensuite. Pas de campagne multi-scenes.
 
+AJOUT DU 25/09 : l'ombre des acteurs est recue par TOUTES les familles du decor (sol, murs, ponts/TIE, buissons). UNE grandeur : pour chaque famille visible sous Jak au village1, part de pixels a l'ombre de Jak ; une famille a 0 alors que Jak est au-dessus = defaut nomme.
+
 ## Hors perimetre
 
 Tout ce qui n'est pas cet item. DEUX origines restent bit-identiques — master OFF, et recharged_lighting OFF — et tout sous-reglage d'eclairage se garde sur recharged_lighting, jamais sur le master seul (SPEC 1.1, 6.2, 7.3). Ne touche a aucune feature validee. Pas de mesure visuelle. L'aplat PS2 de shadow-geo n'est pas retire ici : il devient le repli et le mode original (decision owner 2026-09-03). Son remplacement en champ proche est lighting-actors.
 
 ## Ou l'owner regardera
 
-l'ombre de Jak et des PNJ au sol, et le matin quand les deux astres sont leves
+l'ombre de Jak et des PNJ au sol, et le matin quand les deux astres sont leves ; et dans le marais et le tube de lave : l'ombre doit montrer que la lumiere ne vient plus d'un soleil invisible (verification reportee de lighting-regimes, owner 25/09).
 
 ## Tous les refus de l'owner, dans l'ordre, mot pour mot
 
@@ -58,6 +62,9 @@ l'ombre de Jak et des PNJ au sol, et le matin quand les deux astres sont leves
 
 ### 2026-09-24
 > Si ça collide avec un autre chantier lié il faut faire attention hein ! Mais dans ce cas c'est pas validable en l'état et faut que les autres chantiers liés avancent
+
+### 2026-09-25
+> Top donc comme j'ai dit dans l'autre commentaire pour le soucis des faces qui était mal orientés sur village3 il faut s'assurer (via ticket dédié) que ce soucis est règlé partout. Pour les ombres de Jak, on les voit maintenant c'est super ! Mais bizarrement par exemple dans village1 (Sandover Village), sur les ponts, l'ombre disparaît complètement, alors que sur les sols et les murs non, bizarre non ?
 
 ## Pourquoi ce fichier existe
 
