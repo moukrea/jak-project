@@ -36,7 +36,7 @@
    "url": "https://linear.app/moukrea/document/e1fe9500339a"
   }
  },
- "_gen": 444,
+ "_gen": 458,
  "_ids": {
   "labels": {
    "ok": "000e105b-24ba-4fa3-a579-bc3bf0869242",
@@ -93,6 +93,14 @@
   "last_state": "Todo",
   "pulled_at": "2026-09-24T14:18:23.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-275/la-separation-de-leclairage-en-ambiante-soleil-validee-ne-peut-plus"
+ },
+ "acquis-lighting-regimes": {
+  "hash": "9f4a108be974dea5da934c4b20f3932b9101e577",
+  "identifier": "JAK-280",
+  "issue_id": "0a13c8a0-8df4-4d8d-a133-b20855af4417",
+  "last_state": "Todo",
+  "pulled_at": "2026-09-24T23:48:15.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-280/la-lumiere-principale-par-creneau-validee-ne-peut-plus-regresser-un"
  },
  "acquis-perf-dma-chain-copies": {
   "hash": "39b00ec13c1fadcb7152a770194098cb109f2e54",
@@ -963,11 +971,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-229/la-synchro-linear-ne-cree-jamais-deux-tickets-pour-un-meme-chantier-et"
  },
  "harness-linear-watch-comment-matches-its-period": {
-  "hash": "7c0b0eddadc831bdd578e0296eae74c6b305071c",
+  "hash": "6bf6c0911872360de8c8a944519e08d8c7a90ab8",
   "identifier": "JAK-201",
   "issue_id": "950f1254-febe-46ed-ba63-a740fb5ed2de",
   "last_state": "In Progress",
-  "last_verdict_announced": "validator-002.txt",
+  "last_verdict_announced": "validator-003.txt",
   "pulled_at": "2026-09-22T22:24:54.000Z",
   "state_at": "2026-09-24T23:33:37.673Z",
   "url": "https://linear.app/moukrea/issue/JAK-201/le-commentaire-de-linear-watchsh-dit-la-vraie-frequence-de-la-veille"
@@ -1579,6 +1587,14 @@
   "pulled_at": "2026-09-17T06:46:05.327Z",
   "url": "https://linear.app/moukrea/issue/JAK-46/fiabiliser-les-comparaisons-onoff-pour-corriger-les-blancs-hdr"
  },
+ "lighting-flipped-faces-everywhere": {
+  "hash": "ce0337a0760d326a98935099e9b8088d484c7c43",
+  "identifier": "JAK-279",
+  "issue_id": "a6c7bbd7-f461-4af9-8e7c-d653a2ed6979",
+  "last_state": "Todo",
+  "pulled_at": "2026-09-24T23:45:11.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-279/aucune-surface-a-lenvers-ne-tombe-au-noir-dans-aucun-niveau-ni-aucune"
+ },
  "lighting-interiors": {
   "hash": "7b0d09193a381ac2e32d0d1b89813c85cbdd5444",
   "identifier": "JAK-53",
@@ -1601,14 +1617,15 @@
   "url": "https://linear.app/moukrea/issue/JAK-90/les-reglages-declairage-de-lancien-monde-ne-cohabitent-plus-avec-la"
  },
  "lighting-local-lights": {
-  "hash": "4da970a62d1b9a471975ef4cb9d3ec55933a5b0b",
+  "hash": "26ff35d064dfc5c84089cc2b6cb6c097231c53f4",
   "identifier": "JAK-52",
   "issue_id": "e4cfe312-46c3-45fb-a3ce-f4f65ca6ef0b",
-  "last_state": "Backlog",
+  "last_state": "Todo",
   "pulled_at": "2026-09-17T05:36:55.000Z",
   "relations": [
    "lighting-regimes"
   ],
+  "state_at": "2026-09-24T23:48:04.231Z",
   "url": "https://linear.app/moukrea/issue/JAK-52/les-lampes-torches-et-laves-eclairent-enfin"
  },
  "lighting-materials": {
@@ -1646,24 +1663,23 @@
   "url": "https://linear.app/moukrea/issue/JAK-56/du-redmi-au-snapdragon-8-elite-des-paliers-et-chaque-ajout-debrayable"
  },
  "lighting-regimes": {
-  "build_announced": "57102cdfce40",
-  "hash": "93515157a7f302838dd34b23869fad33d46ab433",
+  "hash": "c19666955f3c0f289525518a59456c2d02a7841e",
   "identifier": "JAK-50",
   "issue_id": "c0ae94ec-54bb-4d1d-bd7c-880e12a25428",
-  "last_state": "In Review",
+  "last_state": "Done",
   "last_verdict_announced": "validator-003.txt",
-  "pulled_at": "2026-09-24T23:41:21.091Z",
+  "pulled_at": "2026-09-24T23:46:39.636Z",
   "relations": [
    "lighting-bake"
   ],
-  "state_at": "2026-09-24T22:05:08.632Z",
+  "state_at": "2026-09-24T23:47:44.730Z",
   "url": "https://linear.app/moukrea/issue/JAK-50/la-lumiere-cle-nest-pas-toujours-un-soleil"
  },
  "lighting-shadows": {
-  "hash": "e236cc69485912d464fd900281a4c50346563761",
+  "hash": "9dfb68c640bdfac786d33e3d0e307eda81034169",
   "identifier": "JAK-51",
   "issue_id": "923462dc-521a-4c79-ba5f-2e2e8cc4c758",
-  "last_state": "Backlog",
+  "last_state": "Todo",
   "last_verdict_announced": "validator-005.txt",
   "pulled_at": "2026-09-24T20:47:55.659Z",
   "relations": [
@@ -1671,7 +1687,7 @@
    "lighting-ao-indirect",
    "perf-merc-defuse"
   ],
-  "state_at": "2026-09-24T20:49:09.099Z",
+  "state_at": "2026-09-24T23:47:47.033Z",
   "url": "https://linear.app/moukrea/issue/JAK-51/deux-astres-deux-jeux-dombres-et-les-acteurs-qui-en-projettent"
  },
  "menu-back-label": {
@@ -1819,12 +1835,12 @@
  },
  "perf-codegen-arm64-scalar": {
   "build_announced": "16773c2c135b",
-  "hash": "0aaa4e21dacfe62a53e9fae6bf187fe7ec62b791",
+  "hash": "be6515eb04423ad44f01382ec1674d20205ebae1",
   "identifier": "JAK-77",
   "issue_id": "1a43f366-ec9e-40f1-bcb2-4e1698505d53",
   "last_state": "In Review",
   "last_verdict_announced": "validator-001.txt",
-  "pulled_at": "2026-09-17T05:36:59.000Z",
+  "pulled_at": "2026-09-24T23:48:22.886Z",
   "state_at": "2026-09-24T23:33:36.610Z",
   "url": "https://linear.app/moukrea/issue/JAK-77/float-vers-int-division-et-swizzle-en-une-ou-deux-instructions"
  },
@@ -2565,7 +2581,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-66/chaque-techno-deau-a-son-reglage-son-echelle-et-un-off-prouve"
  },
  "water-refraction-reflection": {
-  "hash": "448b5a51a1fcbb0b69abf44f85828aee31d5576a",
+  "hash": "6f71add17e70f526378d31b2cf018f8821677f08",
   "identifier": "JAK-61",
   "issue_id": "fcc4d3be-e16a-4cd1-a6be-863ace1bca6e",
   "last_state": "Backlog",
