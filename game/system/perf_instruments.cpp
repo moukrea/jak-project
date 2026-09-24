@@ -25,6 +25,7 @@
 #include "common/symbols.h"
 
 #include "game/kernel/common/Ptr.h"
+#include "game/kernel/common/kmalloc.h"
 #include "game/kernel/common/kscheme.h"
 #include "game/kernel/jak1/kscheme.h"
 #include "game/mips2c/mips2c_census.h"
@@ -33,6 +34,7 @@
 #include "game/runtime.h"
 #include "game/system/autoport_proof.h"
 #include "game/system/codegen_arm64_calls.h"
+#include "game/system/codegen_arm64_scalar.h"
 
 namespace Mips2C::vu_simd {
 namespace {
@@ -812,6 +814,76 @@ void publish_codegen_calls() {
   autoport_proof::note_hit_for(kCodegenItem, reduced);
 }
 
+constexpr const char* kCodegenScalarItem = "perf-codegen-arm64-scalar";
+AUTOPORT_FEATURE_SITE(kCodegenScalarItem);
+
+// perf-codegen-arm64-scalar — what the device actually runs. The scan reads the
+// LINKED code of the global heap (ENGINE + GAME), once, after 600 drawn frames:
+// a CGO that still carries a legacy float->int / divide / swizzle sequence was
+// not rebuilt by this item's goalc, and a family with no new sequence never
+// reached the device. The results are republished every 60 frames with the
+// boot count, like `publish_codegen_calls`. The numeric parity of the sequences
+// is not judged here: .autoport/tests/codegen_scalar executes them on the same
+// device and lib/census/perf-codegen-arm64-scalar.sh adds its verdict.
+struct ScalarScan {
+  bool done = false;
+  bool hits_noted = false;
+  uint64_t words = 0;
+  codegen_arm64::ScalarStats stats;
+};
+ScalarScan g_scalar_scan;
+
+void publish_codegen_scalar() {
+  if (!autoport_proof::feature_is(kCodegenScalarItem) || g_frames_total % 60 != 0) {
+    return;
+  }
+#if defined(__aarch64__)
+  if (!g_scalar_scan.done && g_frames_total >= 600 && g_game_version == GameVersion::Jak1 &&
+      g_ee_main_mem && kglobalheap.offset) {
+    const uint32_t base = kglobalheap->base.offset;
+    const uint32_t current = kglobalheap->current.offset;
+    if (base && current > base && (base & 3u) == 0) {
+      const auto* w = reinterpret_cast<const uint32_t*>(g_ee_main_mem + base);
+      g_scalar_scan.words = (current - base) / 4;
+      g_scalar_scan.stats = codegen_arm64::inspect_scalar(w, g_scalar_scan.words);
+      g_scalar_scan.done = true;
+    }
+  }
+#endif
+  const auto& st = g_scalar_scan.stats;
+  const uint64_t div_old = st.div_total - st.div_new;
+  // A family counts as a defect when its new form is absent, or when any legacy
+  // form of it is still linked. No scan (x86, or before frame 600) is a defect.
+  const uint64_t defect_sites =
+      (!g_scalar_scan.done || g_scalar_scan.words == 0) ? 1u
+      : (st.f2i_new == 0 || st.div_new == 0 || st.swz_cross_new == 0 || st.f2i_old ||
+         div_old || st.swz_old || st.pshuf_old)
+          ? 1u
+          : 0u;
+  const uint64_t defect_boot = g_frames_total < 600 ? 1u : 0u;
+  autoport_proof::publish("codegen_scalar_scanned", g_scalar_scan.done);
+  autoport_proof::publish("codegen_scalar_scanned_words", g_scalar_scan.words);
+  autoport_proof::publish("codegen_scalar_f2i_new", st.f2i_new);
+  autoport_proof::publish("codegen_scalar_f2i_old", st.f2i_old);
+  autoport_proof::publish("codegen_scalar_div_new", st.div_new);
+  autoport_proof::publish("codegen_scalar_div_old", div_old);
+  autoport_proof::publish("codegen_scalar_swz_cross_new", st.swz_cross_new);
+  autoport_proof::publish("codegen_scalar_swz_old", st.swz_old);
+  autoport_proof::publish("codegen_scalar_pshuf_old", st.pshuf_old);
+  autoport_proof::publish("codegen_boot_frames", g_frames_total);
+  autoport_proof::publish("codegen_defect_boot", defect_boot);
+  autoport_proof::publish("codegen_defect_sites", defect_sites);
+  // The census hook republishes `codegen_lot_defects` with the parity term added;
+  // proof.txt keeps the last value written.
+  autoport_proof::publish("codegen_lot_defects", defect_boot + defect_sites);
+  // Hits = re-emitted sites found linked on the device, counted once.
+  if (g_scalar_scan.done && !g_scalar_scan.hits_noted) {
+    autoport_proof::note_hit_for(kCodegenScalarItem,
+                                 st.f2i_new + st.div_new + st.swz_cross_new);
+    g_scalar_scan.hits_noted = true;
+  }
+}
+
 bool type_is_actor(uint32_t type) {
   auto it = g_type_is_actor.find(type);
   if (it != g_type_is_actor.end()) {
@@ -1277,6 +1349,7 @@ void frame_boundary() {
   Mips2C::census::frame_boundary();
   g_frames_total++;
   publish_codegen_calls();
+  publish_codegen_scalar();
   // Le reglage peut etre pose avant le lancement (propriete) : on le relit toutes les 120
   // images, comme le vidage A35-PERF, pour ne pas figer un etat lu trop tot.
   if (g_frames_total % 120 == 1) {

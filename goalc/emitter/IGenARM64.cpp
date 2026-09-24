@@ -2396,6 +2396,63 @@ InstructionARM64 float_to_int32(Register dst, Register src) {
 }
 
 // ---------------------------------------------------------------------------
+// perf-codegen-arm64-scalar — scalar float->int and integer divide re-emitted in
+// fewer words, with the SAME result bit for bit as the sequences they replace.
+// Checked on the device for every one of the 2^32 float inputs and for the
+// divide boundaries by .autoport/tests/codegen_scalar (run by
+// .autoport/lib/census/perf-codegen-arm64-scalar.sh). Called from IR.cpp,
+// forward-declared there: IGenARM64.h stays untouched.
+
+// float -> int32 with x86 cvttss2si + movsx parity. 5 words (was 9: FCVTZS W,
+// two constants, CMP/CSEL on INT_MAX, FCMP/CSEL on NaN, SXTW).
+//   FCVTZS Xd, Sn          64-bit truncation, exact for every float in (-2^63, 2^63)
+//   CMP    Xd, Wd, SXTW    EQ <=> the result fits int32 <=> -2^31 <= x < 2^31
+//   FCCMP  Sn, Sn, #0, EQ  EQ survives only for an ordered x (NaN converts to 0, which fits)
+//   MOV    X16, #0xffffffff80000000   ORR bitmask immediate: INT_MIN, sign-extended
+//   CSEL   Xd, Xd, X16, EQ out of range, +-Inf and NaN -> INT_MIN, like cvttss2si
+// Xd is already sign-extended: the SXTW that matched x86's movsx is gone.
+// X16 is emitter scratch (never allocated; ObjectGenerator::add_instr resets
+// the X16 address reuse before any non-memory instruction).
+InstructionARM64 float_to_int32_x86(Register dst, Register src) {
+  const uint32_t d = arm64_reg5(dst);
+  const uint32_t n = arm64_reg5(src);
+  ASSERT(d < 16);
+  return InstructionARM64::multi({
+      0x9E380000u | (n << 5) | d,          // FCVTZS Xd, Sn
+      0xEB20C01Fu | (d << 16) | (d << 5),  // SUBS XZR, Xd, Wd, SXTW
+      0x1E200400u | (n << 16) | (n << 5),  // FCCMP Sn, Sn, #0, EQ
+      0xB26183F0u,                         // ORR X16, XZR, #0xffffffff80000000
+      0x9A900000u | (d << 5) | d,          // CSEL Xd, Xd, X16, EQ
+  });
+}
+
+// Integer divide / modulo, 64-bit SDIV/UDIV exactly like the X8 sequence it
+// replaces (that one moved the dividend into X8, divided X8 by the divisor and
+// copied X8 back, spilling the caller's X8 around it: 9 to 10 words). The
+// quotient now goes straight to its register, X8 is never touched and nothing
+// is spilled:
+//   CBNZ Xarg, .+8 ; UDF #0xBEEF             A26 divide-by-zero trap, unchanged
+//   SDIV Xd, Xd, Xarg                         (/)    3 words
+//   SDIV X16, Xd, Xarg ; MSUB Xd, X16, Xarg, Xd   (mod) 4 words
+// UDIV replaces SDIV for the unsigned kinds.
+InstructionARM64 int_div_x(Register dst, Register arg, bool is_signed, bool is_mod) {
+  const uint32_t d = arm64_reg5(dst);
+  const uint32_t m = arm64_reg5(arg);
+  ASSERT(d < 16 && m < 16);
+  const uint32_t div = is_signed ? 0x9AC00C00u : 0x9AC00800u;
+  const uint32_t cbnz = 0xB5000040u | m;  // CBNZ Xarg, .+8
+  const uint32_t udf = 0x0000BEEFu;
+  if (!is_mod) {
+    return InstructionARM64::multi({cbnz, udf, div | (m << 16) | (d << 5) | d});
+  }
+  return InstructionARM64::multi({
+      cbnz, udf,
+      div | (m << 16) | (d << 5) | 16u,                    // xDIV X16, Xd, Xarg
+      0x9B008000u | (m << 16) | (d << 10) | (16u << 5) | d,  // MSUB Xd, X16, Xarg, Xd
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Gcollision-systemic — x86 cvttss2si / cvttps2dq saturation emulation helpers.
 //
 // AArch64 FCVTZS (scalar Wd,Sn and vector .4S) saturates float->int differently
@@ -2625,6 +2682,101 @@ InstructionARM64 blend_vf(Register dst, Register src1, Register src2, u8 mask) {
 // Encodings shared with A34's blend_vf / A42's pshuf_hw_half (NDK-verified):
 //   ORR Vd.16B,Vn,Vn:    0x4EA01C00 | Rm<<16 | Rn<<5 | Rd
 //   INS Vd.S[i],Vn.S[j]: 0x6E000400 | ((i<<3)|4)<<16 | (j<<2)<<11 | Rn<<5 | Rd
+//
+// perf-codegen-arm64-scalar — the ORR + 4 INS form is now the last resort. The
+// planner below tries a whole-vector permute of (src, src) into dst — EXT by 4/8/12
+// bytes, ZIP1/ZIP2/UZP1/UZP2/TRN1/TRN2, REV64, DUP — then fixes the lanes it got
+// wrong with one INS each, and keeps the shortest plan. Cross products: 0x09
+// (y,z,x,x) = EXT #4 + 1 INS, 0x12 (z,x,y,x) = EXT #12 + 2 INS (5 + 5 -> 2 + 3).
+// Two permutes in a row are tried as well, for the full permutations no single
+// one reaches.
+// When dst == src a fix-up reads dst itself, so a lane is only overwritten once
+// no pending fix-up still needs the value it holds; a plan that cannot be ordered
+// that way is dropped. TBL is not used: it needs its index vector in a register, and
+// materialising 16 bytes costs more than the fix-ups it would save.
+// All 256 patterns, dst == src and dst != src, are executed on the device against
+// x86 SHUFPS by .autoport/tests/codegen_scalar.
+namespace {
+struct SwizzleBase4S {
+  uint32_t enc;  // Rd/Rn/Rm left at 0
+  bool two_regs; // Rm = Rn = src
+  u8 lane[4];    // dst.S[i] = src.S[lane[i]]
+};
+constexpr SwizzleBase4S kSwizzleBases[] = {
+    {0x6E002000u, true, {1, 2, 3, 0}},   // EXT Vd.16B, Vn, Vn, #4
+    {0x6E004000u, true, {2, 3, 0, 1}},   // EXT #8
+    {0x6E006000u, true, {3, 0, 1, 2}},   // EXT #12
+    {0x4E803800u, true, {0, 0, 1, 1}},   // ZIP1 .4S
+    {0x4E807800u, true, {2, 2, 3, 3}},   // ZIP2 .4S
+    {0x4E801800u, true, {0, 2, 0, 2}},   // UZP1 .4S
+    {0x4E805800u, true, {1, 3, 1, 3}},   // UZP2 .4S
+    {0x4E802800u, true, {0, 0, 2, 2}},   // TRN1 .4S
+    {0x4E806800u, true, {1, 1, 3, 3}},   // TRN2 .4S
+    {0x4EA00800u, false, {1, 0, 3, 2}},  // REV64 .4S
+    {0x4E040400u, false, {0, 0, 0, 0}},  // DUP Vd.4S, Vn.S[0]
+    {0x4E0C0400u, false, {1, 1, 1, 1}},  // DUP .S[1]
+    {0x4E140400u, false, {2, 2, 2, 2}},  // DUP .S[2]
+    {0x4E1C0400u, false, {3, 3, 3, 3}},  // DUP .S[3]
+    {0x4EA01C00u, true, {0, 1, 2, 3}},   // ORR Vd.16B, Vn, Vn (MOV)
+};
+
+uint32_t ins_s(uint32_t rd, uint32_t t, uint32_t rn, uint32_t j) {
+  // INS Vd.S[t], Vn.S[j]
+  return 0x6E000400u | (((t << 3) | 4u) << 16) | ((j << 2) << 11) | (rn << 5) | rd;
+}
+
+// Fix-ups after a base whose lanes are `cur`. Reads src when it is a separate,
+// intact register; reads dst itself when dst == src. False if unorderable.
+bool swizzle_fixups(u8 cur[4], const u8 sel[4], uint32_t rd, uint32_t rn,
+                    std::vector<uint32_t>& words) {
+  bool pending[4];
+  int left = 0;
+  for (int t = 0; t < 4; t++) {
+    pending[t] = cur[t] != sel[t];
+    left += pending[t];
+  }
+  while (left) {
+    bool progressed = false;
+    for (uint32_t t = 0; t < 4 && !progressed; t++) {
+      if (!pending[t]) {
+        continue;
+      }
+      uint32_t from = 4;
+      if (rd != rn) {
+        from = sel[t];
+      } else {
+        // The value lane t holds must not be the last copy a pending lane needs.
+        bool needed = false, spare = false;
+        for (int u = 0; u < 4; u++) {
+          needed |= (u != (int)t) && pending[u] && sel[u] == cur[t];
+          spare |= (u != (int)t) && !pending[u] && cur[u] == cur[t];
+        }
+        if (needed && !spare) {
+          continue;
+        }
+        for (uint32_t u = 0; u < 4 && from == 4; u++) {
+          if (u != t && cur[u] == sel[t]) {
+            from = u;
+          }
+        }
+        if (from == 4) {
+          return false;  // the base dropped a value this lane needs
+        }
+      }
+      words.push_back(ins_s(rd, t, rn, from));
+      cur[t] = sel[t];
+      pending[t] = false;
+      left--;
+      progressed = true;
+    }
+    if (!progressed) {
+      return false;
+    }
+  }
+  return true;
+}
+}  // namespace
+
 InstructionARM64 swizzle_vf(Register dst, Register src, u8 controlBytes) {
   const u8 sel[4] = {static_cast<u8>(controlBytes & 3), static_cast<u8>((controlBytes >> 2) & 3),
                      static_cast<u8>((controlBytes >> 4) & 3),
@@ -2637,16 +2789,87 @@ InstructionARM64 swizzle_vf(Register dst, Register src, u8 controlBytes) {
   }
   const uint32_t rd = arm64_reg5(dst);
   const uint32_t rn = arm64_reg5(src);
-  std::vector<uint32_t> words;
-  // V0 <- src
-  words.push_back(0x4EA01C00u | (rn << 16) | (rn << 5) | 0u);
+  ASSERT(rd != 0 && rn != 0);  // V0 is the fallback's scratch
+
+  // Last resort, always exact: V0 <- src, then one INS per lane that moves.
+  std::vector<uint32_t> best;
+  best.push_back(0x4EA01C00u | (rn << 16) | (rn << 5) | 0u);
   for (uint32_t t = 0; t < 4; t++) {
-    const uint32_t s = sel[t];
-    words.push_back(0x6E000400u | (((t << 3) | 4u) << 16) | ((s << 2) << 11) | (0u << 5) | rd);
+    if (sel[t] != t || rd != rn) {
+      best.push_back(ins_s(rd, t, 0, sel[t]));
+    }
   }
-  InstructionARM64 r(words[0]);
-  for (size_t i = 1; i < words.size(); i++) {
-    r.extra_words.push_back(words[i]);
+  if (rd != rn) {
+    // dst != src: four INS straight from src need no base at all.
+    std::vector<uint32_t> w;
+    for (uint32_t t = 0; t < 4; t++) {
+      w.push_back(ins_s(rd, t, rn, sel[t]));
+    }
+    best = w;
+  }
+  for (const auto& b : kSwizzleBases) {
+    std::vector<uint32_t> w;
+    w.push_back(b.enc | ((b.two_regs ? rn : 0u) << 16) | (rn << 5) | rd);
+    u8 cur[4] = {b.lane[0], b.lane[1], b.lane[2], b.lane[3]};
+    if (swizzle_fixups(cur, sel, rd, rn, w) && w.size() < best.size()) {
+      best = w;
+    }
+  }
+  // V0 = permute(src), then a two-register permute of (src, V0) or (V0, src) into
+  // dst: 0x1e (z,w,y,x) = REV64 into V0 + EXT dst, src, V0, #8. Both registers are
+  // read before dst is written, so dst == src is safe.
+  struct TwoRegOp {
+    uint32_t enc;
+    u8 lane[4];  // index into n.S[0..3] ++ m.S[0..3]
+  };
+  static constexpr TwoRegOp kTwoRegOps[] = {
+      {0x6E002000u, {1, 2, 3, 4}}, {0x6E004000u, {2, 3, 4, 5}}, {0x6E006000u, {3, 4, 5, 6}},
+      {0x4E803800u, {0, 4, 1, 5}}, {0x4E807800u, {2, 6, 3, 7}}, {0x4E801800u, {0, 2, 4, 6}},
+      {0x4E805800u, {1, 3, 5, 7}}, {0x4E802800u, {0, 4, 2, 6}}, {0x4E806800u, {1, 5, 3, 7}},
+  };
+  for (const auto& b1 : kSwizzleBases) {
+    u8 v0[4] = {b1.lane[0], b1.lane[1], b1.lane[2], b1.lane[3]};
+    for (const auto& op : kTwoRegOps) {
+      for (int order = 0; order < 2 && best.size() > 2; order++) {
+        const u8 id[4] = {0, 1, 2, 3};
+        const u8* n_lanes = order ? v0 : id;  // order 1: n = V0, m = src
+        const u8* m_lanes = order ? id : v0;
+        const uint32_t n_reg = order ? 0u : rn, m_reg = order ? rn : 0u;
+        std::vector<uint32_t> w;
+        w.push_back(b1.enc | ((b1.two_regs ? rn : 0u) << 16) | (rn << 5) | 0u);
+        w.push_back(op.enc | (m_reg << 16) | (n_reg << 5) | rd);
+        u8 cur[4];
+        for (int i = 0; i < 4; i++) {
+          cur[i] = op.lane[i] < 4 ? n_lanes[op.lane[i]] : m_lanes[op.lane[i] - 4];
+        }
+        if (swizzle_fixups(cur, sel, rd, rn, w) && w.size() < best.size()) {
+          best = w;
+        }
+      }
+    }
+  }
+  // Two permutes in a row (the second one permutes dst in place), then fix-ups:
+  // full reversals such as 0x1b (w,z,y,x) = REV64 + EXT #8.
+  for (const auto& b1 : kSwizzleBases) {
+    for (const auto& b2 : kSwizzleBases) {
+      if (best.size() <= 2) {
+        break;
+      }
+      std::vector<uint32_t> w;
+      w.push_back(b1.enc | ((b1.two_regs ? rn : 0u) << 16) | (rn << 5) | rd);
+      w.push_back(b2.enc | ((b2.two_regs ? rd : 0u) << 16) | (rd << 5) | rd);
+      u8 cur[4];
+      for (int i = 0; i < 4; i++) {
+        cur[i] = b1.lane[b2.lane[i]];
+      }
+      if (swizzle_fixups(cur, sel, rd, rn, w) && w.size() < best.size()) {
+        best = w;
+      }
+    }
+  }
+  InstructionARM64 r(best[0]);
+  for (size_t i = 1; i < best.size(); i++) {
+    r.extra_words.push_back(best[i]);
   }
   return r;
 }
@@ -2911,16 +3134,23 @@ InstructionARM64 pshuf_hw_half(Register dst, Register src, u8 imm, int half_base
   const u32 rd = arm64_reg5(dst);
   const u32 rn = arm64_reg5(src);
   std::vector<u32> words;
-  // V0 <- src
-  words.push_back(0x4EA01C00u | (rn << 16) | (rn << 5) | 0u);
-  // dst <- src (no-op move skipped when same register)
-  if (rd != rn) {
+  // perf-codegen-arm64-scalar: a halfword that stays in place gets no INS, and
+  // when dst != src the INS read src directly (it is never written), so V0 is
+  // only copied when dst == src. PPACH's 0x88 goes from 6 words to 4.
+  const u32 from = (rd == rn) ? 0u : rn;
+  if (rd == rn) {
+    // V0 <- src
+    words.push_back(0x4EA01C00u | (rn << 16) | (rn << 5) | 0u);
+  } else {
+    // dst <- src: copies the preserved half
     words.push_back(0x4EA01C00u | (rn << 16) | (rn << 5) | rd);
   }
   for (int i = 0; i < 4; i++) {
     const u32 t = half_base + i;
     const u32 s = half_base + ((imm >> (2 * i)) & 3);
-    words.push_back(0x6E000400u | (((t << 2) | 2u) << 16) | ((s << 1) << 11) | (0u << 5) | rd);
+    if (s != t) {
+      words.push_back(0x6E000400u | (((t << 2) | 2u) << 16) | ((s << 1) << 11) | (from << 5) | rd);
+    }
   }
   InstructionARM64 r(words[0]);
   for (size_t i = 1; i < words.size(); i++) {
