@@ -928,6 +928,8 @@ struct Frame {
   float t = 0.f;              // part de la cle prise a l'astre
   float direct_w = 1.f, penumbra = 1.f, spec_w = 1.f;
   float sun_fade = 1.f;
+  float elev = 1.f;           // rampe d'elevation de l'astre (1 tant que le ciel n'est pas pousse)
+  float sun_up = -2.f;        // sinus d'elevation de l'astre (-2 tant qu'il n'est pas pousse)
   float slot_lgt[3] = {1.f, 1.f, 1.f};
   int dominant = 0;
   bool matched = false;       // au moins un creneau retrouve dans la table
@@ -944,6 +946,12 @@ struct Audit {
   u64 hits = 0;
   double cos_sum = 0.0;
   u64 cos_n = 0;
+  // essai 2 : SIGNE de la direction envoyee au shader contre chaque creneau cuite qui la compose,
+  // et poids direct la nuit sur un niveau a soleil visible.
+  u64 dir_frame = ~0ull;
+  u64 dir_checked = 0, dir_wrong = 0;
+  float dir_dot_min = 2.f;
+  u64 night_frames = 0, night_direct_frames = 0;
 };
 Audit g_audit;
 
@@ -1024,7 +1032,14 @@ const Frame& frame(u64 frame_idx) {
     f.key = pv_dot(m, m) > 1e-8f ? pv_norm(m) : f.slot_key;
     // sun-fade multiplie la part directe de l'ASTRE, et seulement elle.
     f.direct_w *= 1.f + (f.sun_fade - 1.f) * f.t;
+    // LA NUIT (essai 2). La ou un soleil se voit (sun-fade > 0), le direct suit son elevation comme
+    // avant la refonte : la rampe (-0,05 .. 0,18) de `u_rt_sun_elev`, 0 quand l'astre est couche.
+    // Le creneau de nuit reste la cle (direction, teinte) mais n'eclaire plus en plein. Sans ciel
+    // ou sans soleil visible (sun-fade = 0 : lave, grotte, marais), l'heure n'y change rien.
+    f.elev = ssl > 1e-3f ? rt_smoothstep(-0.05f, 0.18f, sun_up) : 1.f;
+    f.direct_w *= 1.f + (f.elev - 1.f) * f.sun_fade;
   }
+  f.sun_up = ssl > 1e-3f ? sun_up : -2.f;
   return f;
 }
 
@@ -1080,6 +1095,73 @@ void audit(u64 frame_idx, bool from_astre) {
   autoport_proof::publish("regime_sun_fade_x1000", (u64)std::lround(f.sun_fade * 1000.f));
   autoport_proof::publish("regime_sky", Gfx::settings().recharged_sky ? 1 : 0);
   autoport_proof::publish("regime_dominant", (u64)f.dominant);
+}
+
+// essai 2, une fois par image : `dir` = light_dir[0..2], la cle que `u_rt_sun_dir` emporte. Pour
+// chaque creneau qui la compose (poids > 0), le produit scalaire avec la direction du creneau telle
+// que la table la porte (et que l'outil de bake la prend) doit etre > 0 ; une negation le rendrait
+// franchement negatif. Tourne dans les deux bras.
+void audit_dir(u64 frame_idx, const float* dir) {
+  Audit& a = g_audit;
+  if (a.dir_frame == frame_idx) {
+    return;
+  }
+  a.dir_frame = frame_idx;
+  const auto& gs = Gfx::settings();
+  if (!gs.recharged_regime_valid) {
+    return;
+  }
+  const PbrV3 k = {dir[0], dir[1], dir[2]};
+  for (int i = 0; i < 4; i++) {
+    if (!(gs.recharged_regime_w[i] > 0.f)) {
+      continue;
+    }
+    const float* d = gs.recharged_regime_slot_dir[i];
+    const PbrV3 sd = {d[0], d[1], d[2]};
+    if (pv_dot(sd, sd) < 1e-8f) {
+      continue;
+    }
+    const float c = pv_dot(k, pv_norm(sd));
+    a.dir_checked++;
+    if (!(c > 0.f)) {
+      a.dir_wrong++;
+    }
+    a.dir_dot_min = std::min(a.dir_dot_min, c);
+  }
+  autoport_proof::publish("regime_dir_sign_checked", a.dir_checked);
+  autoport_proof::publish("regime_dir_sign_wrong", a.dir_wrong);
+  if (a.dir_dot_min <= 1.5f) {
+    autoport_proof::publish("regime_dir_dot_min_p1000",
+                            (u64)std::lround((a.dir_dot_min + 1.f) * 1000.f));
+  }
+}
+
+// essai 2, une fois par image, sur la valeur REELLEMENT poussee dans `u_rt_sun_elev` (apres le
+// lissage) : la nuit (astre sous -0,05) sur un niveau sun-fade = 1, elle doit valoir 0.
+void audit_night(u64 frame_idx, float uploaded_direct) {
+  Audit& a = g_audit;
+  const Frame& f = frame(frame_idx);
+  if (!f.armed) {
+    return;
+  }
+  static u64 s_frame = ~0ull;
+  if (s_frame == frame_idx) {
+    return;
+  }
+  s_frame = frame_idx;
+  const bool night = f.sun_fade >= 1.f && f.sun_up < -0.05f && f.sun_up > -1.5f;
+  if (night) {
+    a.night_frames++;
+    if (f.direct_w > 0.f) {
+      a.night_direct_frames++;
+    }
+  }
+  autoport_proof::publish("regime_direct_w_x1000", (u64)std::lround(std::max(0.f, uploaded_direct) * 1000.f));
+  if (f.sun_up > -1.5f) {
+    autoport_proof::publish("regime_sun_up_p1000", (u64)std::lround((f.sun_up + 1.f) * 1000.f));
+  }
+  autoport_proof::publish("regime_night_frames", a.night_frames);
+  autoport_proof::publish("regime_night_direct_frames", a.night_direct_frames);
 }
 
 // SPEC §4.10 : la FORME vient du ciel capture (SkyCapture), le NIVEAU et la TEINTE de l'amb-color
@@ -2449,9 +2531,11 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   if (lgtmath::block(lgtmath::kLightGroup)) {
   if (gs.recharged_pbr_lg_valid) {
     for (int i = 0; i < 3; i++) {
-      // GOAL dir is light-travel (sun->surface); shader wants surface->light, so negate.
-      float d[3] = {-gs.recharged_pbr_lg_dir[i][0], -gs.recharged_pbr_lg_dir[i][1],
-                    -gs.recharged_pbr_lg_dir[i][2]};
+      // lighting-regimes (essai 2) : la direction d'une lumiere de light-group pointe DEJA VERS la
+      // lumiere (village1 a midi y = +0,966 ; tools/light_bake/main.cpp:475 la prend telle quelle
+      // et sa decomposition tient). L'ancienne negation envoyait la lumiere du cote OPPOSE.
+      float d[3] = {gs.recharged_pbr_lg_dir[i][0], gs.recharged_pbr_lg_dir[i][1],
+                    gs.recharged_pbr_lg_dir[i][2]};
       float dl = std::sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]);
       float lvl = gs.recharged_pbr_lg_level[i];
       if (dl < 1e-5f || lvl <= 0.0f) {
@@ -2499,6 +2583,7 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
     }
     regime::audit(render_state->frame_idx, overridden);
   }
+  regime::audit_dir(render_state->frame_idx, light_dir);
   }  // lighting-off-math-still-runs : fin du bloc `kLightGroup`
 
   // === Grecharged-realtime-lighting (2026-07-19 REWRITE): SUN-ONLY path uniforms. ===
@@ -2628,8 +2713,9 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
       rt_sun_elev = rt_smoothstep(-0.05f, 0.18f, up);
     }
     // lighting-regimes (SPEC §4.11) : sous l'item arme, le poids direct est celui du REGIME des
-    // creneaux (sun-fade deja applique a la part de l'astre). L'elevation du soleil n'a plus a
-    // eteindre la nuit : la cle n'est l'astre que s'il est leve, sinon c'est le creneau de nuit.
+    // creneaux (sun-fade deja applique a la part de l'astre), et il suit l'elevation de l'astre en
+    // proportion de sun-fade (essai 2) : sur un niveau a soleil visible, la nuit eteint le direct
+    // comme avant ; sans soleil visible (lave, grotte), l'heure n'y change rien.
     const auto& rge = regime::frame(render_state->frame_idx);
     if (rge.armed) {
       rt_sun_elev = rge.direct_w;
@@ -2830,6 +2916,7 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
     lgtmath::g_ho.seeded = false;
   }
   lgt_1f(id, "u_rt_sun_elev", rt_sun_elev);  // moved: upload the SMOOTHED value
+  regime::audit_night(render_state->frame_idx, rt_sun_elev);
   // lighting-regimes (SPEC §4.11) : le REGIME lu par le shader — x poids direct (deja dans
   // u_rt_sun_elev), y multiplicateur du rayon de penombre des cascades de la cle, z poids
   // speculaire (sans lecteur : le composite n'a pas de speculaire), w regime dominant. Bras

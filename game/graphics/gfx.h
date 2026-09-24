@@ -293,7 +293,7 @@ struct GfxGlobalSettings {
   // Round-4 multi-light: *time-of-day-context* light-group 0 (soleil + lune verte + fill).
   // Pushed raw from GOAL via pc-set-pbr-lights!; scaled/normalized at the GL boundary.
   bool recharged_pbr_lg_valid = false;
-  float recharged_pbr_lg_dir[3][3];    // light-travel dirs, dir0/1/2 raw from GOAL
+  float recharged_pbr_lg_dir[3][3];    // dirs VERS la lumiere (surface->lumiere), dir0/1/2 bruts de GOAL
   float recharged_pbr_lg_color[3][3];  // rgb 0..255 raw
   float recharged_pbr_lg_level[3];     // levels.x morph weight per light
   float recharged_pbr_lg_ambi[3];      // ambi color rgb 0..255 raw
