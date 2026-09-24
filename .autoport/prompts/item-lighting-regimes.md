@@ -5,7 +5,7 @@
 # La lumiere cle n'est pas toujours un soleil
 
 ## Defaut cite
-- 2026-09-05 : « Ça fait une éternité qu'on bosse sur des trucs de merde sans… »
+- 2026-09-24 : « Le marais se décompose moins bien comme tu dis probablement… »
 
 ## Cause connue
 LIS D'ABORD prompts/SPEC-refonte-lumiere.md : c'est le contrat, il porte le detail que ce prompt ne repete pas. pc-set-pbr-sky-sun! est pousse sans garde et ecrase la lumiere cle : dans 16 niveaux sur 20 la clef du monde suit un soleil que le joueur ne voit pas. SPEC 3.2, 3.3 et l'annexe A.

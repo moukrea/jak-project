@@ -34,6 +34,9 @@ swamp et lavatube : la lumiere ne doit plus venir d'un soleil invisible
 ### 2026-09-05
 > Ça fait une éternité qu'on bosse sur des trucs de merde sans changements majeurs, j'aimerais un truc qui a un vrai effet Waouw next round du worker j'aimerais que ça parte sur le realtime lighting histoire d'avoir un réel sujet vraiment intéressant. Laisse finir le travail en cours et on passe sur l'intégralité du realtime lighting !
 
+### 2026-09-24
+> Le marais se décompose moins bien comme tu dis probablement parce que ce dernier est sur un ciel nuageux, temps couvert (il me semble qu'il y pleut ?) et le soleil n'y est pas directement visible (il me semble)…
+
 ## Pourquoi ce fichier existe
 
 Owner, 2026-09-11 : « faudrait pas perdre des infos, sinon justement le principe
