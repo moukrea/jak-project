@@ -5774,7 +5774,7 @@ items:
   delivered: '2026-09-24'
 - id: lighting-regimes
   feature: La lumiere cle n'est pas toujours un soleil
-  status: open
+  status: in-progress
   priority: 24
   owner_feedback:
   - date: '2026-09-03'
@@ -5810,6 +5810,9 @@ items:
   prompt: prompts/item-lighting-regimes.md
   owner_ok: null
   device: false
+  proof_env:
+  - OG_LEVEL_WARP=swamp-start
+  - OG_TOD_HOUR=12
   where: 'swamp et lavatube : la lumiere ne doit plus venir d''un soleil invisible'
   known_cause: 'LIS D''ABORD prompts/SPEC-refonte-lumiere.md : c''est le contrat, il porte le detail que
     ce prompt ne repete pas. pc-set-pbr-sky-sun! est pousse sans garde et ecrase la lumiere cle : dans
@@ -20936,7 +20939,7 @@ items:
 - id: harness-device-acquis-hardening
   feature: Les acquis sur appareil partagent une seule garde de preuve, ont leur propre compteur de passage
     et ne sont pas coupes au milieu d'une course
-  status: in-progress
+  status: validated
   priority: 32
   code_scope: harnais
   device: false
@@ -20973,6 +20976,13 @@ items:
 
     CONTROLE POSITIF fabrique + CONTROLE NEGATIF. Publier le denominateur.'
   no_code: true
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-24'
+    proof_sha: 8e4b73e599b62560
+    proof_bytes: 75791
+    attempt: 1
+    journal: validator-001.txt
 - id: harness-linear-space-limit-minor
   feature: La limite d'espace Linear suit le vrai plan, et le recensement de l'archivage automatique applique
     la duree de vie de la limite apprise
@@ -21997,3 +22007,34 @@ items:
     CONTROLE NEGATIF : binaire courant -> 0.
 
     3. Publier `lighting_bake_acquis_defects` et le nombre de niveaux mesures (0 niveau = defaut).'
+- id: harness-acquis-leftovers
+  feature: 'Restes des acquis : un acquis coupe ne laisse plus d''orphelin, et tous les acquis passent
+    par la meme garde'
+  status: open
+  priority: 120
+  code_scope: harnais
+  device: false
+  owner_test: false
+  max_retries: 5
+  gate:
+    key: acquis_leftovers
+    op: ==
+    value: 0
+  prompt: prompts/item-harness-acquis-leftovers.md
+  known_cause: 'Signale par le worker de harness-device-acquis-hardening (reports/.../FINDINGS.txt), non
+    corrige ; ouvert sous la delegation de l''owner pour les signalements de harnais.
+
+    (1) `orchestrator.py` GATE 3 : un acquis qui depasse son delai voit son `bash` tue, mais PAS ses enfants
+    (proof_run.sh, course appareil) : orphelin possible, qui bloque ensuite le constructeur d''APK (voir
+    memoire feedback_an_engine_outliving_its_proof_run). (2) `acquis/perf-fbo-passes.sh:61` garde sa propre
+    copie de la garde scellee ; `acquis/font-urbanist.sh:55` sonde l''appareil en direct par adb sans
+    preuve scellee ni garde commune. (3) `acquis/hud-eco-gauge.sh` : les fenetres ou deux types d''eco
+    montent ensemble (881 images sur 8321) et celles sans type (420) ne sont attribuees a personne.'
+  deliverable: '1. Couper un acquis tue tout son groupe de processus (et le dit).
+
+    2. perf-fbo-passes et font-urbanist passent par lib/acquis_device_guard.py (ou equivalent commun).
+
+    3. `acquis_leftovers` = orphelins apres coupure fabriquee + acquis hors garde commune ; doit valoir
+    0.
+
+    CONTROLE POSITIF + CONTROLE NEGATIF.'
