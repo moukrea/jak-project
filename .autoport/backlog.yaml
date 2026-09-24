@@ -5841,9 +5841,9 @@ items:
   proof_env:
   - OG_LEVEL_WARP=village3-start
   - OG_TOD_HOUR=12
-  where: 'Build 4e0c8a : (1) village3, premier ecran, de jour : le sol n''est plus noir ; (2) marais et
-    tube de lave : pas de soleil invisible ; (3) l''ombre de Jak au village de jour doit enfin se voir
-    (equilibre direct/indirect).'
+  where: 'Dernier build en ligne (porte ce chantier depuis 4e0c8a) : (1) village3, premier ecran, de jour
+    : le sol n''est plus noir ; (2) marais et tube de lave : pas de soleil invisible ; (3) l''ombre de
+    Jak au village de jour doit enfin se voir (equilibre direct/indirect).'
   known_cause: 'LIS D''ABORD prompts/SPEC-refonte-lumiere.md : c''est le contrat, il porte le detail que
     ce prompt ne repete pas. pc-set-pbr-sky-sun! est pousse sans garde et ecrase la lumiere cle : dans
     16 niveaux sur 20 la clef du monde suit un soleil que le joueur ne voit pas. SPEC 3.2, 3.3 et l''annexe
@@ -8074,7 +8074,7 @@ items:
   max_retries: 10
 - id: perf-codegen-arm64-scalar
   feature: float vers int, division et swizzle en une ou deux instructions
-  status: open
+  status: in-progress
   priority: 54
   game: jak1
   gate:
@@ -21931,7 +21931,7 @@ items:
 - id: harness-directives-promises-are-implemented
   feature: 'Ce que DIRECTIVES promet est fait par du code : le rapport perime est refuse, et DIRECTIVES.md
     suit le checkpoint'
-  status: in-progress
+  status: validated
   priority: 50
   code_scope: harnais
   device: false
@@ -21959,6 +21959,13 @@ items:
 
     CONTROLE POSITIF fabrique + CONTROLE NEGATIF. Publier le denominateur.'
   no_code: true
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-25'
+    proof_sha: d3b871d201d3eea8
+    proof_bytes: 77136
+    attempt: 1
+    journal: validator-001.txt
 - id: harness-linear-request-economy
   feature: La synchro Linear depense moins de requetes et ne garde pas d'identifiants perimes
   status: open
