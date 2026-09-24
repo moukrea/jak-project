@@ -2129,6 +2129,9 @@
 ;; par le display-loop (main.gc, post-sync-draw), jamais par un processus -- le bit `movie` de
 ;; process-mask gelerait un processus exactement pendant une cinematique.
 (goal-src "pc/cutscene-skip-draw.gc" "pckernel" "text" "cutscene-skip" "pov-camera")
+;; owner-level-teleport-menu : menu de teleportation (SELECT+L1+R1), appele par le display-loop
+;; comme l'indice ci-dessus -- il vit pendant la PAUSE, ou aucun processus ne tourne.
+(goal-src "pc/teleport-menu.gc" "pckernel" "main" "logic-target" "level-info" "time-of-day" "font")
 ;; Grecharged-hd-models3: HD character ANIMATION-RETARGET companion (gated on FLAG_HD_MODELS).
 (goal-src "pc/jak-hd.gc" "pckernel" "pckernel-common" "progress-pc" "target" "sidekick" "bones" "loader")
 (goal-src "pc/jak-hd-physics.gc" "jak-hd")

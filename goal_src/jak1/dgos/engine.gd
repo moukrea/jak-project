@@ -320,6 +320,8 @@
   ;; appelle `cutscene-skip-frame!` a CHAQUE image sans condition -- l'objet doit donc etre
   ;; resident ici aussi, contrairement a `loading-screen-pc.o` dont l'appel est conditionnel.
   "cutscene-skip-draw.o" ;; added
+  ;; owner-level-teleport-menu : appele par image depuis le display-loop (main.o), resident.
+  "teleport-menu.o" ;; added
   "default-menu-pc.o" ;; added
  ))
 

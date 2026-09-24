@@ -1,0 +1,392 @@
+;;-*-Lisp-*-
+(in-package goal)
+(require "pc/pckernel.gc")
+(require "engine/game/main.gc")
+(require "engine/target/logic-target.gc")
+(require "engine/level/level-info.gc")
+(require "engine/gfx/mood/time-of-day.gc")
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; owner-level-teleport-menu — MENU DE TELEPORTATION VERS N'IMPORTE QUEL NIVEAU
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Owner 2026-09-24 : « Faudrait que j'ai un moyen simple de me TP dans n'importe quel niveau via
+;; un menu qui apparaît sur une combinaison de touches ».
+;;
+;; OUVERTURE : maintenir SELECT + L1 + R1 (TPM_HOLD_FRAMES images). Les trois existent a l'ecran
+;; tactile (pastille SELECT en haut au centre, pastille combinee L1/R1 en haut a droite : deux
+;; doigts) comme sur la manette. SELECT seul met le jeu en pause (determine-pause-mode) : le menu
+;; s'ouvre donc sur un jeu deja fige, et un joueur qui met en pause ne l'ouvre pas sans maintenir
+;; AUSSI les deux gachettes. Coupe en mode speedrun, ou L1+R1 a la pause ouvre deja un autre menu.
+;;
+;; NAVIGATION : haut/bas deplace, gauche/droite change l'heure, CROIX valide, ROND ou TRIANGLE
+;; revient en arriere puis ferme. START/SELECT relancent le jeu et ferment le menu.
+;;
+;; LE SAUT reutilise le chemin du menu debug d'origine (default-menu.gc, `dm-current-continue`) :
+;;   (start 'play <continue-point>)
+;; `start` tue Jak et le fait renaitre au point de reprise ; son etat `target-continue` charge les
+;; niveaux voulus. Rien dans ce chemin ne touche `*game-info*` au-dela du point de reprise courant :
+;; cellules, orbes, taches restent ceux de la partie.
+;;
+;; L'HEURE : les memes champs que le menu debug (`*time-of-day-proc*` hour, time-ratio). « libre »
+;; rend a l'horloge sa vitesse normale.
+;;
+;; LE BANC : quand `lib/proof_run.sh` pose `debug.opengoal.costprobe=owner-level-teleport-menu`
+;; (proof_props de l'item), `tpm-bench-frame!` ouvre le menu, place le curseur et valide par LES
+;; MEMES fonctions que la manette, sur TPM_BENCH_COUNT points de reprise de niveaux differents,
+;; puis publie le niveau atteint, la distance au point de reprise et l'heure lue. Hors course de
+;; preuve la propriete est absente et le banc ne tourne jamais.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defconstant TPM_HOLD_FRAMES 20)   ;; images de maintien de la combinaison avant ouverture
+(defconstant TPM_ROWS 11)          ;; lignes de liste visibles a la fois
+(defconstant TPM_ROW_H 15)         ;; hauteur d'une ligne, toile 512 x 224
+(defconstant TPM_TEXT_SCALE 0.62)
+
+;; --- l'etat du menu ---
+(define *tpm-open* #f)
+(define *tpm-page* 'levels)        ;; 'levels | 'continues
+(define *tpm-level-row* 0)         ;; 0 = ligne de l'heure, 1.. = niveaux
+(define *tpm-cont-row* 0)
+(define *tpm-scroll* 0)
+(define *tpm-tod* 0)               ;; indice dans *tpm-tod-names*
+(define *tpm-hold* 0)
+(define *tpm-armed-latch* #f)      ;; combinaison relachee depuis la derniere ouverture ?
+(define *tpm-str* (new 'global 'string 128 (the string #f)))
+
+(define *tpm-tod-names* (new 'static 'boxed-array :type string "libre" "matin (7 h)" "midi (12 h)" "soir (18 h)" "nuit (23 h)"))
+(define *tpm-tod-hours* (new 'static 'array int32 5 -1 7 12 18 23))
+
+;; niveaux du jeu, dans l'ordre de *level-load-list*, sans ceux qui ne sont pas des lieux jouables
+(define *tpm-skip-levels* '(intro demo title halfpipe default-level))
+
+(define *tpm-level-names*
+  '((training "Geyser Rock")
+    (village1 "Sandover Village")
+    (beach "Sentinel Beach")
+    (jungle "Forbidden Jungle")
+    (jungleb "Forbidden Temple")
+    (misty "Misty Island")
+    (firecanyon "Fire Canyon")
+    (village2 "Rock Village")
+    (sunken "Lost Precursor City")
+    (sunkenb "Lost Precursor City (bas)")
+    (swamp "Boggy Swamp")
+    (rolling "Precursor Basin")
+    (ogre "Mountain Pass")
+    (village3 "Volcanic Crater")
+    (snow "Snowy Mountain")
+    (maincave "Spider Cave")
+    (darkcave "Spider Cave (sombre)")
+    (robocave "Spider Cave (robot)")
+    (lavatube "Lava Tube")
+    (citadel "Citadel")
+    (finalboss "Final Boss")))
+
+(defun tpm-level-list-ok? ((sym symbol))
+  (and (not (member sym *tpm-skip-levels*))
+       (let ((info (the-as level-load-info (-> sym value))))
+         (and info (not (null? (-> info continues)))))))
+
+(defun tpm-level-count ()
+  (let ((n 0))
+    (let ((l *level-load-list*))
+      (while (not (null? l))
+        (if (tpm-level-list-ok? (the-as symbol (car l))) (+! n 1))
+        (set! l (cdr l))))
+    n))
+
+(defun tpm-level-ref ((idx int))
+  "Le niveau jouable d'indice idx (0..), ou #f."
+  (let ((n 0)
+        (l *level-load-list*))
+    (while (not (null? l))
+      (let ((sym (the-as symbol (car l))))
+        (when (tpm-level-list-ok? sym)
+          (if (= n idx) (return (the-as level-load-info (-> sym value))))
+          (+! n 1)))
+      (set! l (cdr l))))
+  (the-as level-load-info #f))
+
+(defun tpm-level-label ((info level-load-info))
+  (let ((e (assoc (-> info name) *tpm-level-names*)))
+    (if e
+      (format (clear *tpm-str*) "~S  (~A)" (the-as string (cadr e)) (-> info name))
+      (format (clear *tpm-str*) "~A" (-> info name))))
+  *tpm-str*)
+
+(defun tpm-cont-count ((info level-load-info))
+  (length (-> info continues)))
+
+(defun tpm-cont-ref ((info level-load-info) (idx int))
+  (the-as continue-point (ref (-> info continues) idx)))
+
+;; --- les actions : la manette ET le banc passent par elles ---
+
+(defun tpm-open! ()
+  (set! *tpm-open* #t)
+  (set! *tpm-page* 'levels)
+  (set! *tpm-scroll* 0)
+  (set! *tpm-armed-latch* #f)
+  (if (!= *master-mode* 'pause) (set-master-mode 'pause))
+  (format 0 "TELEPORT-MENU open~%")
+  0)
+
+(defun tpm-close! ((resume symbol))
+  (set! *tpm-open* #f)
+  (if (and resume (= *master-mode* 'pause)) (set-master-mode 'game))
+  0)
+
+(defun tpm-tod-set! ((idx int))
+  "Choisir l'heure. -1 = libre : l'horloge reprend sa vitesse normale."
+  (set! *tpm-tod* idx)
+  (when *time-of-day-proc*
+    (let ((h (-> *tpm-tod-hours* idx)))
+      (cond
+        ((< h 0)
+         (set! (-> *time-of-day-proc* 0 time-ratio) (if *time-of-day-fast* 18000.0 300.0)))
+        (else
+         (set! (-> *time-of-day-proc* 0 hour) h)
+         (set! (-> *time-of-day-proc* 0 minute) 0)
+         (set! (-> *time-of-day-proc* 0 second) 0)
+         (set! (-> *time-of-day-proc* 0 frame) 0)
+         (set! (-> *time-of-day-proc* 0 time-ratio) 0.0)))))
+  (format 0 "TELEPORT-MENU tod=~A~%" (-> *tpm-tod-hours* idx))
+  0)
+
+(defun tpm-go! ((cont continue-point))
+  "Le saut : le chemin exact du menu debug d'origine."
+  (tpm-close! #t)
+  (format 0 "TELEPORT-MENU go continue=~A level=~A~%" (-> cont name) (-> cont level))
+  (__pc-autoport-hit-for "owner-level-teleport-menu" 1)
+  (start 'play cont)
+  0)
+
+(defun tpm-confirm! ()
+  "CROIX : ouvrir le niveau sous le curseur, ou sauter au point de reprise sous le curseur."
+  (case *tpm-page*
+    (('levels)
+     (when (> *tpm-level-row* 0)
+       (set! *tpm-page* 'continues)
+       (set! *tpm-cont-row* 0)
+       (set! *tpm-scroll* 0)))
+    (('continues)
+     (let ((info (tpm-level-ref (+ *tpm-level-row* -1))))
+       (if info (tpm-go! (tpm-cont-ref info *tpm-cont-row*))))))
+  0)
+
+(defun tpm-back! ()
+  (case *tpm-page*
+    (('continues) (set! *tpm-page* 'levels) (set! *tpm-scroll* 0))
+    (else (tpm-close! #t)))
+  0)
+
+(defun tpm-row-count ()
+  (if (= *tpm-page* 'levels)
+    (+ 1 (tpm-level-count))
+    (let ((info (tpm-level-ref (+ *tpm-level-row* -1)))) (if info (tpm-cont-count info) 0))))
+
+(defun tpm-move! ((d int))
+  (let* ((n (tpm-row-count))
+         (r (if (= *tpm-page* 'levels) *tpm-level-row* *tpm-cont-row*)))
+    (when (> n 0)
+      (set! r (mod (+ r d n) n))
+      (if (= *tpm-page* 'levels) (set! *tpm-level-row* r) (set! *tpm-cont-row* r))))
+  0)
+
+;; --- ouverture et lecture de la manette ---
+
+(defun tpm-can-open? ()
+  (and *target*
+       (not (movie?))
+       (not *progress-process*)
+       (not (-> *pc-settings* speedrunner-mode?))
+       (or (= *master-mode* 'game) (= *master-mode* 'pause))))
+
+(defun tpm-input-frame! ()
+  (let ((combo (pad-buttons select l1 r1)))
+    (cond
+      ((not *tpm-open*)
+       (cond
+         ((and (= (logand (cpad-hold 0) combo) combo) (tpm-can-open?))
+          (+! *tpm-hold* 1)
+          (when (and (>= *tpm-hold* TPM_HOLD_FRAMES) *tpm-armed-latch*)
+            (tpm-open!)))
+         (else
+          (set! *tpm-hold* 0)
+          (set! *tpm-armed-latch* #t))))
+      ;; START ou SELECT a relance le jeu (toggle-pause) : le menu suit.
+      ((!= *master-mode* 'pause) (tpm-close! #f))
+      (else
+       (cond
+         ((cpad-pressed? 0 up) (tpm-move! -1))
+         ((cpad-pressed? 0 down) (tpm-move! 1))
+         ((and (= *tpm-page* 'levels) (= *tpm-level-row* 0) (cpad-pressed? 0 left))
+          (tpm-tod-set! (mod (+ *tpm-tod* 4) 5)))
+         ((and (= *tpm-page* 'levels) (= *tpm-level-row* 0) (cpad-pressed? 0 right))
+          (tpm-tod-set! (mod (+ *tpm-tod* 1) 5)))
+         ((cpad-pressed? 0 x) (tpm-confirm!))
+         ((cpad-pressed? 0 circle triangle) (tpm-back!))))))
+  0)
+
+;; --- le dessin ---
+
+(defun tpm-draw ()
+  (let ((sel (if (= *tpm-page* 'levels) *tpm-level-row* *tpm-cont-row*))
+        (n (tpm-row-count)))
+    ;; la fenetre suit le curseur
+    (if (< sel *tpm-scroll*) (set! *tpm-scroll* sel))
+    (if (>= sel (+ *tpm-scroll* TPM_ROWS)) (set! *tpm-scroll* (+ (- sel TPM_ROWS) 1)))
+    (with-dma-buffer-add-bucket ((buf (-> (current-frame) global-buf)) (bucket-id debug-no-zbuf))
+      (draw-sprite2d-xy buf -256 (- (-> *video-parms* screen-hy)) 512 (-> *video-parms* screen-sy)
+                        (new 'static 'rgba :a #x60))
+      (draw-string-xy-scaled (if (= *tpm-page* 'levels)
+                               "TELEPORTATION  -  choisir un niveau"
+                               (tpm-level-label (tpm-level-ref (+ *tpm-level-row* -1))))
+                             buf 40 14 (font-color yellow) (font-flags shadow kerning) 0.7)
+      (let ((y 36))
+        (dotimes (i TPM_ROWS)
+          (let ((row (+ *tpm-scroll* i)))
+            (when (< row n)
+              (let ((txt (cond
+                           ((= *tpm-page* 'continues)
+                            (-> (tpm-cont-ref (tpm-level-ref (+ *tpm-level-row* -1)) row) name))
+                           ((zero? row)
+                            (format (clear *tpm-str*) "Heure : < ~S >" (-> *tpm-tod-names* *tpm-tod*))
+                            *tpm-str*)
+                           (else (tpm-level-label (tpm-level-ref (+ row -1)))))))
+                (draw-string-xy-scaled txt buf (if (= row sel) 48 56) y
+                                       (if (= row sel) (font-color yellow) (font-color white))
+                                       (font-flags shadow kerning) TPM_TEXT_SCALE))
+              (+! y TPM_ROW_H)))))
+      (draw-string-xy-scaled (if (= *tpm-page* 'levels)
+                               "Haut/Bas : choisir   Gauche/Droite : heure   X : ouvrir   O : fermer"
+                               "Haut/Bas : choisir   X : y aller   O : retour")
+                             buf 40 206 (font-color white) (font-flags shadow kerning) 0.5)))
+  0)
+
+;; --- le banc de preuve ---
+
+(define *tpm-bench* 'unknown)      ;; 'unknown | 'off | 'on
+(define *tpm-bench-conts* (new 'static 'boxed-array :type string "beach-start" "village2-start" "jungle-start"))
+(define *tpm-bench-tods* (new 'static 'array int32 3 1 2 4))
+(defconstant TPM_BENCH_COUNT 3)
+(define *tpm-bench-step* 0)
+(define *tpm-bench-phase* 'wait)   ;; 'wait | 'fly | 'done
+(define *tpm-bench-t0* (the-as time-frame 0))
+(define *tpm-bench-settled* 0)
+(define *tpm-bench-ok* 0)
+(define *tpm-bench-fuel* 0.0)
+(define *tpm-bench-money* 0.0)
+;; position de Jak AVANT le saut : sans elle, une distance nulle au point de reprise ne dirait pas
+;; si Jak a saute ou s'il y etait deja.
+(define *tpm-bench-from* (new 'global 'vector))
+(define *tpm-bench-save-changed* 0)
+(define *tpm-bench-key* (new 'global 'string 64 (the string #f)))
+
+(defun tpm-target-settled? ()
+  (and *target*
+       (= *master-mode* 'game)
+       (not (movie?))
+       (-> *target* next-state)
+       (not (member (-> *target* next-state name) '(target-continue target-title target-title-play target-title-wait)))))
+
+(defun tpm-bench-find! ((name string))
+  "Placer le curseur du menu sur le point de reprise nomme, comme le ferait la manette. #t si trouve."
+  (dotimes (li (tpm-level-count))
+    (let ((info (tpm-level-ref li)))
+      (dotimes (ci (tpm-cont-count info))
+        (when (string= (-> (tpm-cont-ref info ci) name) name)
+          (set! *tpm-page* 'levels)
+          (set! *tpm-level-row* (+ li 1))
+          (tpm-confirm!)       ;; page des points de reprise de ce niveau
+          (set! *tpm-cont-row* ci)
+          (return #t)))))
+  #f)
+
+(defun tpm-bench-key ((key string) (step int))
+  (format (clear *tpm-bench-key*) "teleport_menu_~D_~S" step key)
+  *tpm-bench-key*)
+
+(defun tpm-bench-publish! ((key string) (step int) (val int))
+  (__pc-autoport-publish (tpm-bench-key key step) val)
+  0)
+
+(defun tpm-bench-frame! ()
+  (when (= *tpm-bench* 'unknown)
+    (set! *tpm-bench* (if (nonzero? (__pc-autoport-cost-probe "owner-level-teleport-menu")) 'on 'off))
+    (when (= *tpm-bench* 'on)
+      (__pc-autoport-publish "teleport_menu_planned" TPM_BENCH_COUNT)
+      (__pc-autoport-publish "teleport_menu_done" 0)
+      (__pc-autoport-publish "teleport_menu_defects" TPM_BENCH_COUNT)))
+  (when (and (= *tpm-bench* 'on) (!= *tpm-bench-phase* 'done))
+    (let ((now (-> *display* real-frame-counter)))
+      (case *tpm-bench-phase*
+        (('wait)
+         ;; Jak pose et immobile depuis 3 s avant chaque saut
+         (if (tpm-target-settled?) (+! *tpm-bench-settled* 1) (set! *tpm-bench-settled* 0))
+         (when (>= *tpm-bench-settled* 180)
+           (set! *tpm-bench-fuel* (-> *game-info* fuel))
+           (set! *tpm-bench-money* (-> *game-info* money))
+           (vector-copy! *tpm-bench-from* (-> *target* control trans))
+           (tpm-open!)
+           (tpm-tod-set! (-> *tpm-bench-tods* *tpm-bench-step*))
+           (cond
+             ((tpm-bench-find! (-> *tpm-bench-conts* *tpm-bench-step*))
+              (tpm-confirm!)
+              (set! *tpm-bench-t0* now)
+              (set! *tpm-bench-settled* 0)
+              (set! *tpm-bench-phase* 'fly))
+             (else
+              (format 0 "TELEPORT-MENU bench continue-not-found ~A~%" (-> *tpm-bench-conts* *tpm-bench-step*))
+              (tpm-close! #t)
+              (set! *tpm-bench-phase* 'done)))))
+        (('fly)
+         (let* ((cont (get-continue-by-name *game-info* (-> *tpm-bench-conts* *tpm-bench-step*)))
+                (lev (level-get *level* (-> cont level)))
+                (active (and lev (= (-> lev status) 'active))))
+           (if (and active (tpm-target-settled?)) (+! *tpm-bench-settled* 1) (set! *tpm-bench-settled* 0))
+           (when (or (>= *tpm-bench-settled* 120) (> (- now *tpm-bench-t0*) (seconds 120)))
+             (let* ((dist (if *target* (vector-vector-distance (-> *target* control trans) (-> cont trans)) -1.0))
+                    (dist-cm (if (< dist 0.0) -1 (the int (/ dist 40.96))))
+                    (hour (if *time-of-day-proc* (-> *time-of-day-proc* 0 hour) -1))
+                    (want (-> *tpm-tod-hours* (-> *tpm-bench-tods* *tpm-bench-step*)))
+                    (save-same (and (= (-> *game-info* fuel) *tpm-bench-fuel*) (= (-> *game-info* money) *tpm-bench-money*)))
+                    (moved-m (if *target* (the int (/ (vector-vector-distance (-> *target* control trans) *tpm-bench-from*) 4096.0)) 0))
+                    (ok (and active (>= dist-cm 0) (< dist-cm 800) (> moved-m 20) (= hour want) save-same)))
+               (if (not save-same) (+! *tpm-bench-save-changed* 1))
+               (if ok (+! *tpm-bench-ok* 1))
+               (__pc-autoport-publish-text (tpm-bench-key "level" *tpm-bench-step*)
+                                           (symbol->string (-> cont level)))
+               (__pc-autoport-publish-text (tpm-bench-key "continue" *tpm-bench-step*)
+                                           (-> cont name))
+               (tpm-bench-publish! "active" *tpm-bench-step* (if active 1 0))
+               (tpm-bench-publish! "dist_cm" *tpm-bench-step* (max 0 dist-cm))
+               (tpm-bench-publish! "moved_m" *tpm-bench-step* moved-m)
+               (tpm-bench-publish! "hour" *tpm-bench-step* (max 0 hour))
+               (tpm-bench-publish! "hour_wanted" *tpm-bench-step* want)
+               (tpm-bench-publish! "wait_ms" *tpm-bench-step* (the int (/ (* 10 (- now *tpm-bench-t0*)) 3)))
+               (tpm-bench-publish! "ok" *tpm-bench-step* (if ok 1 0))
+               (format 0 "TELEPORT-MENU bench step=~D continue=~A active=~A dist-cm=~D~%"
+                       *tpm-bench-step* (-> cont name) active dist-cm)
+               (format 0 "TELEPORT-MENU bench step=~D hour=~D/~D ok=~A~%" *tpm-bench-step* hour want ok)
+               (+! *tpm-bench-step* 1)
+               (__pc-autoport-publish "teleport_menu_done" *tpm-bench-step*)
+               (__pc-autoport-publish "teleport_menu_save_changed" *tpm-bench-save-changed*)
+               (__pc-autoport-publish "teleport_menu_defects" (- TPM_BENCH_COUNT *tpm-bench-ok*))
+               (set! *tpm-bench-settled* 0)
+               (cond
+                 ((>= *tpm-bench-step* TPM_BENCH_COUNT)
+                  (tpm-tod-set! 0)
+                  (set! *tpm-bench-phase* 'done))
+                 (else (set! *tpm-bench-phase* 'wait))))))))))
+  0)
+
+;; --- l'appel par image, depuis le display-loop (main.gc) ---
+
+(defun teleport-menu-frame! ()
+  "Appelee a chaque image par le display-loop, a cote de `cutscene-skip-frame!` : un processus ne
+   tournerait pas pendant la pause, qui est exactement l'etat ou le menu vit."
+  (tpm-bench-frame!)
+  (tpm-input-frame!)
+  (if *tpm-open* (tpm-draw))
+  (none))

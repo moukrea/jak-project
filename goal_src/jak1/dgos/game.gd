@@ -358,4 +358,6 @@
   ;; Gcutscene-skip-all : le dessin de l'indice. Meme exigence que la ligne au-dessus -- il est
   ;; appele par image depuis le display-loop, donc des l'amorcage.
   "cutscene-skip-draw.o" ;; added
+  ;; owner-level-teleport-menu : appele par image depuis le display-loop (main.o), resident.
+  "teleport-menu.o" ;; added
  ))

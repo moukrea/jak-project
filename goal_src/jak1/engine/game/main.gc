@@ -1110,6 +1110,8 @@
 ;; que la ligne au-dessus -- le dessin a besoin de la police et du texte localise, donc il vit
 ;; dans pc/cutscene-skip-draw.gc, compile bien apres ce fichier.
 (define-extern cutscene-skip-frame! (function none))
+;; owner-level-teleport-menu : le menu de teleportation (pc/teleport-menu.gc, compile apres ce fichier).
+(define-extern teleport-menu-frame! (function none))
 (define-extern ls-capture-trace (function none))
 
 (defun loading-screen-hold! ()
@@ -2125,6 +2127,9 @@
             ;; au-dessus en depend deja, et la trace `CINELIVE ... realmovie=1` le montre en
             ;; pleine cinematique. Ne dessine rien hors cinematique.
             (cutscene-skip-frame!)
+            ;; owner-level-teleport-menu : SELECT+L1+R1 ouvre le menu de teleportation ; il vit
+            ;; pendant la pause, ou aucun processus ne tourne -- d'ou l'appel ici.
+            (teleport-menu-frame!)
             ;; controle positif du chemin de dessin -- debug uniquement, un seul tir, et seulement
             ;; une fois la banque de texte chargee (sinon il ne couvrirait que le fond noir).
             (when (and *debug-segment* (not *loading-screen-draw-probed*) *common-text* (not ls-held))
