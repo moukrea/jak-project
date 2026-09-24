@@ -36,7 +36,7 @@
    "url": "https://linear.app/moukrea/document/e1fe9500339a"
   }
  },
- "_gen": 410,
+ "_gen": 420,
  "_ids": {
   "labels": {
    "ok": "000e105b-24ba-4fa3-a579-bc3bf0869242",
@@ -595,11 +595,13 @@
   "url": "https://linear.app/moukrea/issue/JAK-276/restes-des-acquis-un-acquis-coupe-ne-laisse-plus-dorphelin-et-tous-les"
  },
  "harness-archive-and-status-write-leftovers": {
-  "hash": "25cd0634829c0ec751e813691d3bb15e29be9404",
+  "hash": "b77ea0d89bbd488eb1edc07bd903e1662af6d7ed",
   "identifier": "JAK-263",
   "issue_id": "dffd8c99-dfe8-4af8-8c59-d17bdaf0bddc",
-  "last_state": "Todo",
+  "last_state": "In Progress",
+  "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-23T08:08:14.000Z",
+  "state_at": "2026-09-24T20:35:07.319Z",
   "url": "https://linear.app/moukrea/issue/JAK-263/restes-de-larchivage-en-cours-dessai-et-des-ecritures-de-statut"
  },
  "harness-archived-census-controls-are-alive": {
@@ -651,13 +653,13 @@
   "url": "https://linear.app/moukrea/issue/JAK-266/les-faux-backlogs-des-recensements-linear-suivent-lapi-reelle-deux"
  },
  "harness-census-seeds-anchored-structurally": {
-  "hash": "7c2da22fa29ca34d82cf218a680e8bf7ce8f74ea",
+  "hash": "9d147b8b27daa6413254141a2dbe8b5970e19353",
   "identifier": "JAK-262",
   "issue_id": "0879f95b-a2fa-4f5a-a3ab-4116305e6738",
-  "last_state": "In Progress",
+  "last_state": "Done",
   "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-23T07:20:16.000Z",
-  "state_at": "2026-09-24T19:47:19.172Z",
+  "state_at": "2026-09-24T20:34:28.210Z",
   "url": "https://linear.app/moukrea/issue/JAK-262/les-recensements-du-harnais-ne-dependent-plus-dune-ligne-de-code"
  },
  "harness-close-gate-separates-inherited-reds": {
@@ -1632,33 +1634,31 @@
   "url": "https://linear.app/moukrea/issue/JAK-56/du-redmi-au-snapdragon-8-elite-des-paliers-et-chaque-ajout-debrayable"
  },
  "lighting-regimes": {
-  "build_announced": "556f3a94dc24",
-  "hash": "bbc2714234e89ab956bd75813ffa17a0e10682a4",
+  "hash": "6ae1bb9716a143ca0d95f272600671463bc23005",
   "identifier": "JAK-50",
   "issue_id": "c0ae94ec-54bb-4d1d-bd7c-880e12a25428",
-  "last_state": "In Review",
+  "last_state": "Todo",
   "last_verdict_announced": "validator-002.txt",
-  "pulled_at": "2026-09-24T15:37:40.147Z",
+  "pulled_at": "2026-09-24T20:46:16.993Z",
   "relations": [
    "lighting-bake"
   ],
-  "state_at": "2026-09-24T17:29:22.791Z",
+  "state_at": "2026-09-24T20:47:18.718Z",
   "url": "https://linear.app/moukrea/issue/JAK-50/la-lumiere-cle-nest-pas-toujours-un-soleil"
  },
  "lighting-shadows": {
-  "build_announced": "f215fd8df0a5",
-  "hash": "80087392c4967e7a7eb23c7c05fd1e1254b61ec7",
+  "hash": "7f28102f4d7823a383b51b7a5ab1ab1b2a6c0ef6",
   "identifier": "JAK-51",
   "issue_id": "923462dc-521a-4c79-ba5f-2e2e8cc4c758",
-  "last_state": "In Review",
+  "last_state": "Backlog",
   "last_verdict_announced": "validator-005.txt",
-  "pulled_at": "2026-09-24T15:25:26.089Z",
+  "pulled_at": "2026-09-24T20:47:55.659Z",
   "relations": [
    "ao-prepass-tie-alpha",
    "lighting-ao-indirect",
    "perf-merc-defuse"
   ],
-  "state_at": "2026-09-24T19:47:17.782Z",
+  "state_at": "2026-09-24T20:49:09.099Z",
   "url": "https://linear.app/moukrea/issue/JAK-51/deux-astres-deux-jeux-dombres-et-les-acteurs-qui-en-projettent"
  },
  "menu-back-label": {

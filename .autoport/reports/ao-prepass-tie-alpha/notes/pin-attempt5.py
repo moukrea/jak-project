@@ -28,5 +28,5 @@ props += [
     f'debug.opengoal.ao.tie.view={view}',
     f'debug.opengoal.ao.tie.reference={int(arm == "reference")}',
 ]
-b.set_status(item['id'], item['status'], proof_props=props)
+b.set_field(item['id'], 'proof_props', props)  # ARCHIVE-LEFTOVERS/ : le statut n'est plus repose
 print(f'pinned view={view} arm={arm} props={len(props)}')
