@@ -5774,7 +5774,7 @@ items:
   delivered: '2026-09-24'
 - id: lighting-regimes
   feature: La lumiere cle n'est pas toujours un soleil
-  status: open
+  status: in-progress
   priority: 24
   owner_feedback:
   - date: '2026-09-03'
@@ -16196,7 +16196,13 @@ items:
   known_cause: 'SPEC herbe §5, qu''aucun item ne portait (audit superviseur 17/09 sur remarque owner :
     « on parle de refonte »). Defaut connu : GrassRenderer.cpp:1032-1036 compare la TAILLE du .fr3, pas
     une empreinte de contenu ; scripts/shell/build_grass_bakes.sh n''est appele par aucun script de build,
-    cuisson manuelle et totale.'
+    cuisson manuelle et totale.
+
+
+    SIGNALE LE 24/09 (worker de harness-census-seeds-anchored-structurally) : `lib/census/grass-bake-invalidation.sh:178`
+    (WIRED_PREP) compte un appel a `build_grass_bakes.sh` dans `.autoport/prepare_delivery_bakes.sh`,
+    et ce fichier n''en porte PLUS AUCUN (grep : 0). A verifier en premier : les bakes d''herbe sont-ils
+    encore rebatis a la livraison ?'
   deliverable: '`grass_bake_stale_defects` = 0, somme de termes publies SEPAREMENT.
 
 
@@ -21211,7 +21217,7 @@ items:
 - id: harness-archive-and-status-write-leftovers
   feature: 'Restes de l''archivage en cours d''essai et des ecritures de statut perimees : plus d''orphelin,
     plus de travail invisible, plus de statut ramene en arriere'
-  status: in-progress
+  status: validated
   priority: 44
   code_scope: harnais
   device: false
@@ -21248,6 +21254,13 @@ items:
 
     CONTROLE POSITIF par cas + CONTROLE NEGATIF.'
   no_code: true
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-24'
+    proof_sha: f53c4a9008d83011
+    proof_bytes: 79574
+    attempt: 1
+    journal: validator-001.txt
 - id: harness-prompt-fingerprint-store-locked
   feature: 'Le magasin d''empreintes des consignes s''ecrit sous verrou : deux ecrivains simultanes ne
     font plus passer une consigne « a la main » en silence'
@@ -22298,3 +22311,30 @@ items:
     text: Pourquoi c'est toujours in progress ? Ça aurait dû être in review, parce que tu me demandes
       de tester ! En tout cas c'est validé, ça fonctionne !
     build_sha: 57f311fd79d7c778
+- id: harness-census-liveness-leftovers
+  feature: 'Restes des recensements : les compteurs qui attendent 0 sont eux aussi juges vivants, et le
+    suivi de source suit le flux'
+  status: open
+  priority: 121
+  code_scope: harnais
+  device: false
+  owner_test: false
+  max_retries: 4
+  gate:
+    key: census_liveness_leftovers
+    op: ==
+    value: 0
+  prompt: prompts/item-harness-census-liveness-leftovers.md
+  known_cause: 'Signale par le worker de harness-census-seeds-anchored-structurally, non corrige ; ouvert
+    sous la delegation de l''owner pour les signalements de harnais.
+
+    (1) une aiguille qui transite par un TUPLE de boucle echappe au recensement des ancres ; (2) la «
+    source lue » est un tracage par NOMS, insensible au flux ; (3) `grep -c/-q/-l` et `tok_count/ws_count`
+    qui attendent 0 : leur VIVANCE n''est pas jugee (un compteur mort qui rend 0 passe pour un succes)
+    ; (4) le terme G de harness-archived-census-controls-are-alive ne lit que les blocs python.'
+  deliverable: '1. Traiter les quatre ; en priorite (3) : un compteur qui attend 0 doit prouver qu''il
+    PEUT rendre non nul (controle positif seme).
+
+    2. `census_liveness_leftovers` ; doit valoir 0.
+
+    CONTROLE POSITIF + CONTROLE NEGATIF.'
