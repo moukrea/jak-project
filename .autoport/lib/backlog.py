@@ -102,12 +102,16 @@ def _lock_path(path):
 DIGEST_MEMO = os.path.join(AP, ".last_status_digest")   # ignore par git (.autoport/.last_*)
 
 
-def _signature_digest(a_tester, empeche_digest, degrade_digest):
-    """L'unique signature du digest : « A tester » + « Preuve impossible » + « degrade ».
+def _signature_digest(a_tester, empeche_digest, degrade_digest, mort_digest=""):
+    """L'unique signature du digest : « A tester » + « Preuve impossible » + « degrade »
+    (+ les dependances mortes, quand il y en a : une file gelee reveille le superviseur).
     La dette ne bouge pas d'elle-meme et ne reveille rien ; une machine qui ne peut plus
-    mesurer, si. L'age y entre par son PALIER, jamais a la seconde."""
-    return hashlib.sha256(
-        (a_tester + "\n" + empeche_digest + "\n" + degrade_digest).encode("utf-8")).hexdigest()
+    mesurer, si. L'age y entre par son PALIER, jamais a la seconde. `mort_digest` vide
+    n'entre pas dans le hash : la signature d'un backlog sain ne change pas."""
+    corps = a_tester + "\n" + empeche_digest + "\n" + degrade_digest
+    if mort_digest:
+        corps += "\n" + mort_digest
+    return hashlib.sha256(corps.encode("utf-8")).hexdigest()
 # Une feature livree avant cette date l'a ete sur un build que l'owner n'a plus : elle part
 # dans « Dette a trier », pas dans la liste de ce qu'il peut tester ce soir.
 CURRENT_BUILD_SINCE = "2026-08-20"
@@ -144,6 +148,68 @@ def awaiting_framing(it):
     if _gate_verdict.normalise(it.get(_gate_verdict.SCOPE_FIELD)) in a_cadrer:
         return True
     return (it.get("notes") or "").startswith(AWAITING_FRAMING_NOTE) and not it.get("prompt")
+
+
+# 24/09 (harness-dead-dependency-is-named-never-silent) — UNE DEPENDANCE MORTE SE NOMME.
+# lighting-bake, lighting-shadows et water-surface-material dependaient de lighting-ao-indirect,
+# ARCHIVE le 17/09 (supplante par ao-indirect-clean) : `next_open` exige `validated`, un archive ne
+# l'est jamais, et toute la descendance eclairage + eau a ete sautee six jours sans un mot.
+# Seuls ces statuts ATTENDENT leurs dependances : un `validated` ou un `to-test` n'attend plus rien.
+WAITING_STATUSES = ("open", "in-progress", "blocked")
+
+
+def is_game_item(it):
+    """Un chantier de JEU : ni harnais par son perimetre, ni par son nom. Un perimetre vide compte
+    jeu (les items d'eclairage et d'eau d'avant le champ n'en portent pas)."""
+    if str(it.get("id") or "").startswith("harness-"):
+        return False
+    return _gate_verdict.normalise(it.get(_gate_verdict.SCOPE_FIELD)) not in _gate_verdict.SCOPE_SANS_CODE
+
+
+def _redirect_dependants(items, archived_id, keep_before=False):
+    """Remplace `archived_id` par ses successeurs vivants dans `depends_on` de chaque item qui
+    attend. Trace la redirection dans `dependency_redirects` de l'item. Rend les
+    (id, avant, apres) touches — `avant` seulement si `keep_before` (journal des gestes)."""
+    par_id = {it.get("id"): it for it in items if it.get("id")}
+    succ = _successors(par_id, archived_id)
+    if not succ:
+        return []
+    jour = datetime.date.today().isoformat()
+    touches = []
+    for it in items:
+        deps = it.get("depends_on") or []
+        if it.get("status") not in WAITING_STATUSES or archived_id not in deps:
+            continue
+        avant = copy.deepcopy(it) if keep_before else None
+        neuf = []
+        for d in deps:
+            for r in (succ if d == archived_id else [d]):
+                if r not in neuf and r != it.get("id"):
+                    neuf.append(r)
+        it["depends_on"] = neuf
+        it.setdefault("dependency_redirects", []).append(
+            "%s %s -> %s (supplante)" % (jour, archived_id, ",".join(succ)))
+        touches.append((it["id"], avant, it))
+    return touches
+
+
+def _successors(items_by_id, dep, seen=None):
+    """Les successeurs VIVANTS d'un item supplante, en suivant la chaine `superseded_by`.
+    Un successeur lui-meme archive et supplante est suivi ; archive sans successeur, il est
+    perdu (liste vide pour lui). Garde contre les boucles."""
+    seen = set() if seen is None else seen
+    if dep in seen:
+        return []
+    seen.add(dep)
+    it = items_by_id.get(dep)
+    if it is None or it.get("status") != "archived":
+        return [dep] if it is not None else []
+    out = []
+    for s in (it.get("superseded_by") or []):
+        for r in _successors(items_by_id, s, seen):
+            if r not in out:
+                out.append(r)
+    return out
 
 
 # ==================================== LES GESTES ETRANGERS A L'ESSAI QUI TOURNE (23/09) ==========
@@ -533,6 +599,57 @@ class Backlog:
         chemin = os.path.join(os.path.dirname(self.path), ".no-device")
         return chemin if os.path.exists(chemin) else None
 
+    def dependency_health(self):
+        """DEPENDANCES-MORTES/ — ce qui attend en silence, NOMME. Lu par le lint, `status` et le
+        recensement de harness-dead-dependency-is-named-never-silent : un seul calcul.
+
+        `dead`    : (item, dep, cause, successeurs) pour un item qui ATTEND (`WAITING_STATUSES`)
+                    et depend d'un item `archived` (cause « archive ») ou inexistant (« absent »).
+                    Une telle dependance n'est JAMAIS satisfaite : `next_open` exige `validated`.
+        `blocked` : (item, dep) — l'item attend un `blocked`, qui n'avance que par un geste.
+        `stuck`   : les items en attente qui ne partiront jamais d'eux-memes, descendance comprise
+                    (attendre un item lui-meme gele, c'est geler aussi).
+        `game_open` / `game_takeable` : chantiers de jeu `open`, et ceux que `next_open` peut
+                    prendre (dependances toutes `validated`, pas a cadrer).
+        """
+        par_id = {it.get("id"): it for it in self.items if it.get("id")}
+        dead, blocked = [], []
+        for it in self.items:
+            if it.get("status") not in WAITING_STATUSES:
+                continue
+            for dep in (it.get("depends_on") or []):
+                d = par_id.get(dep)
+                if d is None:
+                    dead.append((it["id"], dep, "absent", []))
+                elif d.get("status") == "archived":
+                    dead.append((it["id"], dep, "archive", _successors(par_id, dep)))
+                elif d.get("status") == "blocked":
+                    blocked.append((it["id"], dep))
+        # Descendance : point fixe sur « attend un mort, un bloque, ou un gele ».
+        stuck = {i for i, _d, _c, _s in dead} | {i for i, _d in blocked}
+        change = True
+        while change:
+            change = False
+            for it in self.items:
+                iid = it.get("id")
+                if iid in stuck or it.get("status") not in WAITING_STATUSES:
+                    continue
+                if any(dep in stuck for dep in (it.get("depends_on") or [])):
+                    stuck.add(iid)
+                    change = True
+        game_open = [it for it in self.items if it.get("status") == "open" and is_game_item(it)]
+        takeable = [it for it in game_open if not awaiting_framing(it) and all(
+            (par_id.get(dep) or {}).get("status") == "validated"
+            for dep in (it.get("depends_on") or []))]
+        return {
+            "dead": dead,
+            "blocked": blocked,
+            "stuck": sorted(stuck),
+            "game_open": len(game_open),
+            "game_takeable": len(takeable),
+            "game_stuck": sorted(it["id"] for it in game_open if it["id"] in stuck),
+        }
+
     def next_open(self):
         """Le premier `open` dont toutes les dependances sont `validated`, par priorite.
 
@@ -610,9 +727,17 @@ class Backlog:
                 target[k] = v
             if status == "blocked" and not target.get("block_reason"):
                 raise BacklogError("un item bloque doit porter block_reason")
+            # DEPENDANCES-MORTES/redirection : archiver un item SUPPLANTE redirige ses dependants
+            # vers le successeur dans la MEME ecriture — c'est ici que la dependance mourait
+            # (lighting-ao-indirect, 17/09). Archive sans successeur : le lint le nomme.
+            rediriges = []
+            if status == "archived" and target.get("superseded_by"):
+                rediriges = _redirect_dependants(fresh["items"], item_id,
+                                                 self.author in FOREIGN_AUTHORS)
             _atomic_write(self.path, _dump(fresh))
             if avant is not None:
-                record_gesture(self.path, self.author, "set_status", [(item_id, avant, target)])
+                record_gesture(self.path, self.author, "set_status",
+                               [(item_id, avant, target)] + rediriges)
         self.items = fresh["items"]
         self.version = fresh.get("version", 1)
         if "deliverable" in fields:
@@ -755,9 +880,13 @@ class Backlog:
                                        "(ajout en queue seulement)")
                 if target.get("deliverable") != avant_livrable:
                     raise BacklogError("REFUS : le livrable passe par set_status (releve des verdicts)")
+                rediriges = []  # DEPENDANCES-MORTES/redirection : meme regle que `set_status`
+                if target.get("status") == "archived" and target.get("superseded_by"):
+                    rediriges = _redirect_dependants(fresh["items"], item_id, avant is not None)
                 _atomic_write(self.path, _dump(fresh))
                 if avant is not None:
-                    record_gesture(self.path, self.author, "update", [(item_id, avant, target)])
+                    record_gesture(self.path, self.author, "update",
+                                   [(item_id, avant, target)] + rediriges)
         self.items = fresh["items"]
         self.version = fresh.get("version", 1)
         return res
@@ -960,6 +1089,23 @@ class Backlog:
                 lines.append("  %s" % (it.get("block_reason") or "raison non enregistree"))
         bloque = "\n".join(lines)
 
+        # DEPENDANCES-MORTES/ (24/09) : une file gelee par un chantier abandonne ne se tait plus.
+        # 17/09 -> 23/09 : 5 chantiers de jeu prenables sur 59, et rien ici pour le dire.
+        sante = self.dependency_health()
+        mort, mort_digest = "", ""
+        if sante["game_stuck"]:
+            morts = sorted({(i, d, c) for i, d, c, _s in sante["dead"]}
+                           | {(i, d, "bloque") for i, d in sante["blocked"]})
+            lines = ["## En attente d'un chantier abandonne",
+                     "%d chantiers de jeu ne partiront jamais d'eux-memes, descendance comprise : "
+                     "ils attendent un chantier archive, absent ou bloque (%d prenables sur %d "
+                     "ouverts)."
+                     % (len(sante["game_stuck"]), sante["game_takeable"], sante["game_open"])]
+            for i, d, c in morts:
+                lines.append("- %s attend %s (%s)" % (i, d, c))
+            mort = "\n".join(lines)
+            mort_digest = "|".join("%s>%s:%s" % m for m in morts)
+
         # LE COUT DU SUPERVISEUR, PUBLIE ICI ET NULLE PART AILLEURS. Il est HORS du hash du
         # digest, volontairement : un montant qui bouge a chaque appel reveillerait le digest
         # en permanence et il n'y aurait plus de digest du tout. Le bloc est LU quand le
@@ -968,7 +1114,7 @@ class Backlog:
         # Les trois blocs qui FONT la signature, gardes pour `signature_digest()`. On les
         # range ici plutot que de les recalculer ailleurs : deux calculs de la meme signature
         # divergent le jour ou l'un des deux est modifie.
-        self._blocs_digest = (a_tester, empeche_digest, degrade_digest)
+        self._blocs_digest = (a_tester, empeche_digest, degrade_digest, mort_digest)
 
         cout = ""
         try:
@@ -1005,14 +1151,14 @@ class Backlog:
         orphelin = "\n".join(_age_releve + ([orphelin] if orphelin else []))
 
         text = "\n\n".join(b for b in (orphelin, degrade, en_cours, empeche, a_tester, bloque,
-                                       dette, cout) if b)
+                                       mort, dette, cout) if b)
         if not changed_only:
             return text
         # `--changed` surveille « A tester » ET « Preuve impossible » : la dette ne bouge pas
         # d'elle-meme et ne doit pas reveiller un digest, mais une machine qui ne peut plus
         # mesurer, si. L'age y entre par son PALIER et non a la seconde — sinon le digest se
         # reveillerait a chaque appel et il n'y aurait plus de digest du tout.
-        digest = _signature_digest(a_tester, empeche_digest, degrade_digest)
+        digest = _signature_digest(a_tester, empeche_digest, degrade_digest, mort_digest)
         previous = ""
         try:
             with open(DIGEST_MEMO, encoding="utf-8") as fh:
@@ -1156,6 +1302,29 @@ class Backlog:
             for dep in (it.get("depends_on") or []):
                 if dep not in seen:
                     problems.append("%s : depend de %s, qui n'existe pas" % (it.get("id"), dep))
+        # DEPENDANCES-MORTES/ (24/09) : l'item attend, sa dependance ne sera jamais `validated`.
+        # L'absent est deja nomme juste au-dessus, pour tout statut.
+        sante = self.dependency_health()
+        for iid, dep, cause, succ in sante["dead"]:
+            if cause != "archive":
+                continue
+            if succ:
+                problems.append("%s : DEPENDANCE MORTE — depend de %s, ARCHIVE et supplante : "
+                                "rediriger vers %s (superseded_by) ; sinon l'item et sa "
+                                "descendance ne partent jamais" % (iid, dep, ",".join(succ)))
+            else:
+                problems.append("%s : DEPENDANCE MORTE — depend de %s, ARCHIVE sans successeur "
+                                "(superseded_by vide) : retirer la dependance ou nommer le "
+                                "successeur ; sinon l'item et sa descendance ne partent jamais"
+                                % (iid, dep))
+        for iid, dep in sante["blocked"]:
+            problems.append("%s : attend %s, BLOQUE — rien ne le debloquera sans un geste ; "
+                            "l'item et sa descendance ne partent pas" % (iid, dep))
+        par_id = {it.get("id"): it for it in self.items if it.get("id")}
+        for it in self.items:
+            for s in (it.get("superseded_by") or []):
+                if s not in par_id:
+                    problems.append("%s : supplante par %s, qui n'existe pas" % (it.get("id"), s))
         return problems
 
 

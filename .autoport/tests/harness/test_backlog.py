@@ -220,6 +220,39 @@ def test_lint_catches_each_case(bpath, items, needle):
     assert any(needle in p for p in problems), problems
 
 
+def test_lint_names_a_dependency_on_an_archived_item(bpath):
+    # CONTROLE POSITIF (24/09) : lighting-ao-indirect archive a gele toute la descendance 6 jours.
+    _write(bpath, [_item("vieux", status="archived"), _item("enfant", depends_on=["vieux"]),
+                   _item("petit", depends_on=["enfant"])])
+    b = bl.load(bpath)
+    assert any("enfant" in p and "vieux" in p and "DEPENDANCE MORTE" in p for p in b.lint())
+    h = b.dependency_health()
+    assert [d[:3] for d in h["dead"]] == [("enfant", "vieux", "archive")]
+    assert h["stuck"] == ["enfant", "petit"]
+    assert "enfant attend vieux (archive)" in b.status_report()
+
+
+def test_dependency_on_a_validated_item_is_not_dead(bpath):
+    # CONTROLE NEGATIF : un valide satisfait ; un valide qui dependait d'un archive n'attend rien.
+    _write(bpath, [_item("socle", status="validated", owner_ok={"date": "d", "text": "ok"}),
+                   _item("enfant", depends_on=["socle"]), _item("vieux", status="archived"),
+                   _item("fini", status="validated", owner_ok={"date": "d", "text": "ok"},
+                         depends_on=["vieux"])])
+    b = bl.load(bpath)
+    assert b.dependency_health()["dead"] == []
+    assert not [p for p in b.lint() if "DEPENDANCE" in p]
+    assert "chantier abandonne" not in b.status_report()
+
+
+def test_archiving_a_superseded_item_redirects_its_dependants(bpath):
+    _write(bpath, [_item("ancien"), _item("neuf"), _item("enfant", depends_on=["ancien"])])
+    bl.load(bpath).set_status("ancien", "archived", superseded_by=["neuf"])
+    b = bl.load(bpath)
+    assert b.get("enfant")["depends_on"] == ["neuf"]
+    assert b.get("enfant")["dependency_redirects"]
+    assert b.dependency_health()["dead"] == []
+
+
 def test_lint_accepts_a_blocked_item_that_says_why(bpath):
     _write(bpath, [_item("a", status="blocked", block_reason="l'owner a demande de parquer")])
     assert bl.load(bpath).lint() == []
