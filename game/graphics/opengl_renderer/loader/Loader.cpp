@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -16,7 +17,9 @@
 #endif
 #include <set>
 
+#include "common/custom_data/LightBake.h"
 #include "common/custom_data/MeshConsolidate.h"
+#include "common/goal_constants.h"
 #include "common/global_profiler/GlobalProfiler.h"
 #include "common/log/log.h"
 #include "common/versions/versions.h"
@@ -37,6 +40,9 @@
 #include "game/graphics/gl_query_census.h"
 #include "game/graphics/opengl_renderer/loader/CustomTextureReplacements.h"
 #include "game/graphics/opengl_renderer/loader/LoaderStages.h"
+#include "game/kernel/common/Ptr.h"
+#include "game/kernel/common/kscheme.h"
+#include "game/kernel/jak1/kscheme.h"
 #include "game/runtime.h"
 #include "game/system/autoport_proof.h"
 #include "game/system/asset_manifest.h"
@@ -149,6 +155,119 @@ static void npcf_loader_counters(uint64_t* out, int n) {
   out[npc_flicker::kPlatMercVecEmpty] = s_npcf_merc_vec_empty;
   out[npc_flicker::kPlatMercKeyMissing] = s_npcf_merc_key_missing;
   out[npc_flicker::kPlatEvictStraggler] = s_npcf_evict_straggler;
+}
+
+// lighting-bake (SPEC-refonte-lumiere §5.5) : relit <niveau>.lightbake a cote du fr3 et VERIFIE que
+// la palette B (l'indirect) plus le direct recalcule redonnent la palette A, sur un index sur 64.
+// La table de mood est lue dans la memoire GOAL, telle que le jeu la voit : un compagnon cuit contre
+// une autre table (mood_hash) est rejete. Rien n'est ecrit dans la palette A ; en version 1 la
+// palette B n'est pas encore consommee par le rendu (elle le sera par shade()), elle n'est donc pas
+// gardee en memoire apres la verification.
+constexpr const char* kLightBakeItem = "lighting-bake";
+AUTOPORT_FEATURE_SITE(kLightBakeItem);
+static float s_bake_maxdelta = 0.f;
+static uint64_t s_bake_levels_verified = 0, s_bake_levels_rejected = 0, s_bake_levels_missing = 0;
+static uint64_t s_bake_indices = 0, s_bake_trees_rejected = 0, s_bake_palette_a_changed = 0;
+
+static bool read_live_mood_table(const std::string& level, tfrag3::lightbake::MoodTable& out) {
+  if (g_game_version != GameVersion::Jak1 || !g_ee_main_mem) {
+    return false;
+  }
+  const std::string name = "*" + level + "-mood-lights-table*";
+  auto sym = jak1::find_symbol_from_c(name.c_str());
+  if (sym.offset == 0) {
+    return false;
+  }
+  const u32 addr = sym->value;
+  // mood-lights-table : 8 × mood-lights, chacun 5 vecteurs de 16 octets
+  // (direction, lgt-color, prt-color, amb-color, shadow)
+  if (addr < 16 || (u64)addr + 8 * 80 > (u64)EE_MAIN_MEM_SIZE) {
+    return false;
+  }
+  const u8* base = g_ee_main_mem + addr;
+  for (int s = 0; s < tfrag3::lightbake::kSlots; s++) {
+    const float* f = (const float*)(base + s * 80);
+    auto& m = out.slot[s];
+    for (int i = 0; i < 3; i++) {
+      m.direction[i] = f[0 + i];
+      m.lgt[i] = f[4 + i];
+      m.amb[i] = f[12 + i];
+      m.shadow[i] = f[16 + i];
+    }
+  }
+  return true;
+}
+
+static void lighting_bake_verify_level(const tfrag3::Level& lev) {
+  namespace lb = tfrag3::lightbake;
+  const auto name = lb::lightbake_name(lev.level_name);
+  const auto route = file_util::resolve_fr3_asset(g_game_version, name);
+  if (!fs::exists(route.path)) {
+    s_bake_levels_missing++;
+    autoport_proof::publish("bake_levels_missing", s_bake_levels_missing);
+    lg::info("[lighting-bake] level={} pas de compagnon ({})", lev.level_name, route.path.string());
+    return;
+  }
+  auto reject = [&](const std::string& why) {
+    s_bake_levels_rejected++;
+    autoport_proof::publish("bake_levels_rejected", s_bake_levels_rejected);
+    autoport_proof::publish_text("bake_last_reject", (lev.level_name + ":" + why).c_str());
+    lg::warn("[lighting-bake] level={} compagnon REJETE : {}", lev.level_name, why);
+  };
+  lb::Bake bake;
+  std::string err;
+  const auto bytes = file_util::read_binary_file(route.path);
+  if (!lb::deserialize(bytes, bake, &err)) {
+    reject(err);
+    return;
+  }
+  lb::MoodTable live;
+  if (!read_live_mood_table(lev.level_name, live)) {
+    reject("mood-table-introuvable");
+    return;
+  }
+  // la palette A avant / apres : la verification n'y ecrit rien, et ca se compte
+  const auto refs = lb::collect_trees(lev);
+  std::vector<std::vector<u8>> before;
+  before.reserve(refs.size());
+  for (const auto& r : refs) {
+    before.push_back(r.colors->data);
+  }
+  const auto res = lb::verify(lev, bake, live, 64, 1u << 20);
+  for (size_t i = 0; i < refs.size(); i++) {
+    const auto& now = refs[i].colors->data;
+    for (size_t k = 0; k < now.size() && k < before[i].size(); k++) {
+      s_bake_palette_a_changed += now[k] != before[i][k];
+    }
+  }
+  autoport_proof::publish("palette_a_bytes_changed", s_bake_palette_a_changed);
+  if (!res.accepted) {
+    reject(res.reject_reason);
+    return;
+  }
+  s_bake_trees_rejected += res.trees_rejected;
+  autoport_proof::publish("bake_trees_rejected", s_bake_trees_rejected);
+  if (res.indices_checked == 0) {
+    reject("aucun-index-verifie");
+    return;
+  }
+  s_bake_levels_verified++;
+  s_bake_indices += res.indices_checked;
+  s_bake_maxdelta = std::max(s_bake_maxdelta, std::max(res.maxdelta, res.maxdelta_b));
+  autoport_proof::note_hit_for(kLightBakeItem, res.indices_checked);
+  autoport_proof::publish("bake_levels_verified", s_bake_levels_verified);
+  autoport_proof::publish("bake_verified_indices", s_bake_indices);
+  // arrondi VERS LE HAUT : la porte ne voit jamais moins que l'ecart reel
+  autoport_proof::publish("bake_reconstruction_maxdelta", (uint64_t)std::ceil(s_bake_maxdelta));
+  autoport_proof::publish("bake_reconstruction_maxdelta_milli",
+                          (uint64_t)std::lround(s_bake_maxdelta * 1000.f));
+  autoport_proof::publish_text("bake_last_level", lev.level_name.c_str());
+  lg::info(
+      "[lighting-bake] level={} trees={} trees_rejected={} indices={} values={} clamped={} "
+      "maxdelta={:.4f} maxdelta_b={:.4f} mood_hash={:08x} bytes={}",
+      lev.level_name, res.trees_checked, res.trees_rejected, res.indices_checked,
+      res.values_checked, res.clamped_checked, res.maxdelta, res.maxdelta_b, bake.mood_hash,
+      bytes.size());
 }
 
 static void publish_level_age_counters() {
@@ -828,6 +947,14 @@ void Loader::loader_thread() {
           lg::info("[mesh-consolidate] {}", text);
           tfrag3::mesh_audit_append_file(text);
         }
+      }
+
+      // lighting-bake : la verification du compagnon juge la palette que le rendu lit, donc APRES la
+      // soudure et le .meshweld qui la retouchent. Refonte lumiere OFF : rien n'est lu.
+      if (recharged_gating::on(recharged_gating::kLighting) &&
+          autoport_proof::armed_for(kLightBakeItem)) {
+        auto p = scoped_prof("lighting-bake-verify");
+        lighting_bake_verify_level(*result);
       }
 
 #if !AUTOPORT_ORIGIN_ABLATE

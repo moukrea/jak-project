@@ -21,6 +21,7 @@
 #   fr3/<name>.fr3                (ALWAYS — DERIVED: our extractor's output)
 #   fr3/<name>.meshweld           (ALWAYS — DERIVED: mesh-consolidation sidecar)
 #   fr3/<name>.grassbake          (ALWAYS — validated feature)
+#   fr3/<name>.lightbake          (ALWAYS — DERIVED: lighting-bake companion, tools/light_bake)
 #   recharged_assets/<name>.png   (ALWAYS — DELIVERY is no longer flag-gated)
 #   recharged_assets/physics_chains.txt (ALWAYS if present — secondary-motion chain defs)
 #   (per-texture PBR material properties are NOT here any more — see the note at the
@@ -195,6 +196,7 @@ data_freshness_guard(){
   local cov_specs=(
     "${FR3_DIR}"$'\t''*.fr3'$'\t''fr3/'
     "${FR3_DIR}"$'\t''*.meshweld'$'\t''fr3/'
+    "${FR3_DIR}"$'\t''*.lightbake'$'\t''fr3/'
     "${FR3_DIR}"$'\t''*.grassbake'$'\t''fr3/'
     # Le `.fp` est la PROVENANCE du bake (empreinte du fr3 + du bake). Sans lui, `bake_freshness`
     # rend « provenance missing or incomplete » et le niveau se joue SANS HERBE, en silence : c'est
@@ -444,6 +446,19 @@ if [ -d "$FR3_DIR" ]; then
     n_mesh=$((n_mesh + 1))
   done < <(find "$FR3_DIR" -maxdepth 1 -type f -name '*.meshweld' 2>/dev/null | sort)
   echo "[custom-pack] mesh-consolidation sidecars: $n_mesh"
+
+  # 2b'. lighting-bake companions — ALWAYS (0 is OK: sans compagnon le moteur reste sur le chemin
+  #      d'aujourd'hui). Palette B + visibilites, cuits contre la palette A du fr3 ET la table de
+  #      mood : le chargeur les rejette si l'une des deux a change. Built by: tools/light_bake --bake.
+  n_lbake=0
+  while IFS= read -r lbk; do
+    [ -n "$lbk" ] || continue
+    base="$(basename "$lbk")"
+    ln -s "$ROOT/$lbk" "$STAGE/fr3/$base"
+    MEMBERS+=("fr3/$base")
+    n_lbake=$((n_lbake + 1))
+  done < <(find "$FR3_DIR" -maxdepth 1 -type f -name '*.lightbake' 2>/dev/null | sort)
+  echo "[custom-pack] lighting-bake companions: $n_lbake"
 
   # 2c. STOCK .fr3 LEVELS — ALWAYS. These are NOT original dump data: they are OUR
   #     EXTRACTOR'S OUTPUT, and they carry every geometry correction the port has made
