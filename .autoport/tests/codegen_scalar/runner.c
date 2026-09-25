@@ -194,28 +194,32 @@ static void div_check_pair(div_fn new_fn, div_fn legacy_fn, int is_signed, int i
                            int m, int64_t a, int64_t b) {
   div_ret rn = new_fn(a, b);
   div_ret rl = legacy_fn(a, b);
-  if (rn.q != rl.q) g_div_new_vs_legacy_bad++;
   int has8 = (d == 8 || m == 8);
   if (!has8) {
     if (rn.x8 != 0xBEEFCAFEull) g_div_x8_clobbered++;
     if (rl.x8 != 0xBEEFCAFEull) g_div_x8_clobbered++;
   }
-  /* x86 parity domain */
+  /* legacy 64-bit domain: new-vs-legacy is only expected to agree where the
+   * old 64-bit divide happened to render the same thing as x86 32-bit. */
   int in_x86_domain = 0;
-  int64_t want = 0;
   if (is_signed) {
     if (a >= INT32_MIN && a <= INT32_MAX && b >= INT32_MIN && b <= INT32_MAX &&
         !(a == INT32_MIN && b == -1)) {
       in_x86_domain = 1;
-      want = is_mod ? model_imod32((int32_t)a, (int32_t)b) : model_idiv32((int32_t)a, (int32_t)b);
     }
   } else {
     if (a >= 0 && a <= INT32_MAX && b >= 0 && b <= INT32_MAX) {
       in_x86_domain = 1;
-      want = is_mod ? model_umod32((uint32_t)a, (uint32_t)b) : model_udiv32((uint32_t)a, (uint32_t)b);
     }
   }
   if (in_x86_domain) {
+    if (rn.q != rl.q) g_div_new_vs_legacy_bad++;
+  }
+
+  /* new-vs-x86-model domain: every pair whose low 32 bits of b are nonzero. */
+  if ((uint32_t)b != 0) {
+    int64_t want = is_signed ? (is_mod ? model_imod32(a, b) : model_idiv32(a, b))
+                             : (is_mod ? model_umod32(a, b) : model_udiv32(a, b));
     g_div_x86_cases++;
     if (rn.q != want) g_div_new_vs_x86_bad++;
   }
@@ -232,7 +236,7 @@ static void run_div_family(div_fn new_fn, div_fn legacy_fn, int is_signed, int i
   for (int i = 0; i < nv; i++) {
     for (int j = 0; j < nv; j++) {
       int64_t a = vals[i], b = vals[j];
-      if (b == 0) continue;
+      if ((uint32_t)b == 0) continue;
       div_check_pair(new_fn, legacy_fn, is_signed, is_mod, d, m, a, b);
     }
   }
@@ -251,26 +255,31 @@ static void run_div_family(div_fn new_fn, div_fn legacy_fn, int is_signed, int i
       a = (int64_t)(xorshift64(&seed) % 2000) - 1000;
       b = (int64_t)(xorshift64(&seed) % 2000) - 1000;
     }
-    if (b == 0) b = 1;
+    if ((uint32_t)b == 0) b = 1;
     div_check_pair(new_fn, legacy_fn, is_signed, is_mod, d, m, a, b);
   }
 
   /* divide by zero trap: only the NEW kernel is required to trap, matching
-   * the A26 CBNZ/UDF prefix both new and legacy share. */
-  g_div_zero_kernels++;
+   * the A26 CBNZ/UDF prefix both new and legacy share. Two zero-kernels:
+   * a literal 0, and 0x100000000 (nonzero 64-bit, zero low 32 bits — the
+   * trap must fire on the low 32 bits, like x86's 32-bit divisor). */
   struct sigaction sa, old;
   memset(&sa, 0, sizeof(sa));
   sa.sa_sigaction = sigill_handler;
   sa.sa_flags = SA_SIGINFO;
   sigemptyset(&sa.sa_mask);
-  sigaction(SIGILL, &sa, &old);
-  g_sigill_pc_ok = 0;
-  if (sigsetjmp(g_jmp, 1) == 0) {
-    new_fn(1, 0);
-  } else {
-    if (g_sigill_pc_ok) g_div_zero_trapped++;
+  const int64_t zero_bs[] = {0, 0x100000000ll};
+  for (size_t zi = 0; zi < sizeof(zero_bs) / sizeof(zero_bs[0]); zi++) {
+    g_div_zero_kernels++;
+    sigaction(SIGILL, &sa, &old);
+    g_sigill_pc_ok = 0;
+    if (sigsetjmp(g_jmp, 1) == 0) {
+      new_fn(1, zero_bs[zi]);
+    } else {
+      if (g_sigill_pc_ok) g_div_zero_trapped++;
+    }
+    sigaction(SIGILL, &old, NULL);
   }
-  sigaction(SIGILL, &old, NULL);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -398,26 +407,31 @@ int main(int argc, char** argv) {
   if (stride_env && stride_env[0]) stride = (uint32_t)strtoul(stride_env, NULL, 10);
   if (stride == 0) stride = 1;
 
-  const Entry* f2i_new_full = find_kernel(KIND_F2I, VAR_NEW, 3, 17, 1, -1);
-  const Entry* f2i_legacy_full = find_kernel(KIND_F2I, VAR_LEGACY, 3, 17, 1, -1);
-  if (f2i_new_full && f2i_legacy_full) {
-    run_f2i_sweep((f2i_fn)kernel_ptr(f2i_new_full), (f2i_fn)kernel_ptr(f2i_legacy_full), stride);
-  }
-  printf("parity_f2i_sweep_stride=%u\n", stride);
-  printf("parity_f2i_sweep_cases=%llu\n", (unsigned long long)g_f2i_sweep_cases);
-  printf("parity_f2i_sweep_expected=%llu\n", (unsigned long long)g_f2i_sweep_expected);
+  const char* only_div_env = getenv("CGSC_ONLY_DIV");
+  int only_div = only_div_env && only_div_env[0] && only_div_env[0] != '0';
 
-  for (uint32_t i = 0; i < g_n_kernels; i++) {
-    Entry* e = &g_entries[i];
-    if (e->kind != KIND_F2I || e->variant != VAR_NEW) continue;
-    if ((int)e->p2 == 1) continue;  /* full-sweep kernel handled above */
-    const Entry* legacy = find_kernel(KIND_F2I, VAR_LEGACY, (int)e->p0, (int)e->p1, -1, -1);
-    if (!legacy) continue;
-    run_f2i_boundaries((f2i_fn)kernel_ptr(e), (f2i_fn)kernel_ptr(legacy));
+  if (!only_div) {
+    const Entry* f2i_new_full = find_kernel(KIND_F2I, VAR_NEW, 3, 17, 1, -1);
+    const Entry* f2i_legacy_full = find_kernel(KIND_F2I, VAR_LEGACY, 3, 17, 1, -1);
+    if (f2i_new_full && f2i_legacy_full) {
+      run_f2i_sweep((f2i_fn)kernel_ptr(f2i_new_full), (f2i_fn)kernel_ptr(f2i_legacy_full), stride);
+    }
+    printf("parity_f2i_sweep_stride=%u\n", stride);
+    printf("parity_f2i_sweep_cases=%llu\n", (unsigned long long)g_f2i_sweep_cases);
+    printf("parity_f2i_sweep_expected=%llu\n", (unsigned long long)g_f2i_sweep_expected);
+
+    for (uint32_t i = 0; i < g_n_kernels; i++) {
+      Entry* e = &g_entries[i];
+      if (e->kind != KIND_F2I || e->variant != VAR_NEW) continue;
+      if ((int)e->p2 == 1) continue;  /* full-sweep kernel handled above */
+      const Entry* legacy = find_kernel(KIND_F2I, VAR_LEGACY, (int)e->p0, (int)e->p1, -1, -1);
+      if (!legacy) continue;
+      run_f2i_boundaries((f2i_fn)kernel_ptr(e), (f2i_fn)kernel_ptr(legacy));
+    }
+    printf("parity_f2i_cases=%llu\n", (unsigned long long)g_f2i_cases);
+    printf("parity_f2i_new_vs_x86=%llu\n", (unsigned long long)g_f2i_new_bad);
+    printf("parity_f2i_legacy_vs_x86=%llu\n", (unsigned long long)g_f2i_legacy_bad);
   }
-  printf("parity_f2i_cases=%llu\n", (unsigned long long)g_f2i_cases);
-  printf("parity_f2i_new_vs_x86=%llu\n", (unsigned long long)g_f2i_new_bad);
-  printf("parity_f2i_legacy_vs_x86=%llu\n", (unsigned long long)g_f2i_legacy_bad);
 
   for (uint32_t i = 0; i < g_n_kernels; i++) {
     Entry* e = &g_entries[i];
@@ -435,22 +449,26 @@ int main(int argc, char** argv) {
   printf("parity_div_zero_kernels=%llu\n", (unsigned long long)g_div_zero_kernels);
   printf("parity_div_zero_trapped=%llu\n", (unsigned long long)g_div_zero_trapped);
 
-  run_swz_pshuf();
-  printf("parity_swz_cases=%llu\n", (unsigned long long)g_swz_cases);
-  printf("parity_swz_new_bad=%llu\n", (unsigned long long)g_swz_new_bad);
-  printf("parity_swz_legacy_bad=%llu\n", (unsigned long long)g_swz_legacy_bad);
-  printf("parity_swz_canary_bad=%llu\n", (unsigned long long)g_swz_canary_bad);
-  printf("parity_pshuf_cases=%llu\n", (unsigned long long)g_pshuf_cases);
-  printf("parity_pshuf_new_bad=%llu\n", (unsigned long long)g_pshuf_new_bad);
-  printf("parity_pshuf_legacy_bad=%llu\n", (unsigned long long)g_pshuf_legacy_bad);
-  printf("parity_pshuf_canary_bad=%llu\n", (unsigned long long)g_pshuf_canary_bad);
+  if (!only_div) {
+    run_swz_pshuf();
+    printf("parity_swz_cases=%llu\n", (unsigned long long)g_swz_cases);
+    printf("parity_swz_new_bad=%llu\n", (unsigned long long)g_swz_new_bad);
+    printf("parity_swz_legacy_bad=%llu\n", (unsigned long long)g_swz_legacy_bad);
+    printf("parity_swz_canary_bad=%llu\n", (unsigned long long)g_swz_canary_bad);
+    printf("parity_pshuf_cases=%llu\n", (unsigned long long)g_pshuf_cases);
+    printf("parity_pshuf_new_bad=%llu\n", (unsigned long long)g_pshuf_new_bad);
+    printf("parity_pshuf_legacy_bad=%llu\n", (unsigned long long)g_pshuf_legacy_bad);
+    printf("parity_pshuf_canary_bad=%llu\n", (unsigned long long)g_pshuf_canary_bad);
+  }
 
   uint64_t total_bad = g_f2i_new_bad + g_f2i_legacy_bad + g_div_new_vs_legacy_bad +
                        g_div_x8_clobbered + g_div_new_vs_x86_bad + g_swz_new_bad + g_swz_legacy_bad +
                        g_swz_canary_bad + g_pshuf_new_bad + g_pshuf_legacy_bad + g_pshuf_canary_bad +
                        (g_div_zero_kernels - g_div_zero_trapped) +
-                       /* an incomplete sweep is a defect, not a smaller green */
-                       (g_f2i_sweep_expected == 0 || g_f2i_sweep_cases != g_f2i_sweep_expected);
+                       /* an incomplete sweep is a defect, not a smaller green, but only
+                        * when the sweep actually ran (CGSC_ONLY_DIV skips it on purpose) */
+                       (!only_div &&
+                        (g_f2i_sweep_expected == 0 || g_f2i_sweep_cases != g_f2i_sweep_expected));
   uint64_t kernels_run = g_n_kernels;
 
   clock_gettime(CLOCK_MONOTONIC, &t1);

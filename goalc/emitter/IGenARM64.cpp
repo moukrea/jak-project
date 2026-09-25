@@ -576,13 +576,6 @@ static InstructionARM64 sdiv_x(Register dst, Register a, Register b) {
       0x9AC00C00u | (arm64_reg5(b) << 16) | (arm64_reg5(a) << 5) | arm64_reg5(dst);
   return InstructionARM64(enc);
 }
-// MSUB Xd, Xn, Xm, Xa: 1 0 0 11011 000 Rm 1 Ra Rn Rd → 0x9B008000
-// → for modulo: ud, sd = Xn / Xm; remainder = Xn - ud*Xm.
-static InstructionARM64 msub_x(Register dst, Register n, Register m, Register a) {
-  uint32_t enc = 0x9B008000u | (arm64_reg5(m) << 16) | (arm64_reg5(a) << 10) |
-                 (arm64_reg5(n) << 5) | arm64_reg5(dst);
-  return InstructionARM64(enc);
-}
 
 // Bitwise logical between regs (AND/ORR/EOR/MVN).
 //   AND Xd, Xn, Xm: 1 00 01010 00 0 Rm 000000 Rn Rd → 0x8A000000
@@ -2109,113 +2102,17 @@ InstructionARM64 imul_gpr64_gpr64(Register dst, Register src) {
   return mul_x(dst, dst, src);
 }
 
-// ---------------------------------------------------------------------------
-// A17 — emitter-side IDIV/UDIV preserve-X8 spill.
-//
-// idiv_gpr32 / unsigned_div_gpr32 emit a SINGLE arm64 SDIV/UDIV whose dst+src1
-// are hardcoded to X8. That X8 write is INVISIBLE to the regalloc — to_rai()
-// for IR_IntegerMath only records `read/write m_dest, read m_arg, exclude
-// RDX` — so the allocator can park another live value (most notably the
-// `m_func` of a subsequent IR_FunctionCall) in X8 across the IDIV. The SDIV
-// then clobbers that live value with the division result, and the following
-// BLR jumps to the corrupted pointer (the A14 next-blocker / A16 diagnostic-
-// confirmed sin*! SIGBUS at link-finish 166 on both qemu and the Redmi Note
-// 9 Pro device).
-//
-// The fix lives at the emit layer, not the regalloc layer. The IR.cpp arm64
-// IDIV/UDIV codegen path wraps each call to idiv_gpr32 / unsigned_div_gpr32
-// in a 6-instruction sequence that preserves caller's X8:
-//
-//   sub_sp  sp, sp, #16        ; carve a 16-byte scratch slot
-//   str_x8  x8, [sp]           ; preserve caller's X8 (top of stack)
-//   sdiv    x8, x8, xN         ; the existing SDIV emit (idiv_gpr32)
-//   mov     Xdst, x8           ; copy result to m_dest's allocated reg
-//   ldr_x8  x8, [sp]           ; restore caller's X8
-//   add_sp  sp, sp, #16        ; release scratch slot
-//
-// When m_dest's allocated register IS X8 (the existing-emit-was-fine case),
-// IR.cpp emits just the bare SDIV — caller had no X8 value to preserve,
-// because the regalloc explicitly assigned X8 to m_dest. spill/restore in
-// that case would overwrite the SDIV result with the saved value.
-//
-// The four helpers below produce the SUB SP / STR X8 / LDR X8 / ADD SP
-// instruction words. They are emitter-internal (declared in this TU only,
-// forward-declared by IR.cpp where called) so the locked IGenARM64.h header
-// stays untouched. Encodings are spelled out as raw uint32_t words because
-// SP (Rn=31) is not a standard GPR — the regular add_gpr64_imm /
-// sub_gpr64_imm helpers don't take it (they assert is_gpr) and the existing
-// arm64 prologue in CodeGenerator::do_goal_function_arm64 uses the same
-// pattern (raw 0xD10003FFu | imm12<<10 for SUB SP, SP, #imm).
-//
-// Validator A17 greps this TU's diff for "sub_sp / str_x8 / ldr_x8 / add_sp /
-// preserve.*X8 / caller.*X8 / spill.*X8" or the raw hex encodings
-// 0xd10043ff / 0xf90003e8 / 0xf94003e8 / 0x910043ff, all of which appear
-// below.
+// idiv_gpr32 / unsigned_div_gpr32: the IGEN_DISPATCH entries for x86's
+// `idiv r32` / `div r32`, with X8 standing in for EAX. The arm64 IR codegen does
+// not call them: IDIV/UDIV/IMOD/UMOD go through int_div_w below, which writes
+// the quotient straight into its register (the A17 X8 spill helpers and the
+// F1c MSUB helper that the older sequences needed are gone with them).
 InstructionARM64 idiv_gpr32(Register reg) {
-  // x86 idiv EAX, src → arm64 sdiv X8, X8, Xn (we treat X8 as RAX).
-  // A17: the X8 write is invisible to the regalloc; the IR.cpp call site
-  // wraps this emit with the preserve-X8 spill helpers below when m_dest is
-  // not itself X8. See the A17 block comment above for the full sequence.
   return sdiv_x(Register(8), Register(8), reg);
 }
 
 InstructionARM64 unsigned_div_gpr32(Register reg) {
-  // A17 — see idiv_gpr32 above. UDIV X8, X8, Xn has the same regalloc-
-  // invisible X8 clobber; the IR.cpp call site spills caller's X8 around it
-  // when m_dest != X8.
   return udiv_x(Register(8), Register(8), reg);
-}
-
-// F1c — modulo remainder. x86 IDIV/DIV produce the remainder in RDX as a side
-// effect; arm64 SDIV/UDIV produce ONLY the quotient. The IMOD_32/UMOD_32 path
-// must therefore compute the remainder explicitly from the quotient:
-//   remainder = dividend - quotient * divisor   →   MSUB Xrem, Xq, Xdivisor, Xdiv
-// Before this, IR.cpp's arm64 IMOD/UMOD codegen shared the IDIV/UDIV body and
-// copied the QUOTIENT (X8) to the destination, so every `(mod x n)` that wasn't
-// strength-reduced returned `(/ x n)` on device. The visible symptom was the
-// title camera-look joint freezing: decomp-frame's per-joint control nibble is
-// selected by `(* 4 (mod tqi 8))`, so joint 1 of the 2-joint logo-cam anim read
-// joint 0's all-fixed nibble (ctrl 0x8) instead of its dynamic 0xb. See the
-// IMOD_32 block in IR.cpp::do_codegen_arm64.
-InstructionARM64 imod_msub_gpr(Register dst, Register quotient, Register divisor,
-                               Register dividend) {
-  return msub_x(dst, quotient, divisor, dividend);
-}
-
-// A17 IDIV/UDIV preserve-X8 spill helpers. Each returns one arm64 instruction
-// word. IR.cpp::do_codegen_arm64 forward-declares these and emits them in the
-// fixed order around the SDIV/UDIV. No header declarations on purpose — the
-// helpers are A17-internal and IGenARM64.h is still locked to its A1 anchor.
-//
-//   sub  sp, sp, #16   →  0xD10043FF
-//   str  x8, [sp, #0]  →  0xF90003E8
-//   ldr  x8, [sp, #0]  →  0xF94003E8
-//   add  sp, sp, #16   →  0x910043FF
-//
-// Derivation (sf=1 add/sub immediate, imm12=16, Rn=Rd=31):
-//   SUB Xd, Xn, #imm   base 0xD1000000 | (imm12<<10) | (Rn<<5) | Rd
-//   ADD Xd, Xn, #imm   base 0x91000000 | (imm12<<10) | (Rn<<5) | Rd
-//   STR Xt, [Xn,#imm]  base 0xF9000000 | ((imm12>>3)<<10) | (Rn<<5) | Rt
-//   LDR Xt, [Xn,#imm]  base 0xF9400000 | ((imm12>>3)<<10) | (Rn<<5) | Rt
-// All four target SP (Rn=31) with imm12=16 and Rt=8 for the loads/stores.
-InstructionARM64 idiv_spill_sub_sp_16() {
-  // SUB SP, SP, #16 — sub_sp preserve frame carve.
-  return InstructionARM64(0xD10043FFu);
-}
-
-InstructionARM64 idiv_spill_str_x8_sp_0() {
-  // STR X8, [SP, #0] — str_x8 spill X8 (caller X8) to top of new frame.
-  return InstructionARM64(0xF90003E8u);
-}
-
-InstructionARM64 idiv_spill_ldr_x8_sp_0() {
-  // LDR X8, [SP, #0] — ldr_x8 restore caller X8 from top of frame.
-  return InstructionARM64(0xF94003E8u);
-}
-
-InstructionARM64 idiv_spill_add_sp_16() {
-  // ADD SP, SP, #16 — add_sp release the preserve-X8 frame.
-  return InstructionARM64(0x910043FFu);
 }
 
 InstructionARM64 cdq() {
@@ -2426,29 +2323,35 @@ InstructionARM64 float_to_int32_x86(Register dst, Register src) {
   });
 }
 
-// Integer divide / modulo, 64-bit SDIV/UDIV exactly like the X8 sequence it
-// replaces (that one moved the dividend into X8, divided X8 by the divisor and
-// copied X8 back, spilling the caller's X8 around it: 9 to 10 words). The
-// quotient now goes straight to its register, X8 is never touched and nothing
-// is spilled:
-//   CBNZ Xarg, .+8 ; UDF #0xBEEF             A26 divide-by-zero trap, unchanged
-//   SDIV Xd, Xd, Xarg                         (/)    3 words
-//   SDIV X16, Xd, Xarg ; MSUB Xd, X16, Xarg, Xd   (mod) 4 words
-// UDIV replaces SDIV for the unsigned kinds.
-InstructionARM64 int_div_x(Register dst, Register arg, bool is_signed, bool is_mod) {
+// Integer divide / modulo with x86's 32-bit semantics (arm64-integer-division-
+// matches-x86). x86 does `cdq ; idiv r32 ; movsx` (or `xor edx,edx ; div r32 ;
+// movsx`): only the low 32 bits of the dividend and the divisor count, and the
+// 32-bit quotient or remainder comes back sign-extended — the PS2 did the same.
+// A 64-bit divide (the sequence this replaces) rendered a different number as
+// soon as an operand carried high bits, and did not trap on a divisor whose low
+// 32 bits are zero while x86 does.
+//   CBNZ Wm, .+8 ; UDF #0xBEEF                     A26 divide-by-zero trap, on the 32-bit divisor
+//   xDIV Wd, Wd, Wm ; SXTW Xd, Wd                  (/)    4 words
+//   xDIV W16, Wd, Wm ; MSUB Wd, W16, Wm, Wd ; SXTW (mod)  5 words
+// UDIV replaces SDIV for the unsigned kinds. The SXTW is x86's movsx; the W form
+// of SDIV/UDIV has a shorter worst-case latency than the X form on Arm cores.
+// INT_MIN / -1 renders INT_MIN (remainder 0) like the PS2, where x86 raises #DE.
+InstructionARM64 int_div_w(Register dst, Register arg, bool is_signed, bool is_mod) {
   const uint32_t d = arm64_reg5(dst);
   const uint32_t m = arm64_reg5(arg);
   ASSERT(d < 16 && m < 16);
-  const uint32_t div = is_signed ? 0x9AC00C00u : 0x9AC00800u;
-  const uint32_t cbnz = 0xB5000040u | m;  // CBNZ Xarg, .+8
+  const uint32_t div = is_signed ? 0x1AC00C00u : 0x1AC00800u;
+  const uint32_t cbnz = 0x35000040u | m;  // CBNZ Warg, .+8
   const uint32_t udf = 0x0000BEEFu;
+  const uint32_t sxtw = 0x93407C00u | (d << 5) | d;  // SXTW Xd, Wd
   if (!is_mod) {
-    return InstructionARM64::multi({cbnz, udf, div | (m << 16) | (d << 5) | d});
+    return InstructionARM64::multi({cbnz, udf, div | (m << 16) | (d << 5) | d, sxtw});
   }
   return InstructionARM64::multi({
       cbnz, udf,
-      div | (m << 16) | (d << 5) | 16u,                    // xDIV X16, Xd, Xarg
-      0x9B008000u | (m << 16) | (d << 10) | (16u << 5) | d,  // MSUB Xd, X16, Xarg, Xd
+      div | (m << 16) | (d << 5) | 16u,                      // xDIV W16, Wd, Warg
+      0x1B008000u | (m << 16) | (d << 10) | (16u << 5) | d,  // MSUB Wd, W16, Warg, Wd
+      sxtw,
   });
 }
 

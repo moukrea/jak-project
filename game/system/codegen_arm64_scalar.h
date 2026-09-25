@@ -16,8 +16,8 @@ namespace codegen_arm64 {
 struct ScalarStats {
   uint64_t f2i_new = 0;    // FCVTZS X ; CMP X,W,SXTW ; FCCMP ; MOV X16,#INT_MIN ; CSEL
   uint64_t f2i_old = 0;    // FCVTZS W ; MOVZ X16,#0x8000,LSL#16 ...
-  uint64_t div_total = 0;  // CBNZ Xm,.+8 ; UDF #0xBEEF (the A26 trap every divide starts with)
-  uint64_t div_new = 0;    // ... xDIV Xd,Xd,Xm | xDIV X16,Xd,Xm ; MSUB Xd,X16,Xm,Xd
+  uint64_t div_total = 0;  // CBNZ Xm|Wm,.+8 ; UDF #0xBEEF (the A26 trap every divide starts with)
+  uint64_t div_new = 0;  // CBNZ Wm ; UDF ; xDIV Wd,Wd,Wm ; SXTW | xDIV W16,Wd,Wm ; MSUB W ; SXTW
   uint64_t swz_cross_new = 0;  // EXT #4 + INS S[2]  |  EXT #12 + INS S[0] + INS S[3]
   uint64_t swz_old = 0;        // ORR V0,Vn,Vn ; INS Vd.S[0..3] <- V0 (all four lanes)
   uint64_t pshuf_old = 0;      // ORR V0,Vn,Vn ; [ORR Vd,Vn,Vn] ; INS Vd.H[t0..t0+3] <- V0
@@ -66,15 +66,21 @@ inline ScalarStats inspect_scalar(const uint32_t* w, size_t n) {
       ++s.f2i_old;
     }
     // integer divide
-    if ((a & 0xFFFFFFE0u) == 0xB5000040u && i + 2 < n && w[i + 1] == 0x0000BEEFu) {
+    // Only the 32-bit form (arm64-integer-division-matches-x86) is new: the 64-bit
+    // one (CBNZ Xm ; xDIV X) renders another number than x86 once an operand
+    // carries high bits, so a CGO still holding it counts as legacy.
+    if ((a & 0x7FFFFFE0u) == 0x35000040u && i + 2 < n && w[i + 1] == 0x0000BEEFu) {
       ++s.div_total;
       const uint32_t m = a & 31u, q = w[i + 2];
-      const bool is_div = (q & 0xFFE0F800u) == 0x9AC00800u && ((q >> 16) & 31u) == m;
+      const bool is_div =
+          (a >> 31) == 0 && (q & 0xFFE0F800u) == 0x1AC00800u && ((q >> 16) & 31u) == m;
       const uint32_t qd = q & 31u, qn = (q >> 5) & 31u;
-      if (is_div && qd == qn && qd != 16u) {
+      const auto sxtw = [](uint32_t r) { return 0x93407C00u | (r << 5) | r; };
+      if (is_div && qd == qn && qd != 16u && i + 3 < n && w[i + 3] == sxtw(qd)) {
         ++s.div_new;
-      } else if (is_div && qd == 16u && qn != 16u && i + 3 < n &&
-                 w[i + 3] == (0x9B008000u | (m << 16) | (qn << 10) | (16u << 5) | qn)) {
+      } else if (is_div && qd == 16u && qn != 16u && i + 4 < n &&
+                 w[i + 3] == (0x1B008000u | (m << 16) | (qn << 10) | (16u << 5) | qn) &&
+                 w[i + 4] == sxtw(qn)) {
         ++s.div_new;
       }
     }

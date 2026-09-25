@@ -44,7 +44,7 @@ namespace ARM64 {
 // perf-codegen-arm64-scalar — float->int and integer divide in one multi-word
 // instruction each. See their definitions in IGenARM64.cpp.
 InstructionARM64 float_to_int32_x86(Register dst, Register src);
-InstructionARM64 int_div_x(Register dst, Register arg, bool is_signed, bool is_mod);
+InstructionARM64 int_div_w(Register dst, Register arg, bool is_signed, bool is_mod);
 }  // namespace ARM64
 }  // namespace IGen
 }  // namespace emitter
@@ -1211,19 +1211,17 @@ void IR_IntegerMath::do_codegen_arm64(emitter::ObjectGenerator* gen,
     case IntegerMathKind::IMOD_32:
     case IntegerMathKind::UDIV_32:
     case IntegerMathKind::UMOD_32: {
-      // perf-codegen-arm64-scalar — SDIV/UDIV with three operands, straight into
-      // m_dest: 3 words for a quotient, 4 for a remainder (MSUB through X16), where
-      // the A17 sequence moved the dividend into X8 and spilled the caller's X8
-      // around it (9-10 words). Same 64-bit divide, same result for every input.
-      // The A26 divide-by-zero trap (CBNZ divisor, .+8 ; UDF #0xBEEF) still comes
-      // first: GOAL's `(break)` is `(/ 0 0)` and must not return. F1c: SDIV/UDIV
-      // give only the quotient, so modulo forms dividend - quotient * divisor.
-      // Sequence and rationale: int_div_x in IGenARM64.cpp.
+      // 32-bit SDIV/UDIV straight into m_dest, sign-extended like x86's movsx:
+      // the same number as x86 (and the PS2) for every pair of operands, high bits
+      // included. The A26 divide-by-zero trap (CBNZ Wdivisor, .+8 ; UDF #0xBEEF)
+      // comes first: GOAL's `(break)` is `(/ 0 0)` and must not return. Modulo
+      // forms dividend - quotient * divisor (MSUB). Sequence: int_div_w in
+      // IGenARM64.cpp.
       const bool is_signed =
           m_kind == IntegerMathKind::IDIV_32 || m_kind == IntegerMathKind::IMOD_32;
       const bool is_mod =
           m_kind == IntegerMathKind::IMOD_32 || m_kind == IntegerMathKind::UMOD_32;
-      gen->add_instr(emitter::IGen::ARM64::int_div_x(get_reg(m_dest, allocs, irec),
+      gen->add_instr(emitter::IGen::ARM64::int_div_w(get_reg(m_dest, allocs, irec),
                                                       get_reg(m_arg, allocs, irec), is_signed,
                                                       is_mod),
                      irec);

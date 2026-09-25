@@ -24,22 +24,27 @@
 #include "goalc/emitter/IGenARM64.h"
 #include "goalc/emitter/Register.h"
 
-namespace emitter {
-namespace IGen {
-namespace ARM64 {
-// A17 IDIV/UDIV preserve-X8 spill helpers (IGenARM64.cpp, emitter-internal).
-InstructionARM64 idiv_spill_sub_sp_16();
-InstructionARM64 idiv_spill_str_x8_sp_0();
-InstructionARM64 idiv_spill_ldr_x8_sp_0();
-InstructionARM64 idiv_spill_add_sp_16();
-// F1c modulo remainder helper (IGenARM64.cpp, emitter-internal).
-InstructionARM64 imod_msub_gpr(Register dst, Register quotient, Register divisor,
-                                Register dividend);
-}  // namespace ARM64
-}  // namespace IGen
-}  // namespace emitter
-
 namespace cgsc_legacy {
+
+// A17 IDIV/UDIV preserve-X8 spill helpers and F1c modulo remainder helper,
+// reproduced as raw encodings: the functions that used to emit them
+// (idiv_spill_sub_sp_16/idiv_spill_str_x8_sp_0/idiv_spill_ldr_x8_sp_0/
+// idiv_spill_add_sp_16/imod_msub_gpr) were removed from IGenARM64.cpp
+// alongside the A17/F1c spill path when int_div_x became int_div_w.
+static inline uint32_t legacy_idiv_spill_sub_sp_16() { return 0xD10043FFu; }
+static inline uint32_t legacy_idiv_spill_str_x8_sp_0() { return 0xF90003E8u; }
+static inline uint32_t legacy_idiv_spill_ldr_x8_sp_0() { return 0xF94003E8u; }
+static inline uint32_t legacy_idiv_spill_add_sp_16() { return 0x910043FFu; }
+// MSUB Xdst, Xquotient, Xdivisor, Xdividend
+static inline uint32_t legacy_imod_msub_gpr(emitter::Register dst, emitter::Register quotient,
+                                            emitter::Register divisor,
+                                            emitter::Register dividend) {
+  const uint32_t d = static_cast<uint32_t>(dst.id()) & 31u;
+  const uint32_t q = static_cast<uint32_t>(quotient.id()) & 31u;
+  const uint32_t div = static_cast<uint32_t>(divisor.id()) & 31u;
+  const uint32_t a = static_cast<uint32_t>(dividend.id()) & 31u;
+  return 0x9B008000u | (div << 16) | (a << 10) | (q << 5) | d;
+}
 
 inline std::vector<uint32_t> words_of(const emitter::InstructionARM64& i) {
   std::vector<uint32_t> w;
@@ -98,7 +103,7 @@ inline std::vector<uint32_t> legacy_int_div(emitter::Register dst, emitter::Regi
     if (is_mod) {
       append(out, A::mov_gpr64_gpr64(x16, dst));
       do_div(arg);
-      append(out, A::imod_msub_gpr(dst, emitter::Register(8), arg, x16));
+      out.push_back(legacy_imod_msub_gpr(dst, emitter::Register(8), arg, x16));
     } else {
       do_div(arg);
     }
@@ -108,17 +113,17 @@ inline std::vector<uint32_t> legacy_int_div(emitter::Register dst, emitter::Regi
       append(out, A::mov_gpr64_gpr64(x16, arg));
       divisor_reg = x16;
     }
-    append(out, A::idiv_spill_sub_sp_16());
-    append(out, A::idiv_spill_str_x8_sp_0());
+    out.push_back(legacy_idiv_spill_sub_sp_16());
+    out.push_back(legacy_idiv_spill_str_x8_sp_0());
     append(out, A::mov_gpr64_gpr64(emitter::Register(8), dst));
     do_div(divisor_reg);
     if (is_mod) {
-      append(out, A::imod_msub_gpr(dst, emitter::Register(8), divisor_reg, dst));
+      out.push_back(legacy_imod_msub_gpr(dst, emitter::Register(8), divisor_reg, dst));
     } else {
       append(out, A::mov_gpr64_gpr64(dst, emitter::Register(8)));
     }
-    append(out, A::idiv_spill_ldr_x8_sp_0());
-    append(out, A::idiv_spill_add_sp_16());
+    out.push_back(legacy_idiv_spill_ldr_x8_sp_0());
+    out.push_back(legacy_idiv_spill_add_sp_16());
   }
   return out;
 }

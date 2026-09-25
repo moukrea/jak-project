@@ -48,19 +48,38 @@ static inline void model_pshuf(const uint16_t in[8], uint8_t imm, int half, uint
   }
 }
 
-/* signed/unsigned 32-bit division and modulo, sign/zero-extended to int64.
- * Used on the domain where x86 idiv/div (32-bit) and a 64-bit divide agree. */
-static inline int64_t model_idiv32(int32_t a, int32_t b) {
-  return (int64_t)(a / b);
+/* signed/unsigned 32-bit division and modulo: real x86 32-bit idiv/div
+ * semantics, but applied to the low 32 bits of int64 inputs (a, b taken
+ * modulo 2^32) and sign/zero-extended back to int64 on the way out, exactly
+ * as int_div_w's SXTW does. INT32_MIN / -1 overflows on real x86 hardware
+ * (#DE); the PS2 (and this emulation) instead renders INT32_MIN for the
+ * quotient and 0 for the remainder, so those are the values these models
+ * report for that case. */
+static inline int64_t model_idiv32(int64_t a, int64_t b) {
+  int32_t a32 = (int32_t)a;
+  int32_t b32 = (int32_t)b;
+  if (a32 == (int32_t)0x80000000 && b32 == -1) {
+    return (int64_t)(int32_t)0x80000000;
+  }
+  return (int64_t)(int32_t)(a32 / b32);
 }
-static inline int64_t model_imod32(int32_t a, int32_t b) {
-  return (int64_t)(a % b);
+static inline int64_t model_imod32(int64_t a, int64_t b) {
+  int32_t a32 = (int32_t)a;
+  int32_t b32 = (int32_t)b;
+  if (a32 == (int32_t)0x80000000 && b32 == -1) {
+    return 0;
+  }
+  return (int64_t)(int32_t)(a32 % b32);
 }
-static inline int64_t model_udiv32(uint32_t a, uint32_t b) {
-  return (int64_t)(uint64_t)(a / b);
+static inline int64_t model_udiv32(int64_t a, int64_t b) {
+  uint32_t a32 = (uint32_t)a;
+  uint32_t b32 = (uint32_t)b;
+  return (int64_t)(int32_t)(a32 / b32);
 }
-static inline int64_t model_umod32(uint32_t a, uint32_t b) {
-  return (int64_t)(uint64_t)(a % b);
+static inline int64_t model_umod32(int64_t a, int64_t b) {
+  uint32_t a32 = (uint32_t)a;
+  uint32_t b32 = (uint32_t)b;
+  return (int64_t)(int32_t)(a32 % b32);
 }
 
 #endif /* CGSC_MODEL_H */

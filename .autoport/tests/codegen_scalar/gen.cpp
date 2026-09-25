@@ -38,7 +38,7 @@ namespace emitter {
 namespace IGen {
 namespace ARM64 {
 InstructionARM64 float_to_int32_x86(Register dst, Register src);
-InstructionARM64 int_div_x(Register dst, Register arg, bool is_signed, bool is_mod);
+InstructionARM64 int_div_w(Register dst, Register arg, bool is_signed, bool is_mod);
 }  // namespace ARM64
 }  // namespace IGen
 }  // namespace emitter
@@ -75,6 +75,27 @@ uint64_t check_f2i_model_vs_x86() {
   return mismatches;
 }
 
+// The perf-codegen-arm64-scalar-era ("BEFORE") 64-bit sequence int_div_x
+// used to emit, prior to being renamed/replaced by int_div_w's 32-bit form.
+// Reproduced locally (int_div_x no longer exists in IGenARM64.cpp):
+//   quotient: CBNZ Xm,.+8 (0xB5000040|m) ; UDF #0xBEEF ; SDIV/UDIV Xd,Xd,Xm
+//   modulo:   CBNZ Xm,.+8 ; UDF ; xDIV X16,Xd,Xm ; MSUB Xd,X16,Xm,Xd
+std::vector<uint32_t> before_int_div_x(Register dst, Register arg, bool is_signed, bool is_mod) {
+  const uint32_t d = (uint32_t)dst.id() & 31u;
+  const uint32_t m = (uint32_t)arg.id() & 31u;
+  const uint32_t div = is_signed ? 0x9AC00C00u : 0x9AC00800u;
+  const uint32_t cbnz = 0xB5000040u | m;
+  const uint32_t udf = 0x0000BEEFu;
+  if (!is_mod) {
+    return {cbnz, udf, div | (m << 16) | (d << 5) | d};
+  }
+  return {
+      cbnz, udf,
+      div | (m << 16) | (d << 5) | 16u,                     // xDIV X16, Xd, Xm
+      0x9B008000u | (m << 16) | (d << 10) | (16u << 5) | d,  // MSUB Xd, X16, Xm, Xd
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Step 2: detector vs new/legacy sequences.
 // ---------------------------------------------------------------------------
@@ -106,20 +127,17 @@ uint64_t check_matcher() {
   for (auto [d, m] : div_pairs) {
     for (bool sgn : {true, false}) {
       for (bool mod : {true, false}) {
-        auto neu = words_of(A::int_div_x(Register(d), Register(m), sgn, mod));
+        auto neu = words_of(A::int_div_w(Register(d), Register(m), sgn, mod));
         auto stats = codegen_arm64::inspect_scalar(neu.data(), neu.size());
         expect("div new", stats.div_new == 1 && stats.div_total == 1);
 
         auto leg = cgsc_legacy::legacy_int_div(Register(d), Register(m), sgn, mod);
         auto lstats = codegen_arm64::inspect_scalar(leg.data(), leg.size());
-        // Spec carve-out: on the dst==X8 fast path, legacy's IDIV_32/UDIV_32
-        // (non-mod) case emits a single bare SDIV/UDIV X8,X8,Xm — byte-
-        // identical to what the new sequence would emit for the same (d=8,m)
-        // pair. The detector cannot and is not required to tell these apart;
-        // only check div_new==0 outside that fast path.
-        if (!(d == 8 && !mod)) {
-          expect("div legacy new_count==0 (outside dst==X8 fast path)", lstats.div_new == 0);
-        }
+        expect("div legacy new_count==0", lstats.div_new == 0);
+
+        auto before = before_int_div_x(Register(d), Register(m), sgn, mod);
+        auto bstats = codegen_arm64::inspect_scalar(before.data(), before.size());
+        expect("div before: total==1, new==0", bstats.div_total == 1 && bstats.div_new == 0);
       }
     }
   }
@@ -220,7 +238,7 @@ void add_div_kernel(int d, int m, bool sgn, bool mod, bool legacy) {
     code.push_back(kMovkX8(0xBEEF));
   }
   std::vector<uint32_t> seq = legacy ? cgsc_legacy::legacy_int_div(Register(d), Register(m), sgn, mod)
-                                     : words_of(A::int_div_x(Register(d), Register(m), sgn, mod));
+                                     : words_of(A::int_div_w(Register(d), Register(m), sgn, mod));
   code.insert(code.end(), seq.begin(), seq.end());
   code.push_back(kMovXdXm(17, (uint32_t)d));
   code.push_back(kMovXdXm(1, 8));
