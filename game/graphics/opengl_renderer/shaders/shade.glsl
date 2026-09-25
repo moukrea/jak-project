@@ -203,6 +203,17 @@ vec4 shade_body(in Surface s, float sao, float occ_force) {
   // « pas de repli »). L'orientation des normales du decor est corrigee UNE FOIS dans le pack
   // recharge (<niveau>.meshweld, tools/mesh_audit --bake) ; sans pack, l'original tel quel.
   vec3 N = s.N;
+  // lighting-local-lights (SPEC §4.9) : les lumieres locales ECLAIRENT la texture (albedo), elles
+  // s'ajoutent au cuit au lieu de le multiplier — une lanterne eclaire aussi la ou ND avait mis du
+  // noir. Evaluees HORS de la branche `u_rt_light_on` : « Lumieres locales » est un reglage a
+  // part sous l'eclairage recharge (SPEC §7.3), et le sous-drapeau rt-light (SPEC : retire) vaut 0
+  // sur l'appareil — mesure du 25/09 : 22 016 poussees de `u_rt_light_on`, aucune non nulle, et
+  // 0 pixel eclaire sous 16 lampes rangees. `u_ll_on` ne vaut 1 que sous l'eclairage recharge.
+  vec3 ll_add = vec3(0.0);
+  if (u_ll_on != 0) {
+    ll_add = s.tex0.rgb * ll_irradiance(s.P_rel, N);
+    g_ll_add = max(ll_add.r, max(ll_add.g, ll_add.b));
+  }
 
     // lighting-shadows (SPEC §4.8) : le facteur d'ombre portee vient desormais de
     // `rt_key_vis`/`rt_sec_vis` (definis plus haut, atlas tuile), pas d'un calcul inline ici.
@@ -332,13 +343,9 @@ vec4 shade_body(in Surface s, float sao, float occ_force) {
       vec3 c_y = ind_y + mix(dir_bk, dir_rt, w_y);
       vec3 mod_g = mix(vec3(1.0), lit_mul_g, lit_g);
       vec3 rt_lit = max(c_y * mix(vec3(1.0), mod_g, w_g), vec3(0.0));
-      // lighting-local-lights (SPEC §4.9) : les lumieres locales ECLAIRENT la texture (albedo),
-      // elles s'ajoutent au cuit au lieu de le multiplier — une lanterne eclaire aussi la ou ND
-      // avait mis du noir. Le supplement passe par la meme marge que le soleil (rt_g) : il ne
-      // fabrique pas de blanc.
+      // lighting-local-lights : le supplement (calcule en tete de shade_body) passe par la meme
+      // marge que le soleil (rt_g) : il ne fabrique pas de blanc.
       if (u_ll_on != 0) {
-        vec3 ll_add = s.tex0.rgb * ll_irradiance(s.P_rel, N);
-        g_ll_add = max(ll_add.r, max(ll_add.g, ll_add.b));
         rt_lit += ll_add;
       }
       // lighting-hdr (essai 62) : LE SUPPLEMENT NE FABRIQUE PAS DE BLANC — la marge ne borne que
@@ -370,6 +377,19 @@ vec4 shade_body(in Surface s, float sao, float occ_force) {
     // Chemins sans terme direct separe (rendu d'origine sous eclairage recharge) : toute la
     // base est de l'indirect cuit, l'AO la multiplie entiere.
     color.rgb *= ao_mul;
+    // lighting-local-lights : sans terme direct, les lumieres locales s'ajoutent a la base cuite
+    // sous la MEME marge que le chemin temps reel (fondu sous 0,7, jamais au-dessus de 0,995). Le
+    // drapeau de la sonde compte ce qui est REELLEMENT ajoute, marge comprise.
+    if (u_ll_on != 0) {
+      float ll_m0 = max(color.r, max(color.g, color.b));
+      float ll_mu = max(ll_add.r, max(ll_add.g, ll_add.b));
+      float ll_g = clamp((0.995 - ll_m0) / 0.3, 0.0, 1.0);
+      if (ll_mu > 1e-5) {
+        ll_g = min(ll_g, clamp((0.995 - ll_m0) / ll_mu, 0.0, 1.0));
+      }
+      color.rgb += ll_add * ll_g;
+      g_ll_add = ll_mu * ll_g;
+    }
   }
   return color;
 }
