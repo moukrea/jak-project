@@ -15,6 +15,8 @@ in vec3 vtx_pos_view;
 #endif
 in vec2 vtx_st;
 in float fog;
+in vec3 vtx_view;
+in vec4 vtx_color_dir;
 
 uniform sampler2D tex_T0;
 
@@ -34,7 +36,28 @@ uniform int gfx_hack_no_tex;
 // glGetUniformLocation returns -1 and glUniform1i(-1, ...) is a documented no-op.
 uniform int u_pbr_debug;
 
+// lighting-shadows essai 6 (SPEC §4.8) : reception de l'atlas d'ombre par MERC. Les ponts de
+// village1 (ropebridge-4/5) sont des acteurs dessines par ce programme ; merc2.frag n'incluait
+// shade.glsl NULLE PART, donc aucune ombre portee ne pouvait jamais y tomber. Seule la part
+// DIRECTIONNELLE (vtx_color_dir) est ombree — l'ambiante ne l'est jamais. La composition complete
+// des acteurs par shade() (lighting-actors, SPEC 4.13) n'est pas ce chunk : c'est une visibilite
+// PARTAGEE avec le decor (meme atlas, meme force).
+uniform int u_rt_light_on;
+uniform vec4 u_rt_regime;
+uniform vec3 u_rt_sun_dir;
+uniform vec3 u_rt_moon_dir;
+uniform mat4 u_merc_view_to_rel;
+uniform vec2 u_merc_shadow_w;
+uniform int u_merc_shadow_recv;
+#include "shadow_atlas.glsl"
+
 float rt_luma_merc(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }
+
+// Direction unitaire sans NaN (voir shade.glsl : rt_safe_dir).
+vec3 rt_safe_dir_merc(vec3 v) {
+  float l = length(v);
+  return l > 1e-6 ? v / l : vec3(0.0, 1.0, 0.0);
+}
 
 void main() {
 #ifdef OG_FLIP_PROBE
@@ -50,6 +73,29 @@ void main() {
   bool mf_flip = dot(vtx_nrm_view, gN) < 0.0;
 #endif
   vec4 lit = vtx_color;
+
+  // lighting-shadows essai 6 : reception de l'atlas d'ombre (voir le commentaire pres des
+  // uniformes ci-dessus). `m_gN` est une normale d'ecran (comme le fallback tfrag3 sans
+  // tangente) ; seule la part directionnelle est retiree, l'ambiante reste intacte.
+  vec3 m_prel = vec3(0.0); vec3 m_gN = vec3(0.0, 1.0, 0.0); float m_kndl = 0.0;
+  bool m_recv = u_pbr_shadow_on != 0 && u_merc_shadow_recv != 0;
+  if (m_recv) {
+    m_prel = (u_merc_view_to_rel * vec4(vtx_view, 1.0)).xyz;
+    vec3 g = cross(dFdx(m_prel), dFdy(m_prel)); float g_len = length(g);
+    m_gN = g_len > 1e-12 ? g / g_len : vec3(0.0, 1.0, 0.0);
+    if (dot(m_gN, -m_prel) < 0.0) m_gN = -m_gN;
+    vec3 Ls = rt_safe_dir_merc(u_rt_sun_dir);
+    vec3 Lm = rt_safe_dir_merc(u_rt_moon_dir);
+    float sun_ndl = clamp(dot(m_gN, Ls), 0.0, 1.0), moon_ndl = clamp(dot(m_gN, Lm), 0.0, 1.0);
+    float key_ndl = (u_shadow_key == 0) ? sun_ndl : moon_ndl;
+    float sec_ndl = (u_shadow_key == 0) ? moon_ndl : sun_ndl;
+    m_kndl = key_ndl;
+    float key = mix(1.0, rt_key_vis(m_prel, m_gN, key_ndl), u_shadow_strength);
+    float sec = mix(1.0, rt_sec_vis(m_prel, m_gN, sec_ndl), u_shadow_strength);
+    float wsum = u_merc_shadow_w.x + u_merc_shadow_w.y;
+    float vis = wsum > 1e-4 ? (u_merc_shadow_w.x * key + u_merc_shadow_w.y * sec) / wsum : 1.0;
+    lit.rgb -= vtx_color_dir.rgb * (1.0 - vis);
+  }
 
   if (gfx_hack_no_tex == 0) {
     vec4 T0 = texture(tex_T0, vtx_st);
@@ -103,6 +149,13 @@ void main() {
                                4.0 * float(u_floor_probe));
   }
 #endif
+
+  // lighting-shadows essai 6 : sonde de preuve, meme mecanisme que le decor — magenta/bleu/cyan/vert
+  // (voir rt_shadow_proof_color, shadow_atlas.glsl), restreinte aux draws qui recoivent l'atlas.
+  if (u_shadow_proof != 0 && u_merc_shadow_recv != 0) {
+    color.rgb = (u_pbr_shadow_on == 0) ? vec3(0.0, 1.0, 0.0)
+                                       : rt_shadow_proof_color(m_prel, m_gN, m_kndl, color.a).rgb;
+  }
 
    color.xyz = mix(color.xyz, fog_color.rgb, clamp(fog_color.a * fog, 0.0, 1.0));
   // ===== ROUND 22 COVERAGE TAG (see tfrag3.frag for the rationale) =====

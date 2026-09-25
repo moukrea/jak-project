@@ -4069,6 +4069,13 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
   args.hash = hash;
   // firstperson-hd-hide : la decision prise au paquet suit ses draws jusqu'au site de dessin.
   args.fp_inside = fp_pkt_inside;
+  // lighting-shadows essai 6 (SPEC §4.8) : eichar/sidekick recoivent leur propre reception a
+  // part (lighting-actors) — l'atlas lu ici est celui de l'image PRECEDENTE, l'ombre de Jak sur
+  // lui-meme trainerait d'une image.
+  args.shadow_recv = (std::strstr(model->name.c_str(), "eichar") ||
+                      std::strstr(model->name.c_str(), "sidekick"))
+                         ? 0
+                         : 1;
   args.lights = lights;
   args.first_bone = first_bone;
   args.no_texture = render_state->version == GameVersion::Jak3 && model_no_texture;
@@ -4286,6 +4293,8 @@ void Merc2::init_shader_common(Shader& shader, Uniforms* uniforms, bool include_
   uniforms->ignore_alpha = glGetUniformLocation(id, "ignore_alpha");
 
   uniforms->gfx_hack_no_tex = glGetUniformLocation(id, "gfx_hack_no_tex");
+  // lighting-shadows essai 6 : absent sur EMERC (pas de reception d'atlas la) -> -1, no-op.
+  uniforms->shadow_recv = glGetUniformLocation(id, "u_merc_shadow_recv");
 }
 
 void Merc2::switch_to_merc2(SharedRenderState* render_state) {
@@ -4301,6 +4310,14 @@ void Merc2::switch_to_merc2(SharedRenderState* render_state) {
   // tagged magenta in debug mode 30 so the coverage census can attribute every screen pixel to the
   // program that drew it. No-op at mode 0 (the shader only reads it in the two debug branches).
   pbr_push_debug_tag(render_state->shaders[ShaderId::MERC2].id());
+  // lighting-shadows essai 6 (SPEC §4.8) : reception de l'atlas d'ombre par les ponts (ropebridge,
+  // rendus par MERC2) — meme porte que le decor (TFragment.cpp:765). `bind_receiver` pose
+  // u_pbr_shadow_on lui-meme (0 si aucune cascade lue) ; le programme MERC2 vient d'etre active,
+  // c'est donc le programme COURANT que glUniform* vise ici.
+  m_shadow_recv_on = pbr_shadow_bind_merc_receiver(
+      render_state->shaders[ShaderId::MERC2].id(),
+      recharged_gating::on(recharged_gating::kLighting) ||
+          recharged_gating::on(recharged_gating::kRtLight));
 #endif
 }
 
@@ -4673,6 +4690,7 @@ Merc2::Draw* Merc2::try_alloc_envmap_draw(const tfrag3::MercDraw& mdraw,
   draw->mode = envmap_mode;
   draw->hash = 0;
   draw->fp_inside = args.fp_inside;
+  draw->shadow_recv = args.shadow_recv;
   if (args.jak1_water_mode) {
     draw->mode.enable_ab();
     draw->mode.disable_depth_write();
@@ -4705,6 +4723,7 @@ Merc2::Draw* Merc2::alloc_normal_draw(const tfrag3::MercDraw& mdraw, const DrawA
   draw->mode = mdraw.mode;
   draw->hash = args.hash;
   draw->fp_inside = args.fp_inside;
+  draw->shadow_recv = args.shadow_recv;
   if (args.jak1_water_mode) {
     draw->mode.set_ab(true);
     draw->mode.disable_depth_write();
@@ -5726,6 +5745,10 @@ void Merc2::do_draws(const Draw* draw_array,
   s32 last_ignore_alpha = INT32_MIN;
   s32 last_decal = -1;
   s32 last_no_tex = -1;
+  s32 last_shadow_recv = -1;
+#ifdef OG_FEAT_PBR
+  u64 shadow_recv_draws_this_flush = 0;
+#endif
   s64 last_first_bone = -1;
   u32 last_setup_mode = 0;
   s32 last_setup_tex = INT32_MIN;
@@ -5881,6 +5904,25 @@ void Merc2::do_draws(const Draw* draw_array,
         glUniform1i(uniforms.gfx_hack_no_tex, no_tex);
         last_no_tex = no_tex;
       }
+#ifdef OG_FEAT_PBR
+      // lighting-shadows essai 6 : location -1 sur EMERC (uniforme absent), glUniform1i(-1, ...)
+      // est un no-op documente.
+      s32 shadow_recv = draw.shadow_recv ? 1 : 0;
+      if (!cache_state || shadow_recv != last_shadow_recv) {
+        glUniform1i(uniforms.shadow_recv, shadow_recv);
+        last_shadow_recv = shadow_recv;
+      }
+      if (uniforms.shadow_recv >= 0 && shadow_recv != 0 && m_shadow_recv_on) {
+        shadow_recv_draws_this_flush++;
+      }
+      // lighting-shadows essai 6 (SPEC §6) : sur l'image de PREUVE, un draw eichar/sidekick
+      // n'appartient pas a la famille merc (4) que le seau vient de poser — son ombre sur
+      // lui-meme ne compte pas. `pbr_shadow_proof_before_bucket` a deja pose la reference 4 pour
+      // tout le seau ; ici on l'ecrase a 0 pour CE draw, puis on la restaure.
+      if (uniforms.shadow_recv >= 0 && pbr_shadow_proof_family_active()) {
+        glStencilFunc(GL_ALWAYS, shadow_recv == 0 ? 0 : 4, 0xFF);
+      }
+#endif
     }
 
 #ifndef __ANDROID__
@@ -6165,4 +6207,13 @@ void Merc2::do_draws(const Draw* draw_array,
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, lev->merc_indices);
     glBindBuffer(GL_ARRAY_BUFFER, lev->merc_vertices);
   }
+
+#ifdef OG_FEAT_PBR
+  // lighting-shadows essai 6 : cumul des draws MERC2 dessines avec recv=1 ET u_pbr_shadow_on=1 —
+  // meme cadence que les autres cles shadow_merc_*.
+  m_shadow_recv_draws_cum += shadow_recv_draws_this_flush;
+  if (autoport_proof::feature_is("lighting-shadows")) {
+    autoport_proof::publish("shadow_recv_merc_draws", m_shadow_recv_draws_cum);
+  }
+#endif
 }

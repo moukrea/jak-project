@@ -219,6 +219,11 @@ struct PbrShadowState {
                        0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f};  // vue GL, colonne-major
   float merc_mvp[4][16];  // "vue merc (metres GOAL) -> clip tuile", par tuile
   bool merc_mvp_valid[4] = {false, false, false, false};
+  // lighting-shadows essai 6 : Mc seule (vue GOAL -> monde camera-relatif metres), gardee a part
+  // du produit par tuile ci-dessus — merc2.frag reconstruit sa propre normale geometrique par
+  // derivees d'ecran et a besoin de la position relative AVANT projection sur une tuile.
+  float merc_view_to_rel[16];
+  bool merc_view_to_rel_valid = false;
   u32 class_mask_frame = 0;  // classes ayant projete >0 indices cette image (bits ci-dessous)
   u32 read_class_mask = 0;   // promu au flip
   u32 class_mask_run = 0;    // union depuis le debut (publication)
@@ -278,6 +283,10 @@ bool pbr_shadow_bind_actor_tile(int tile);
 void pbr_shadow_proof_frame_begin(u64 frame_idx);
 void pbr_shadow_proof_before_bucket(int bucket_id);
 void pbr_shadow_proof_post_opaque(SharedRenderState* rs);
+// lighting-shadows essai 6 : vrai pendant l'image de PREUVE (stencil de famille arme) — dit a
+// Merc2::do_draws s'il doit ecraser la reference de stencil (0 pour eichar/sidekick, 4 sinon)
+// pour CE draw.
+bool pbr_shadow_proof_family_active();
 // Phantom-lines bisect tool: bitmask gating which STATIC renderers cast into the atlas
 // (bit0 tfrag, bit1 tie, bit2 shrub). Default 7 (all). Debug-only override via env
 // OG_PBR_CASTER_MASK / prop debug.opengoal.pbr.castermask; cached once per frame.
@@ -295,6 +304,30 @@ void pbr_shadow_bind_receiver(GLuint program, const float* cam_trans);
 // mesures a l'image precedente (memes `w_sun`/`w_moon` que `shade.glsl` pese).
 float pbr_shadow_read_key_weight();
 float pbr_shadow_read_second_weight();
+
+// lighting-shadows essai 6 : instantane des quatre grandeurs de regime que
+// `first_tfrag_draw_setup` pousse aux quatre hotes du decor, pris a l'endroit ou elles sont
+// TOUTES connues pour l'image courante. Merc2 (ropebridge etc.) n'est pas un de ces quatre hotes
+// et n'a pas d'autre acces a ces valeurs.
+struct PbrMercRegimeCache {
+  bool valid = false;
+  int light_on = 0;
+  float sun_dir[3] = {0.f, 1.f, 0.f};
+  float moon_dir[3] = {0.f, 1.f, 0.f};
+  float regime[4] = {1.f, 1.f, 1.f, 0.f};
+};
+PbrMercRegimeCache& pbr_merc_regime_cache();
+// Pousse u_rt_light_on / u_rt_regime / u_rt_sun_dir / u_rt_moon_dir sur `program` (COURANT),
+// depuis l'instantane ci-dessus.
+void pbr_push_merc_regime_uniforms(GLuint program);
+// lighting-shadows essai 6 (SPEC §4.8) : reception de l'atlas d'ombre par MERC (ropebridge et
+// consorts, rendus par Merc2 — merc2.frag n'incluait pas shade.glsl et ne recevait donc aucune
+// ombre portee). Pose u_pbr_shadow_on a 0 quand `on` est faux OU que l'etat de l'atlas/la vue
+// merc->relatif ne sont pas prets ; sinon lie l'atlas (meme mecanisme que le decor) plus
+// u_merc_view_to_rel / u_merc_shadow_w / les quatre uniformes de regime ci-dessus.
+// Rend vrai si l'atlas a effectivement ete lie (u_pbr_shadow_on == 1 apres l'appel) : la
+// meme condition que `pbr_shadow_bind_receiver` decide (mask & 1), pas seulement `on`.
+bool pbr_shadow_bind_merc_receiver(GLuint program, bool on);
 
 // ROUND 22 PER-PIXEL SCREEN-COVERAGE INSTRUMENTATION (owner defect A step 1: "la plupart des
 // endroits n'ont aucun displacement" — measure the truth before porting anything).

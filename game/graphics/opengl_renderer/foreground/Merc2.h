@@ -207,6 +207,10 @@ class Merc2 {
     GLuint gfx_hack_no_tex;
 
     GLuint fade;
+
+    // lighting-shadows essai 6 : -1 sur EMERC (pas de reception d'atlas la), une location reelle
+    // sur MERC2 quand le programme lie declare l'uniforme.
+    GLuint shadow_recv;
   };
 
   Uniforms m_merc_uniforms, m_emerc_uniforms;
@@ -224,6 +228,10 @@ class Merc2 {
 
   void switch_to_merc2(SharedRenderState* render_state);
   void switch_to_emerc(SharedRenderState* render_state);
+  // lighting-shadows essai 6 : u_pbr_shadow_on tel que la derniere activation MERC2 l'a pose
+  // (pbr_shadow_bind_merc_receiver) ; consomme par do_draws pour le compteur de preuve.
+  bool m_shadow_recv_on = false;
+  u64 m_shadow_recv_draws_cum = 0;
 
   GLuint m_vao;
 
@@ -293,6 +301,10 @@ class Merc2 {
     // d'AVANT l'entree en premiere personne a la premiere personne (mesure appareil du
     // 2026-09-14 : 2 paquets, 42 draws, 30 px, sur 24 084 images ou le masquage a tire).
     u8 fp_inside;
+    // lighting-shadows essai 6 : ce draw recoit-il l'atlas d'ombre (merc2.frag) ? 0 pour
+    // eichar/sidekick (Jak/Daxter, l'atlas est celui de l'image PRECEDENTE : leur propre ombre
+    // sur eux-memes trainerait d'une image ; leur reception relevera de lighting-actors).
+    u8 shadow_recv;
   };
 
   // Grecharged-title-logo-fullres: a deferred model contributes at most a handful of draws (the
@@ -353,6 +365,9 @@ class Merc2 {
     // firstperson-hd-hide : voir `Draw::fp_inside`. Rempli dans handle_pc_model, ou l'estampille
     // du paquet est lisible, et recopie tel quel par les DEUX allocateurs de draw.
     u8 fp_inside = 0;
+    // lighting-shadows essai 6 : recopie tel quel dans Draw::shadow_recv par les deux
+    // allocateurs. Rempli dans handle_pc_model, ou `model->name` est lisible.
+    u8 shadow_recv = 1;
   };
 
   Draw* alloc_normal_draw(const tfrag3::MercDraw& mdraw, const DrawArgs& args);

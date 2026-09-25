@@ -29,6 +29,13 @@ out vec2 vtx_st;
 
 out float fog;
 
+// lighting-shadows essai 6 (SPEC §4.8) : reception de l'atlas d'ombre par merc2.frag.
+// vtx_view = position VUE merc directe (metres, meme espace que u_merc_view_to_rel attend en
+// entree) ; vtx_color_dir = la seule part DIRECTIONNELLE de vtx_color (l'ambiante n'est jamais
+// ombree).
+out vec3 vtx_view;
+out vec4 vtx_color_dir;
+
 #ifdef OG_FLIP_PROBE
 // lighting-flipped-faces-everywhere : jumeau et donnees vue pour la SONDE seulement.
 out vec4 vtx_color_twin;
@@ -107,6 +114,12 @@ void main() {
 
   vtx_color = rgba * light_color;
   vtx_st = st_in;
+
+  // lighting-shadows essai 6 : vue merc directe, sans le signe accumule par vtx_pos (X*p pondere).
+  vtx_view = -vtx_pos.xyz;
+  vtx_color_dir = rgba * (light_intensity.x * light_col0
+                        + light_intensity.y * light_col1
+                        + light_intensity.z * light_col2);
 
 #ifdef OG_FLIP_PROBE
   // lighting-flipped-faces-everywhere : jumeau = meme sommet eclaire avec la normale SOURCE

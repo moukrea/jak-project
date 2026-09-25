@@ -676,6 +676,12 @@ struct ShadowProofState {
   int probe_w = 0, probe_h = 0;
   GLuint probe_vao = 0;  // VAO vide pour le triangle plein ecran
   u64 hit = 0, world = 0, probes = 0;
+  // lighting-shadows essai 6 : chaque sonde ne mesure plus qu'UNE famille (rotation 1..4), donc
+  // `shadow_actor_px`/`shadow_probe_world_px` (au-dessus) restent ceux de la famille sondee CETTE
+  // image ; les cumuls PAR famille vivent ici (0 inutilise, 1 tfrag, 2 tie, 3 shrub, 4 merc).
+  u64 fam_hit[5] = {0, 0, 0, 0, 0};
+  u64 fam_world[5] = {0, 0, 0, 0, 0};
+  u64 fam_probes[5] = {0, 0, 0, 0, 0};
   GLenum last_gl_error = GL_NO_ERROR;
 };
 ShadowProofState& shadow_proof_state() {
@@ -1568,6 +1574,10 @@ void pbr_shadow_first_camera(SharedRenderState* rs, const GoalBackgroundCameraDa
     S[0] = S[5] = S[10] = 1.0f / 4096.0f;
     float Mc[16];
     pbr_mat_mul(S, TR, Mc);
+    for (int i = 0; i < 16; i++) {
+      st.merc_view_to_rel[i] = Mc[i];
+    }
+    st.merc_view_to_rel_valid = true;
     for (int t = 0; t < kShadowTiles; t++) {
       if (!st.tile_on[t]) {
         continue;
@@ -1575,6 +1585,8 @@ void pbr_shadow_first_camera(SharedRenderState* rs, const GoalBackgroundCameraDa
       pbr_mat_mul(st.tile_mvp[t], Mc, st.merc_mvp[t]);
       st.merc_mvp_valid[t] = true;
     }
+  } else {
+    st.merc_view_to_rel_valid = false;
   }
 
   // Preuve : nouvelle image -> avance la sonde (avant de dessiner quoi que ce soit dans l'atlas).
@@ -1792,6 +1804,64 @@ float pbr_shadow_read_second_weight() {
   return (st.read_key_light == 0) ? st.w_moon : st.w_sun;
 }
 
+PbrMercRegimeCache& pbr_merc_regime_cache() {
+  static PbrMercRegimeCache s_cache;
+  return s_cache;
+}
+
+void pbr_push_merc_regime_uniforms(GLuint program) {
+  auto& mc = pbr_merc_regime_cache();
+  GLint light_on_loc = glu::loc(program, "u_rt_light_on");
+  GLint regime_loc = glu::loc(program, "u_rt_regime");
+  GLint sun_loc = glu::loc(program, "u_rt_sun_dir");
+  GLint moon_loc = glu::loc(program, "u_rt_moon_dir");
+  const int light_on = mc.valid ? mc.light_on : 0;
+  if (light_on_loc >= 0) {
+    glUniform1i(light_on_loc, light_on);
+  }
+  if (regime_loc >= 0) {
+    glUniform4f(regime_loc, mc.regime[0], mc.regime[1], mc.regime[2], mc.regime[3]);
+  }
+  if (sun_loc >= 0) {
+    glUniform3f(sun_loc, mc.sun_dir[0], mc.sun_dir[1], mc.sun_dir[2]);
+  }
+  if (moon_loc >= 0) {
+    glUniform3f(moon_loc, mc.moon_dir[0], mc.moon_dir[1], mc.moon_dir[2]);
+  }
+}
+
+bool pbr_shadow_bind_merc_receiver(GLuint program, bool on) {
+  GLint on_loc = glu::loc(program, "u_pbr_shadow_on");
+  auto& st = pbr_shadow_state();
+  const bool ready = on && st.valid && st.merc_view_to_rel_valid;
+  if (!ready) {
+    if (on_loc >= 0) {
+      glUniform1i(on_loc, 0);
+    }
+    return false;
+  }
+  // lighting-shadows essai 6 (SPEC §4) : le decalage caméra lu devient write_cam - read_cam,
+  // exactement ce que TFragment.cpp:765 passe au decor — `pbr_shadow_bind_receiver` calcule ce
+  // decalage a partir du meme `st.write_cam`.
+  pbr_shadow_bind_receiver(program, st.write_cam);
+  GLint view_to_rel_loc = glu::loc(program, "u_merc_view_to_rel");
+  if (view_to_rel_loc >= 0) {
+    glUniformMatrix4fv(view_to_rel_loc, 1, GL_FALSE, st.merc_view_to_rel);
+  }
+  GLint w_loc = glu::loc(program, "u_merc_shadow_w");
+  if (w_loc >= 0) {
+    glUniform2f(w_loc, pbr_shadow_read_key_weight(), pbr_shadow_read_second_weight());
+  }
+  pbr_push_merc_regime_uniforms(program);
+  // `pbr_shadow_bind_receiver` decide seul si une cascade LUE existe (mask & 1) ; c'est la valeur
+  // reelle de u_pbr_shadow_on apres l'appel, pas seulement notre garde `ready`.
+  int mask = 0;
+  for (int t = 0; t < kShadowTiles; t++) {
+    if (st.read_tile_on[t]) mask |= (1 << t);
+  }
+  return st.valid && (mask & 1) != 0;
+}
+
 // ── (A7) PREUVE : ATLAS ACTEUR + SONDE STENCIL/COULEUR ──────────────────────────────────────
 // Mesuree seulement sous `autoport_proof::feature_is("lighting-shadows")`. Toutes les 30 images
 // (k = frame_idx % 30) : k==29 est l'image de PREPARATION (l'atlas acteur, une texture DEPTH16
@@ -1875,15 +1945,44 @@ static void ensure_probe_vao(ShadowProofState& sp) {
   glGenVertexArrays(1, &sp.probe_vao);
 }
 
+// lighting-shadows essai 6 : familles du STENCIL DE PREUVE. `prepass::world_bucket_family` ne
+// connait que tfrag/tie/shrub (1/2/3) ; les seaux MERC opaques de niveau (ropebridge etc.) sont
+// AU-DELA de la borne `bucket_id > 30` que la sonde appliquait a tout le monde — on l'etend
+// UNIQUEMENT pour ces seaux-la (famille 4), le reste de la porte est inchange.
+int pbr_shadow_proof_bucket_family(int bucket_id) {
+  using B = jak1::BucketId;
+  switch ((B)bucket_id) {
+    case B::MERC_TFRAG_TEX_LEVEL0:  // seaux merc des niveaux : les acteurs (ropebridge, PNJ, Jak)
+    case B::MERC_TFRAG_TEX_LEVEL1:
+    case B::MERC_AFTER_ALPHA:
+    case B::MERC_PRIS_LEVEL0:
+    case B::MERC_PRIS_LEVEL1:
+    case B::MERC_EYES_AFTER_PRIS:
+    case B::MERC_AFTER_PRIS:
+      return 4;  // merc
+    default:
+      break;
+  }
+  if (bucket_id > 30) {
+    return 0;
+  }
+  return prepass::world_bucket_family(bucket_id);  // 0 (non-monde), 1 tfrag, 2 tie, 3 shrub
+}
+
+bool pbr_shadow_proof_family_active() {
+  return shadow_proof_state().probe_frame;
+}
+
 void pbr_shadow_proof_before_bucket(int bucket_id) {
   auto& sp = shadow_proof_state();
-  if (!sp.probe_frame || bucket_id > 30) {
+  const int fam = pbr_shadow_proof_bucket_family(bucket_id);
+  // Un seau <= 30 non-monde pose 0 (comme avant) : sinon il heriterait la famille du seau precedent.
+  if (!sp.probe_frame || (bucket_id > 30 && fam == 0)) {
     return;
   }
-  const bool is_world = prepass::world_bucket_family(bucket_id) > 0;
   glEnable(GL_STENCIL_TEST);
   glStencilMask(0xFF);
-  glStencilFunc(GL_ALWAYS, is_world ? 1 : 0, 0xFF);
+  glStencilFunc(GL_ALWAYS, fam, 0xFF);
   glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
 }
 
@@ -1918,9 +2017,13 @@ void pbr_shadow_proof_post_opaque(SharedRenderState* rs) {
   glDisable(GL_CULL_FACE);
   glDisable(GL_SCISSOR_TEST);
   glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+  // lighting-shadows essai 6 : chaque sonde tourne sur UNE famille (1 tfrag, 2 tie, 3 shrub,
+  // 4 merc) — le triangle SHADOW_PROBE peint (efface) tout ce qui n'est PAS cette famille, la
+  // sonde ne mesure donc plus que les pixels de la famille rotative CETTE image.
+  const int fam = 1 + (int)(sp.probes % 4);
   glEnable(GL_STENCIL_TEST);
   glStencilMask(0x00);
-  glStencilFunc(GL_EQUAL, 0, 0xFF);
+  glStencilFunc(GL_NOTEQUAL, fam, 0xFF);
   glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
 
   glViewport(0, 0, w, h);
@@ -1980,6 +2083,9 @@ void pbr_shadow_proof_post_opaque(SharedRenderState* rs) {
   }
   sp.hit = hit;
   sp.world = world;
+  sp.fam_hit[fam] += hit;
+  sp.fam_world[fam] += world;
+  sp.fam_probes[fam] += 1;
 #ifndef __ANDROID__
   // Mise au point de bureau seulement (env OG_SHADOW_PROBE_DUMP=<fichier.ppm>) : le tampon RELU de la
   // premiere sonde, brut. Ce n'est pas une preuve : c'est ce qui permet de compter a la main ce que
@@ -2018,13 +2124,43 @@ void pbr_shadow_proof_post_opaque(SharedRenderState* rs) {
   if (prev_cull) glEnable(GL_CULL_FACE);
   if (prev_scissor) glEnable(GL_SCISSOR_TEST);
 
-  {  // une sonde toutes les 30 images : on publie chacune
+  {  // une sonde toutes les 30 images : on publie chacune. Depuis essai 6, une sonde ne mesure
+    // plus qu'UNE famille (rotation ci-dessus) : `shadow_actor_px` est desormais celui de la
+    // famille sondee CETTE image, pas la somme des quatre.
     autoport_proof::publish("shadow_actor_px", sp.hit);
     autoport_proof::publish("shadow_probe_world_px", sp.world);
     autoport_proof::publish("shadow_probe_static_px", blue);
     autoport_proof::publish("shadow_probe_disagree_px", cyan);
     autoport_proof::publish("shadow_probes", sp.probes);
     autoport_proof::publish("shadow_probe_gl_error", (uint64_t)sp.last_gl_error);
+    static const char* const kFamNames[5] = {"", "tfrag", "tie", "shrub", "merc"};
+    autoport_proof::publish("shadow_recv_hit_tfrag", sp.fam_hit[1]);
+    autoport_proof::publish("shadow_recv_hit_tie", sp.fam_hit[2]);
+    autoport_proof::publish("shadow_recv_hit_shrub", sp.fam_hit[3]);
+    autoport_proof::publish("shadow_recv_hit_merc", sp.fam_hit[4]);
+    autoport_proof::publish("shadow_recv_world_tfrag", sp.fam_world[1]);
+    autoport_proof::publish("shadow_recv_world_tie", sp.fam_world[2]);
+    autoport_proof::publish("shadow_recv_world_shrub", sp.fam_world[3]);
+    autoport_proof::publish("shadow_recv_world_merc", sp.fam_world[4]);
+    autoport_proof::publish("shadow_recv_probes_tfrag", sp.fam_probes[1]);
+    autoport_proof::publish("shadow_recv_probes_tie", sp.fam_probes[2]);
+    autoport_proof::publish("shadow_recv_probes_shrub", sp.fam_probes[3]);
+    autoport_proof::publish("shadow_recv_probes_merc", sp.fam_probes[4]);
+    u64 families_hit = 0;
+    std::string zero_names;
+    for (int f = 1; f <= 4; f++) {
+      if (sp.fam_hit[f] > 0) {
+        families_hit++;
+      } else if (sp.fam_world[f] > 0) {
+        if (!zero_names.empty()) {
+          zero_names += ",";
+        }
+        zero_names += kFamNames[f];
+      }
+    }
+    autoport_proof::publish("shadow_recv_families_hit", families_hit);
+    autoport_proof::publish_text("shadow_recv_families_zero",
+                                 zero_names.empty() ? "-" : zero_names.c_str());
   }
 }
 
@@ -3094,6 +3230,24 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   }
 #endif
   lgt_3f(id, "u_rt_moon_dir", moon_dir[0], moon_dir[1], moon_dir[2]);
+  // lighting-shadows essai 6 : merc2 n'est pas un des quatre hotes de `first_tfrag_draw_setup` —
+  // ropebridge (village1) est dessine par Merc2, pas par le decor. Il a besoin de la MEME source
+  // de valeurs (u_rt_light_on, u_rt_regime, u_rt_sun_dir, u_rt_moon_dir) sans rejouer tout ce
+  // calcul : instantane pris ICI, au point ou ces quatre grandeurs sont toutes connues pour
+  // l'image courante ; `pbr_push_merc_regime_uniforms` (Merc2.cpp) le repousse tel quel.
+  {
+    auto& mc = pbr_merc_regime_cache();
+    mc.light_on = rt_light_on;
+    mc.sun_dir[0] = light_dir[0]; mc.sun_dir[1] = light_dir[1]; mc.sun_dir[2] = light_dir[2];
+    mc.moon_dir[0] = moon_dir[0]; mc.moon_dir[1] = moon_dir[1]; mc.moon_dir[2] = moon_dir[2];
+    if (rgm.armed) {
+      mc.regime[0] = rgm.direct_w; mc.regime[1] = rgm.penumbra; mc.regime[2] = rgm.spec_w;
+      mc.regime[3] = (float)rgm.dominant;
+    } else {
+      mc.regime[0] = 1.f; mc.regime[1] = 1.f; mc.regime[2] = 1.f; mc.regime[3] = 0.f;
+    }
+    mc.valid = true;
+  }
   lgt_3f(id, "u_rt_moon_color",
               MOON_GREEN[0] * moon_scale, MOON_GREEN[1] * moon_scale, MOON_GREEN[2] * moon_scale);
   lgt_1f(id, "u_rt_shadow_conf", rt_shadow_conf);  // playtest #4 stepless shadow handoff
