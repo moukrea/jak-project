@@ -29,18 +29,9 @@ uniform vec4 u_ocean_origin;  // redeclare par ocean_layer_a.glsl cote vertex ; 
 // sa propre copie serait un miroir.
 uniform int u_footprint;
 
-#ifdef OG_FLIP_PROBE
-layout(location = 0) out vec4 color;
-uniform int u_floor_probe;
-layout(location = 4) out vec4 floor_probe_out;
-#else
 out vec4 color;
-#endif
 
 void main() {
-#ifdef OG_FLIP_PROBE
-  floor_probe_out = vec4(0.0);
-#endif
   // cellule near de 3 m : 12288 unites GOAL
   vec2 cell = (vs_world_xz - u_ocean_origin.xz) * (1.0 / 12288.0);
   ivec2 mi = ivec2(floor(cell));
@@ -91,11 +82,4 @@ void main() {
   // des le mip 2, OceanTexture.cpp:427-431). On fond vers far-color plutot que vers du bruit.
   float far_t = clamp((vs_dist - 163840.0) / 2457600.0, 0.0, 1.0);
   color = vec4(mix(mix(far_rgb, near_rgb, 0.65), far_rgb, far_t) * gain, alpha);
-#ifdef OG_FLIP_PROBE
-  // lighting-flipped-faces-everywhere : aucune normale n'entre dans cet ombrage provisoire.
-  if (u_floor_probe >= 2) {
-    float fc_l = dot(color.rgb, vec3(0.299, 0.587, 0.114));
-    floor_probe_out = vec4(1.0, 1.0, fc_l, 1.0 + 4.0 * float(u_floor_probe));
-  }
-#endif
 }

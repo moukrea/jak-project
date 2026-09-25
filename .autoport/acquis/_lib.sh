@@ -25,8 +25,11 @@ set -uo pipefail
 ACQ_ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
 cd "$ACQ_ROOT" || exit 0
 ACQ_NAME="${ACQ_NAME:-$(basename "${0%.sh}")}"
-ACQ_CACHE=.autoport/reports/_acquis
-ACQ_GK=build/game/gk
+ACQ_CACHE="${ACQ_CACHE:-.autoport/reports/_acquis}"
+ACQ_GK="${ACQ_GK:-build/game/gk}"
+# Ce que le jeu CHARGE et que son sha ne dit pas : CGO/textes, niveaux + compagnons (.meshweld,
+# .lightbake, .grassbake…), assets recharges. Une recuisson change ces octets sans toucher gk.
+ACQ_DATA_DIRS="${ACQ_DATA_DIRS:-out/jak1/iso out/jak1/fr3 custom_assets/jak1}"
 ACQ_TTL="${ACQ_CACHE_TTL:-1800}"
 
 acq_ok(){         printf '[acquis/%s] TENU : %s\n' "$ACQ_NAME" "$*"; exit 0; }
@@ -58,6 +61,17 @@ acq_build_busy(){
   return 1
 }
 
+# acq_data_fp : empreinte du CONTENU des donnees chargees (noms + octets, aucune date). Avant le
+# 25/09 le cache ne regardait que le sha de gk : apres une recuisson des .meshweld, une garde
+# rendait la course d'avant (harness-flipped-faces-acquis-offline). ~2 Go haches sur 8 coeurs.
+acq_data_fp(){
+  local d
+  for d in $ACQ_DATA_DIRS; do
+    [ -d "$d" ] || { printf 'absent %s\n' "$d"; continue; }
+    find "$d" -type f -print0 | xargs -0 -r -n 32 -P 8 sha256sum | LC_ALL=C sort -k2
+  done | sha256sum | cut -c1-16
+}
+
 # acq_x86_log <tag> <timeout_s> [VAR=VALEUR ...]
 # Ecrit le chemin du journal sur stdout et rend 0, ou rend 1 (rien de mesurable).
 acq_x86_log(){
@@ -66,7 +80,7 @@ acq_x86_log(){
   mkdir -p "$ACQ_CACHE" || return 1
   [ -x "$ACQ_GK" ] || return 1
   sha=$(sha256sum "$ACQ_GK" | cut -c1-16)
-  sig="$sha|${ACQ_GK_ARGS:---portable}|$*"
+  sig="$sha|data=$(acq_data_fp)|${ACQ_GK_ARGS:---portable}|$*"
   if [ -s "$log" ] && [ -f "$stamp" ] && [ "$(cat "$stamp")" = "$sig" ]; then
     now=$(date +%s); age=$(( now - $(stat -c %Y "$log" 2>/dev/null || echo 0) ))
     neuf=$(find game common goal_src -type f \( -name '*.cpp' -o -name '*.h' -o -name '*.gc' \) -newer "$log" -print -quit 2>/dev/null)

@@ -1,5 +1,4 @@
 #include "game/graphics/opengl_renderer/soft_draw_census.h"
-#include "game/graphics/opengl_renderer/flip_census.h"
 #include "game/system/pad_replay.h"
 #include "game/graphics/opengl_renderer/background/shrub_contact_probe.h"
 #include "game/system/shrub_proof_inputs.h"
@@ -3945,9 +3944,7 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
     if (!cull_on) {
       if (limit > 0) {
         bind_at(0);
-        flip_census::before_draw(flip_census::GRASS, id, rs->frame_idx, "");
         glDrawArraysInstanced(mode, 0, verts, limit);
-        flip_census::after_draw();
         soft_draw_census::record_arrays("grass", verts, mode, limit);
         prof.add_draw_call();
         prof.add_tri(limit * tris_per);
@@ -3965,9 +3962,7 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
         continue;
       }
       bind_at(r.first);
-      flip_census::before_draw(flip_census::GRASS, id, rs->frame_idx, "");
       glDrawArraysInstanced(mode, 0, verts, cnt);
-      flip_census::after_draw();
       soft_draw_census::record_arrays("grass", verts, mode, cnt);
       prof.add_draw_call();
       prof.add_tri(cnt * tris_per);

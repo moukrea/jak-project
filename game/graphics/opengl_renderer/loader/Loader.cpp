@@ -28,7 +28,6 @@
 #include "common/util/compress.h"
 #include "common/util/rss_census.h"
 #include "game/graphics/opengl_renderer/background/foliage_wind.h"
-#include "game/graphics/opengl_renderer/flip_census.h"
 
 #ifdef __ANDROID__
 #include <malloc.h>
@@ -956,7 +955,6 @@ void Loader::loader_thread() {
           lg::info("[mesh-consolidate] {}", text);
           tfrag3::mesh_audit_append_file(text);
         }
-        flip_census::note_level_asset(result->level_name, from_bake, bake_route_path);
       }
 
       // lighting-bake : la verification du compagnon juge la palette que le rendu lit, donc APRES la

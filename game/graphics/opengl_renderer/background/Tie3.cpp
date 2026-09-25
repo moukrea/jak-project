@@ -1,5 +1,4 @@
 #include "game/graphics/opengl_renderer/soft_draw_census.h"
-#include "game/graphics/opengl_renderer/flip_census.h"
 #include "game/graphics/opengl_renderer/ao_contact_draws.h"
 #include "shrub_contact_measurement.h"
 #include "Tie3.h"
@@ -1615,9 +1614,7 @@ void Tie3::draw_matching_draws_for_tree(int idx,
       lighting_census::note_world_draw(lighting_census::Kind::Tie);
       if (alpha_probe) ao_tie_alpha_probe::before_color_draw(
           render_state->shaders[shader_id].id(), ao_tie_alpha_probe::draw_id(tree.draws, draw_idx));
-      flip_census::before_draw(flip_census::TIE, render_state->shaders[shader_id].id(), render_state->frame_idx, m_level_name);
       glDrawElements(tree.draw_mode, count, GL_UNSIGNED_INT, (void*)(first * sizeof(u32)));
-      flip_census::after_draw();
       contact_record(draw_idx, next, first, count);
       shrub_contact_measurement::draw_elements(m_level_name, geom, idx, render_state->frame_idx, tree.draw_mode, count, GL_UNSIGNED_INT, (void*)(first * sizeof(u32)));
       draw_idx = next;
@@ -1665,10 +1662,8 @@ void Tie3::draw_matching_draws_for_tree(int idx,
       lighting_census::note_world_draw(lighting_census::Kind::Tie);
       if (alpha_probe) ao_tie_alpha_probe::before_color_draw(
           render_state->shaders[shader_id].id(), ao_tie_alpha_probe::draw_id(tree.draws, draw_idx));
-      flip_census::before_draw(flip_census::TIE, render_state->shaders[shader_id].id(), render_state->frame_idx, m_level_name);
       glDrawElements(tree.draw_mode, singledraw_indices.second, GL_UNSIGNED_INT,
                      (void*)(singledraw_indices.first * sizeof(u32)));
-      flip_census::after_draw();
       contact_record(draw_idx, draw_idx + 1, singledraw_indices.first, singledraw_indices.second);
       shrub_contact_measurement::draw_elements(m_level_name, geom, idx, render_state->frame_idx, tree.draw_mode, singledraw_indices.second, GL_UNSIGNED_INT,
                      (void*)(singledraw_indices.first * sizeof(u32)));
@@ -1676,11 +1671,9 @@ void Tie3::draw_matching_draws_for_tree(int idx,
       lighting_census::note_world_draw(lighting_census::Kind::Tie);
       if (alpha_probe) ao_tie_alpha_probe::before_color_draw(
           render_state->shaders[shader_id].id(), ao_tie_alpha_probe::draw_id(tree.draws, draw_idx));
-      flip_census::before_draw(flip_census::TIE, render_state->shaders[shader_id].id(), render_state->frame_idx, m_level_name);
       glMultiDrawElements(
           tree.draw_mode, &tree.multidraw_count_buffer[multidraw_indices.first], GL_UNSIGNED_INT,
           &tree.multidraw_index_offset_buffer[multidraw_indices.first], multidraw_indices.second);
-      flip_census::after_draw();
       for (int contact_i = 0; contact_i < multidraw_indices.second; ++contact_i) {
         const auto contact_slot = multidraw_indices.first + contact_i;
         contact_record(draw_idx, draw_idx + 1,
@@ -1712,10 +1705,8 @@ void Tie3::draw_matching_draws_for_tree(int idx,
           lighting_census::note_world_draw(lighting_census::Kind::Tie);
           if (alpha_probe) ao_tie_alpha_probe::before_color_draw(
               render_state->shaders[shader_id].id(), ao_tie_alpha_probe::draw_id(tree.draws, draw_idx));
-          flip_census::before_draw(flip_census::TIE, render_state->shaders[shader_id].id(), render_state->frame_idx, m_level_name);
           glDrawElements(tree.draw_mode, singledraw_indices.second, GL_UNSIGNED_INT,
                          (void*)(singledraw_indices.first * sizeof(u32)));
-          flip_census::after_draw();
       contact_record(draw_idx, draw_idx + 1, singledraw_indices.first, singledraw_indices.second);
           shrub_contact_measurement::draw_elements(m_level_name, geom, idx, render_state->frame_idx, tree.draw_mode, singledraw_indices.second, GL_UNSIGNED_INT,
                          (void*)(singledraw_indices.first * sizeof(u32)));
@@ -1723,12 +1714,10 @@ void Tie3::draw_matching_draws_for_tree(int idx,
           lighting_census::note_world_draw(lighting_census::Kind::Tie);
           if (alpha_probe) ao_tie_alpha_probe::before_color_draw(
               render_state->shaders[shader_id].id(), ao_tie_alpha_probe::draw_id(tree.draws, draw_idx));
-          flip_census::before_draw(flip_census::TIE, render_state->shaders[shader_id].id(), render_state->frame_idx, m_level_name);
           glMultiDrawElements(tree.draw_mode, &tree.multidraw_count_buffer[multidraw_indices.first],
                               GL_UNSIGNED_INT,
                               &tree.multidraw_index_offset_buffer[multidraw_indices.first],
                               multidraw_indices.second);
-          flip_census::after_draw();
       for (int contact_i = 0; contact_i < multidraw_indices.second; ++contact_i) {
         const auto contact_slot = multidraw_indices.first + contact_i;
         contact_record(draw_idx, draw_idx + 1,
@@ -2637,11 +2626,9 @@ uint64_t Tie3::draw_tree_wind(int idx,
         // Le recensement compte les draws MONDE de la passe couleur : la prepasse n'en est pas
         // une, l'y ajouter changerait le denominateur d'un autre item.
         lighting_census::note_world_draw(lighting_census::Kind::TieWind);
-        flip_census::before_draw(flip_census::TIE_WIND, render_state->shaders[shader_id].id(), render_state->frame_idx, m_level_name);
       }
       glDrawElements(tree.draw_mode, grp.num, GL_UNSIGNED_INT,
                      (void*)((off + tree.wind_vertex_index_offsets.at(draw_idx)) * sizeof(u32)));
-      if (!depth_only) flip_census::after_draw();
       soft_draw_census::record("tie", tree.soft_wind_indices.data(), tree.soft_wind_indices.size(), off + tree.wind_vertex_index_offsets.at(draw_idx), grp.num, tree.draw_mode);
       drawn += (uint64_t)grp.num;
       off += grp.num;
@@ -2668,10 +2655,8 @@ uint64_t Tie3::draw_tree_wind(int idx,
           // depth-mask toggled: cached mode's depth state is now stale.
           draw_state_cache.valid = false;
           lighting_census::note_world_draw(lighting_census::Kind::TieWind);
-          flip_census::before_draw(flip_census::TIE_WIND, render_state->shaders[shader_id].id(), render_state->frame_idx, m_level_name);
           glDrawElements(tree.draw_mode, draw.vertex_index_stream.size(), GL_UNSIGNED_INT,
                          (void*)0);
-          flip_census::after_draw();
           soft_draw_census::record("tie", tree.soft_wind_indices.data(), tree.soft_wind_indices.size(), 0, draw.vertex_index_stream.size(), tree.draw_mode);
           break;
         }

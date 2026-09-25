@@ -756,28 +756,6 @@ void Shader::build(const std::string& shader_name,
     vert_src.insert(version_end + 1, "#define OG_SHRUB_CONTACT_PROBE 1\n");
   }
 
-  // lighting-flipped-faces-everywhere : injection separee, uniquement pendant la tournee de
-  // recensement (OG_FLIP_TOUR=1), dans les shaders des familles suivies (vertex ET fragment).
-  const bool flip_probe = getenv("OG_FLIP_TOUR") && std::string(getenv("OG_FLIP_TOUR")) == "1" &&
-                          (shader_name == "tfrag3" || shader_name == "etie_base" ||
-                           shader_name == "tie_wind" || shader_name == "shrub" ||
-                           shader_name == "grass" || shader_name == "ocean_common" ||
-                           shader_name == "ocean_recharged" || shader_name == "merc2");
-  if (flip_probe) {
-    auto inject_flip_define = [](std::string& src) {
-      if (src.empty()) return;
-      auto v = src.find("#version");
-      auto nl = v == std::string::npos ? std::string::npos : src.find('\n', v);
-      if (nl != std::string::npos) {
-        src.insert(nl + 1, "#define OG_FLIP_PROBE 1\n");
-      } else {
-        src += "\n#define OG_FLIP_PROBE 1\n";
-      }
-    };
-    inject_flip_define(vert_src);
-    inject_flip_define(frag_src);
-  }
-
   const bool grass_probe = autoport_proof::feature_is("shrub-trunk-contact") &&
                            shader_name == "grass";
 

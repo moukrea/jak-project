@@ -18,7 +18,6 @@
 #include "game/graphics/display.h"
 #include "game/graphics/fixed_tick.h"
 #include "game/graphics/gfx.h"
-#include "game/graphics/opengl_renderer/flip_census.h"
 #include "game/graphics/render_pace.h"
 #include "game/graphics/screenshot.h"
 #include "game/graphics/uncap.h"
@@ -296,11 +295,6 @@ u64 CPadGetData(u64 cpad_info) {
   boot_replay_pad_input(cpad);
   pad_replay::on_cpad_read(cpad->number, &cpad->button0, &cpad->leftx,
                            &cpad->lefty, &cpad->rightx, &cpad->righty);
-  // Tournee flip-census : pendant sa fenetre de mesure, force le stick droit a fond pour
-  // balayer la camera sur 360 degres sans intervention manuelle.
-  if (cpad->number == 0 && flip_census::spin_active()) {
-    cpad->rightx = 255;
-  }
   return cpad_info;
 }
 

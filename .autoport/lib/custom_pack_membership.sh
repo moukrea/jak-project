@@ -4,9 +4,9 @@
 # Sourcee par release_verify.sh (qui refuse un pack a membre hors-regle) ET executable seule :
 #   custom_pack_membership.sh --check <F_HUD 0|1> <F_HDMODELS 0|1> <membre>...
 # ecrit une ligne `refus <membre> : <raison>` par membre refuse, puis `refused=<n>`, et rend 0.
-# lighting-flipped-faces-everywhere : le moteur en demande le verdict pour les compagnons
-# <niveau>.meshweld qu'il vient de charger (terme « refus de release_verify » de sa porte), au lieu
-# de recopier la regle et de diverger d'elle.
+# lighting-flipped-faces-everywhere : son recensement HORS LIGNE (et acquis/flipped-faces.sh) en
+# demande le verdict pour les compagnons <niveau>.meshweld du pack, au lieu de recopier la regle et
+# de diverger d'elle. Le moteur ne l'appelle plus (flip_census retire, 25/09).
 
 # custom_pack_member_ok <membre> <F_HUD> <F_HDMODELS> : rend 0 si le membre est permis, sinon
 # ecrit la raison sur stdout et rend 1.

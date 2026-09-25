@@ -1,18 +1,7 @@
 #version 410 core
 
-#ifdef OG_FLIP_PROBE
-layout(location = 0) out vec4 color;
-uniform int u_floor_probe;
-layout(location = 4) out vec4 floor_probe_out;
-#else
 out vec4 color;
-#endif
 in vec4 vtx_color;
-#ifdef OG_FLIP_PROBE
-in vec4 vtx_color_twin;
-in vec3 vtx_nrm_view;
-in vec3 vtx_pos_view;
-#endif
 in vec2 vtx_st;
 in float fog;
 in vec3 vtx_view;
@@ -60,18 +49,6 @@ vec3 rt_safe_dir_merc(vec3 v) {
 }
 
 void main() {
-#ifdef OG_FLIP_PROBE
-  floor_probe_out = vec4(0.0);
-  // lighting-flipped-faces-everywhere essai 3 : SONDE seulement. Le rendu merc est l'eclairage
-  // d'origine, sans retournement (owner 25/09, « pas de repli »).
-  vec3 gN = cross(dFdx(vtx_pos_view), dFdy(vtx_pos_view));
-  float gNl = length(gN);
-  gN = gNl > 1e-12 ? gN / gNl : vec3(0.0, 0.0, 1.0);
-  vec3 Vv = normalize(-vtx_pos_view);
-  if (dot(gN, Vv) < 0.0) gN = -gN;
-  float mf_face = dot(gN, Vv);
-  bool mf_flip = dot(vtx_nrm_view, gN) < 0.0;
-#endif
   vec4 lit = vtx_color;
 
   // lighting-shadows essai 6 : reception de l'atlas d'ombre (voir le commentaire pres des
@@ -127,28 +104,6 @@ void main() {
     discard;
   }
 
-#ifdef OG_FLIP_PROBE
-  // lighting-flipped-faces-everywhere : merc n'a pas de terme d'eclairage recharge (ON == OFF, le
-  // rendu EST l'origine). x = origine / cote VU (L_v) : population « vue de dos », publiee, non jugee.
-  if (u_floor_probe >= 2) {
-    vec3 T = (gfx_hack_no_tex == 0) ? texture(tex_T0, vtx_st).rgb : vec3(0.5);
-    vec4 L_v = mf_flip ? vtx_color_twin : vtx_color;
-    float fc_on;
-    float fc_v;
-    if (decal_enable != 0) {
-      fc_on = rt_luma_merc(T);
-      fc_v = rt_luma_merc(T);
-    } else {
-      fc_on = rt_luma_merc(lit.rgb * T * 2.0);
-      fc_v = rt_luma_merc(L_v.rgb * T * 2.0);
-    }
-    // y = cosinus d'incidence de la FACE (0 = rasante, silhouette ; 1 = de face) : une normale
-    // interpolee qui passe derriere la vue sur une silhouette n'est pas une face a l'envers.
-    floor_probe_out = vec4(fc_on / max(fc_v, 1e-4), mf_face, fc_v,
-                           1.0 + (mf_flip ? 1.0 : 0.0) + 2.0 * (gl_FrontFacing ? 1.0 : 0.0) +
-                               4.0 * float(u_floor_probe));
-  }
-#endif
 
   // lighting-shadows essai 6 : sonde de preuve, meme mecanisme que le decor — magenta/bleu/cyan/vert
   // (voir rt_shadow_proof_color, shadow_atlas.glsl), restreinte aux draws qui recoivent l'atlas.

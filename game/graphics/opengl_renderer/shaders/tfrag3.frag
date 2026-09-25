@@ -35,7 +35,6 @@ void main() {
 #ifdef OG_PBR
   hut_color_sample = vec4(0.0);
   hut_color_normal = vec4(0.0);
-  floor_probe_out = vec4(0.0);
 #endif
   float tie_raw_alpha = 1.0;
   if (gfx_hack_no_tex == 0) {

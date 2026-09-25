@@ -1,7 +1,5 @@
 #include "game/graphics/opengl_renderer/soft_draw_census.h"
 #include "game/graphics/opengl_renderer/ao_tie_alpha_probe.h"
-#include "game/graphics/opengl_renderer/floor_probe.h"
-#include "game/graphics/opengl_renderer/flip_census.h"
 #include "game/graphics/opengl_renderer/ao_contact_draws.h"
 #include "TFragment.h"
 #include "game/system/recharged_gating.h"
@@ -1081,11 +1079,7 @@ void TFragment::render_tree(int geom,
       lighting_census::note_world_draw(lighting_census::Kind::Tfrag);
       if (contact_alpha_probe) ao_tie_alpha_probe::before_color_draw(
           render_state->shaders[ShaderId::TFRAG3].id(), ao_tie_alpha_probe::draw_id(tree.draws, draw_idx));
-      floor_probe::before_tfrag_draw(render_state->shaders[ShaderId::TFRAG3].id(), render_state->frame_idx, m_level_name);
-      flip_census::before_draw(flip_census::TFRAG, render_state->shaders[ShaderId::TFRAG3].id(), render_state->frame_idx, m_level_name);
       glDrawElements(tree.draw_mode, count, GL_UNSIGNED_INT, (void*)(first * sizeof(u32)));
-      flip_census::after_draw();
-      floor_probe::after_tfrag_draw();
       contact_record(draw_idx, next, first, count);
 
       if (double_draw.kind == DoubleDrawKind::AFAIL_NO_DEPTH_WRITE) {
@@ -1098,11 +1092,7 @@ void TFragment::render_tree(int geom,
         lighting_census::note_world_draw(lighting_census::Kind::Tfrag);
         if (contact_alpha_probe) ao_tie_alpha_probe::before_color_draw(
           render_state->shaders[ShaderId::TFRAG3].id(), ao_tie_alpha_probe::draw_id(tree.draws, draw_idx));
-        floor_probe::before_tfrag_draw(render_state->shaders[ShaderId::TFRAG3].id(), render_state->frame_idx, m_level_name);
-        flip_census::before_draw(flip_census::TFRAG, render_state->shaders[ShaderId::TFRAG3].id(), render_state->frame_idx, m_level_name);
         glDrawElements(tree.draw_mode, count, GL_UNSIGNED_INT, (void*)(first * sizeof(u32)));
-        flip_census::after_draw();
-        floor_probe::after_tfrag_draw();
       contact_record(draw_idx, next, first, count);
       }
       draw_idx = next;
@@ -1145,25 +1135,17 @@ void TFragment::render_tree(int geom,
       lighting_census::note_world_draw(lighting_census::Kind::Tfrag);
       if (contact_alpha_probe) ao_tie_alpha_probe::before_color_draw(
           render_state->shaders[ShaderId::TFRAG3].id(), ao_tie_alpha_probe::draw_id(tree.draws, draw_idx));
-      floor_probe::before_tfrag_draw(render_state->shaders[ShaderId::TFRAG3].id(), render_state->frame_idx, m_level_name);
-      flip_census::before_draw(flip_census::TFRAG, render_state->shaders[ShaderId::TFRAG3].id(), render_state->frame_idx, m_level_name);
       glDrawElements(tree.draw_mode, singledraw_indices.second, GL_UNSIGNED_INT,
                      (void*)(singledraw_indices.first * sizeof(u32)));
-      flip_census::after_draw();
-      floor_probe::after_tfrag_draw();
       contact_record(draw_idx, draw_idx + 1, singledraw_indices.first, singledraw_indices.second);
     } else {
       lighting_census::note_world_draw(lighting_census::Kind::Tfrag);
       if (contact_alpha_probe) ao_tie_alpha_probe::before_color_draw(
           render_state->shaders[ShaderId::TFRAG3].id(), ao_tie_alpha_probe::draw_id(tree.draws, draw_idx));
-      floor_probe::before_tfrag_draw(render_state->shaders[ShaderId::TFRAG3].id(), render_state->frame_idx, m_level_name);
-      flip_census::before_draw(flip_census::TFRAG, render_state->shaders[ShaderId::TFRAG3].id(), render_state->frame_idx, m_level_name);
       glMultiDrawElements(tree.draw_mode, &m_cache.multidraw_count_buffer[multidraw_indices.first],
                           GL_UNSIGNED_INT,
                           &m_cache.multidraw_index_offset_buffer[multidraw_indices.first],
                           multidraw_indices.second);
-      flip_census::after_draw();
-      floor_probe::after_tfrag_draw();
       for (int contact_i = 0; contact_i < multidraw_indices.second; ++contact_i) {
         const auto contact_slot = multidraw_indices.first + contact_i;
         contact_record(draw_idx, draw_idx + 1,
@@ -1191,25 +1173,17 @@ void TFragment::render_tree(int geom,
           lighting_census::note_world_draw(lighting_census::Kind::Tfrag);
           if (contact_alpha_probe) ao_tie_alpha_probe::before_color_draw(
           render_state->shaders[ShaderId::TFRAG3].id(), ao_tie_alpha_probe::draw_id(tree.draws, draw_idx));
-          floor_probe::before_tfrag_draw(render_state->shaders[ShaderId::TFRAG3].id(), render_state->frame_idx, m_level_name);
-          flip_census::before_draw(flip_census::TFRAG, render_state->shaders[ShaderId::TFRAG3].id(), render_state->frame_idx, m_level_name);
           glDrawElements(tree.draw_mode, singledraw_indices.second, GL_UNSIGNED_INT,
                          (void*)(singledraw_indices.first * sizeof(u32)));
-          flip_census::after_draw();
-          floor_probe::after_tfrag_draw();
       contact_record(draw_idx, draw_idx + 1, singledraw_indices.first, singledraw_indices.second);
         } else {
           lighting_census::note_world_draw(lighting_census::Kind::Tfrag);
           if (contact_alpha_probe) ao_tie_alpha_probe::before_color_draw(
           render_state->shaders[ShaderId::TFRAG3].id(), ao_tie_alpha_probe::draw_id(tree.draws, draw_idx));
-          floor_probe::before_tfrag_draw(render_state->shaders[ShaderId::TFRAG3].id(), render_state->frame_idx, m_level_name);
-          flip_census::before_draw(flip_census::TFRAG, render_state->shaders[ShaderId::TFRAG3].id(), render_state->frame_idx, m_level_name);
           glMultiDrawElements(
               tree.draw_mode, &m_cache.multidraw_count_buffer[multidraw_indices.first],
               GL_UNSIGNED_INT, &m_cache.multidraw_index_offset_buffer[multidraw_indices.first],
               multidraw_indices.second);
-          flip_census::after_draw();
-          floor_probe::after_tfrag_draw();
       for (int contact_i = 0; contact_i < multidraw_indices.second; ++contact_i) {
         const auto contact_slot = multidraw_indices.first + contact_i;
         contact_record(draw_idx, draw_idx + 1,

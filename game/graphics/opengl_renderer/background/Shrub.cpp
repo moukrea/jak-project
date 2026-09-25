@@ -1,5 +1,4 @@
 #include "game/graphics/opengl_renderer/soft_draw_census.h"
-#include "game/graphics/opengl_renderer/flip_census.h"
 #include "game/system/shrub_proof_inputs.h"
 #include "shrub_contact_measurement.h"
 #include "Shrub.h"
@@ -1144,9 +1143,7 @@ void Shrub::render_tree(int idx,
       draws_prof.add_draw_call();
       draws_prof.add_tri(run_tris);
       lighting_census::note_world_draw(lighting_census::Kind::Shrub);
-      flip_census::before_draw(flip_census::SHRUB, render_state->shaders[ShaderId::SHRUB].id(), render_state->frame_idx, m_level_name);
       glDrawElements(GL_TRIANGLE_STRIP, count, GL_UNSIGNED_INT, (void*)(first * sizeof(u32)));
-      flip_census::after_draw();
       soft_record(first, count);
       shrub_contact_measurement::draw_elements(m_level_name, -1, idx, render_state->frame_idx, GL_TRIANGLE_STRIP, count, GL_UNSIGNED_INT, (void*)(first * sizeof(u32)));
 
@@ -1159,9 +1156,7 @@ void Shrub::render_tree(int idx,
         // depth-mask toggled: cached mode's depth state is now stale.
         draw_state_cache.valid = false;
         lighting_census::note_world_draw(lighting_census::Kind::Shrub);
-        flip_census::before_draw(flip_census::SHRUB, render_state->shaders[ShaderId::SHRUB].id(), render_state->frame_idx, m_level_name);
         glDrawElements(GL_TRIANGLE_STRIP, count, GL_UNSIGNED_INT, (void*)(first * sizeof(u32)));
-        flip_census::after_draw();
         soft_record(first, count);
         shrub_contact_measurement::draw_elements(m_level_name, -1, idx, render_state->frame_idx, GL_TRIANGLE_STRIP, count, GL_UNSIGNED_INT, (void*)(first * sizeof(u32)));
       }
@@ -1209,21 +1204,17 @@ void Shrub::render_tree(int idx,
 
     if (render_state->no_multidraw) {
       lighting_census::note_world_draw(lighting_census::Kind::Shrub);
-      flip_census::before_draw(flip_census::SHRUB, render_state->shaders[ShaderId::SHRUB].id(), render_state->frame_idx, m_level_name);
       glDrawElements(GL_TRIANGLE_STRIP, singledraw_indices.second, GL_UNSIGNED_INT,
                      (void*)(singledraw_indices.first * sizeof(u32)));
-      flip_census::after_draw();
       soft_record(singledraw_indices.first, singledraw_indices.second);
       shrub_contact_measurement::draw_elements(m_level_name, -1, idx, render_state->frame_idx, GL_TRIANGLE_STRIP, singledraw_indices.second, GL_UNSIGNED_INT,
                      (void*)(singledraw_indices.first * sizeof(u32)));
     } else {
       lighting_census::note_world_draw(lighting_census::Kind::Shrub);
-      flip_census::before_draw(flip_census::SHRUB, render_state->shaders[ShaderId::SHRUB].id(), render_state->frame_idx, m_level_name);
       glMultiDrawElements(GL_TRIANGLE_STRIP,
                           &m_cache.multidraw_count_buffer[multidraw_indices.first], GL_UNSIGNED_INT,
                           &m_cache.multidraw_index_offset_buffer[multidraw_indices.first],
                           multidraw_indices.second);
-      flip_census::after_draw();
           if (soft_draw_census::active()) for (int mdi = 0; mdi < multidraw_indices.second; ++mdi) {
             const auto mi = multidraw_indices.first + mdi;
             soft_record((uintptr_t)m_cache.multidraw_index_offset_buffer[mi] / sizeof(u32), m_cache.multidraw_count_buffer[mi]);
@@ -1252,21 +1243,17 @@ void Shrub::render_tree(int idx,
         draw_state_cache.valid = false;
         if (render_state->no_multidraw) {
           lighting_census::note_world_draw(lighting_census::Kind::Shrub);
-          flip_census::before_draw(flip_census::SHRUB, render_state->shaders[ShaderId::SHRUB].id(), render_state->frame_idx, m_level_name);
           glDrawElements(GL_TRIANGLE_STRIP, singledraw_indices.second, GL_UNSIGNED_INT,
                          (void*)(singledraw_indices.first * sizeof(u32)));
-          flip_census::after_draw();
           soft_record(singledraw_indices.first, singledraw_indices.second);
           shrub_contact_measurement::draw_elements(m_level_name, -1, idx, render_state->frame_idx, GL_TRIANGLE_STRIP, singledraw_indices.second, GL_UNSIGNED_INT,
                          (void*)(singledraw_indices.first * sizeof(u32)));
         } else {
           lighting_census::note_world_draw(lighting_census::Kind::Shrub);
-          flip_census::before_draw(flip_census::SHRUB, render_state->shaders[ShaderId::SHRUB].id(), render_state->frame_idx, m_level_name);
           glMultiDrawElements(
               GL_TRIANGLE_STRIP, &m_cache.multidraw_count_buffer[multidraw_indices.first],
               GL_UNSIGNED_INT, &m_cache.multidraw_index_offset_buffer[multidraw_indices.first],
               multidraw_indices.second);
-          flip_census::after_draw();
           if (soft_draw_census::active()) for (int mdi = 0; mdi < multidraw_indices.second; ++mdi) {
             const auto mi = multidraw_indices.first + mdi;
             soft_record((uintptr_t)m_cache.multidraw_index_offset_buffer[mi] / sizeof(u32), m_cache.multidraw_count_buffer[mi]);

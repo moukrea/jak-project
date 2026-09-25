@@ -33,9 +33,13 @@ T=$(mktemp -d "$TMPDIR/flipped-asset.XXXXXX") || exit 1
 trap 'rm -rf "$T"' EXIT
 die(){ printf 'census lighting-flipped-faces-everywhere: %s\n' "$*" >&2; exit 1; }
 
-PACK="$ROOT/android/app/src/jak1/assets-slim/bundle/jak1_custom.zip"
+# Surcharges (acquis/flipped-faces.sh et ses controles) : un autre pack, un autre dossier de
+# shaders, un seul niveau. Sans elles, c'est le pack livre, les shaders du depot, tous les niveaux.
+PACK="${FLIP_PACK:-$ROOT/android/app/src/jak1/assets-slim/bundle/jak1_custom.zip}"
 FR3="$ROOT/out/jak1/fr3"
-SHADERS="$ROOT/game/graphics/opengl_renderer/shaders"
+SHADERS="${FLIP_SHADERS:-$ROOT/game/graphics/opengl_renderer/shaders}"
+LEVEL_ARGS=()
+[ -n "${FLIP_LEVEL:-}" ] && LEVEL_ARGS=(--level "$FLIP_LEVEL")
 [ -f "$PACK" ] || die "pack recharge absent : $PACK (bash android/build_custom_pack.sh jak1)"
 [ -d "$FR3" ] || die "$FR3 absent (niveaux extraits de l'ISO)"
 
@@ -70,7 +74,7 @@ for m in "${MW[@]}"; do
 done
 
 # --- 3. relecture hors ligne : .fr3 d'origine + compagnon du pack
-"$BIN" --fr3-dir "$FR3" --check-orient "$T/pack/fr3" > "$T/check.txt" 2>&1 \
+"$BIN" --fr3-dir "$FR3" "${LEVEL_ARGS[@]}" --check-orient "$T/pack/fr3" > "$T/check.txt" 2>&1 \
   || die "mesh_audit --check-orient a rendu $? : $(tail -3 "$T/check.txt")"
 TOT=$(grep -a '^CHECK-ORIENT-TOTAL ' "$T/check.txt" | tail -1)
 [ -n "$TOT" ] || die "pas de ligne CHECK-ORIENT-TOTAL : $(tail -3 "$T/check.txt")"

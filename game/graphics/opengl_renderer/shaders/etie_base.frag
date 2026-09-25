@@ -1,10 +1,6 @@
 #version 410 core
 
-#ifdef OG_FLIP_PROBE
-layout(location = 0) out vec4 color;
-#else
 out vec4 color;
-#endif
 
 in vec4 fragment_color;
 in vec3 tex_coord;
@@ -17,7 +13,7 @@ uniform float alpha_max;
 
 uniform int gfx_hack_no_tex;
 
-#if defined(OG_PBR) || defined(OG_FLIP_PROBE)
+#ifdef OG_PBR
 // Grecharged-realtime-lighting round-3 (defect A/B): the SAME sun-only N.L path
 // tfrag3.frag uses, replicated so envmap-tie base / wind-tie / shrub are sun-lit
 // EVERYWHERE (not only inside the shadow zone) and receive the cast shadow. All
@@ -34,9 +30,6 @@ in vec3 v_normal;
 
 
 void main() {
-#ifdef OG_FLIP_PROBE
-  floor_probe_out = vec4(0.0);
-#endif
   if (gfx_hack_no_tex == 0) {
     //vec4 T0 = texture(tex_T0, tex_coord);
     vec4 T0 = texture(tex_T0, tex_coord.xy);
