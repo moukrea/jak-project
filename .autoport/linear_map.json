@@ -36,7 +36,7 @@
    "url": "https://linear.app/moukrea/document/e1fe9500339a"
   }
  },
- "_gen": 627,
+ "_gen": 631,
  "_ids": {
   "labels": {
    "ok": "000e105b-24ba-4fa3-a579-bc3bf0869242",
@@ -620,12 +620,13 @@
   "url": "https://linear.app/moukrea/issue/JAK-276/restes-des-acquis-un-acquis-coupe-ne-laisse-plus-dorphelin-et-tous-les"
  },
  "harness-api-auth-outage-pauses-not-blocks": {
-  "hash": "139c1423d07e2c4390841ca5a3f964dba6648a2d",
+  "hash": "5a35a10c0c5a984d938ab6a4774336bfde1e641b",
   "identifier": "JAK-286",
   "issue_id": "4fa33f6e-7fcb-4ed4-bd79-f793e87cbe6e",
-  "last_state": "In Progress",
+  "last_state": "Done",
   "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-25T13:21:41.000Z",
+  "state_at": "2026-09-25T13:42:08.733Z",
   "url": "https://linear.app/moukrea/issue/JAK-286/une-panne-dauthentification-de-lapi-met-lorchestrateur-en-pause-au"
  },
  "harness-archive-and-status-write-leftovers": {
@@ -1711,16 +1712,16 @@
   "url": "https://linear.app/moukrea/issue/JAK-90/les-reglages-declairage-de-lancien-monde-ne-cohabitent-plus-avec-la"
  },
  "lighting-local-lights": {
-  "hash": "e3875be5bab41fd319ac87333f5bd6b1f12504b2",
+  "hash": "9ad0fcc004775b681cebf97b0074dd58a5033501",
   "identifier": "JAK-52",
   "issue_id": "e4cfe312-46c3-45fb-a3ce-f4f65ca6ef0b",
-  "last_state": "Todo",
-  "last_verdict_announced": "validator-002.txt",
+  "last_state": "In Progress",
+  "last_verdict_announced": "validator-004.txt",
   "pulled_at": "2026-09-17T05:36:55.000Z",
   "relations": [
    "lighting-regimes"
   ],
-  "state_at": "2026-09-25T13:21:17.169Z",
+  "state_at": "2026-09-25T13:42:07.854Z",
   "url": "https://linear.app/moukrea/issue/JAK-52/les-lampes-torches-et-laves-eclairent-enfin"
  },
  "lighting-materials": {
