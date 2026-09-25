@@ -26,6 +26,7 @@
 #include "game/graphics/opengl_renderer/hdr_output.h"
 #include "game/graphics/opengl_renderer/AmbientOcclusion.h"
 #include "game/graphics/opengl_renderer/PrePass.h"
+#include "game/graphics/opengl_renderer/ClusterGrid.h"
 #include "game/graphics/opengl_renderer/background/background_common.h"
 #include "game/graphics/opengl_renderer/frame_ubo.h"
 #include "game/graphics/opengl_renderer/gl_uniform_cache.h"
@@ -2080,6 +2081,7 @@ void AndroidOpenGLRenderer::dispatch_buckets_jak1(DmaFollower dma, ScopedProfile
       prepass::proof_post_opaque(&m_render_state);
 #ifdef OG_FEAT_PBR
       pbr_shadow_proof_post_opaque(&m_render_state);
+      cluster_grid::proof_post_opaque(&m_render_state);  // lighting-local-lights
 #endif
     }
 
