@@ -6016,7 +6016,7 @@ items:
   delivered: '2026-09-25'
 - id: lighting-shadows
   feature: Deux astres, deux jeux d'ombres, et les acteurs qui en projettent
-  status: open
+  status: in-progress
   priority: 28
   owner_feedback:
   - date: '2026-09-03'
@@ -6089,6 +6089,23 @@ items:
       source: supervisor
       at: '2026-09-24T23:45:05+00:00'
       by: autoport feedback
+  - date: '2026-09-25'
+    text: '"Capture impossible : la capture d''écran est refusée par le garde-fou du harnais" c''est débile,
+      certes je préfères vérifier l''aspect visuel moi même, mais tu devrais pouvoir prendre des captures,
+      surtout si c''est pour les joindre à la conversation sur Linear !'
+    via:
+      comment: d5f5128e-1c35-4f4e-9d0d-c2fc7509ff32
+      ticket: 923462dc-521a-4c79-ba5f-2e2e8cc4c758
+      at: '2026-09-25T08:44:30.482Z'
+  - date: '2026-09-25'
+    text: ça peut servir de mesure dans certains cas… faut pas non plus être débile. Mais je veux pas
+      que ça parte dans des mesures visuelles complexes à fumer X millions tokens et prendre 4h de capture
+      (j'exaggère) pour du faux vert ou du faux rouge alors que ça me prendrait 5 minutes de vérifier
+      moi même ! Deux poids deux mesures !
+    via:
+      comment: 5c85d397-a493-4754-84ee-a46265c0e72d
+      ticket: 923462dc-521a-4c79-ba5f-2e2e8cc4c758
+      at: '2026-09-25T08:55:41.339Z'
   gate:
     key: shadow_caster_classes
     op: ==
@@ -20494,7 +20511,7 @@ items:
 - id: harness-owner-thumbs-up-closes-the-thread
   feature: 'Un pouce de l''owner sur le dernier message du harnais clot la discussion du ticket : plus
     aucune etiquette « A traiter », « A lire » ni « En discussion » n''y reste'
-  status: in-progress
+  status: validated
   priority: 19
   code_scope: harnais
   device: false
@@ -20559,11 +20576,11 @@ items:
   no_code: true
   gate_verdict:
     result: porte-tenue
-    date: '2026-09-23'
-    proof_sha: 1ca1c55de1f0c4a4
-    proof_bytes: 75079
-    attempt: 1
-    journal: validator-001.txt
+    date: '2026-09-25'
+    proof_sha: 19b5f5ec6a333e7a
+    proof_bytes: 79026
+    attempt: 4
+    journal: validator-004.txt
 - id: harness-owner-feedback-write-never-loses-a-return
   feature: Deux ecritures simultanees d'un retour de l'owner (synchro Linear et superviseur) ne perdent
     jamais l'une des deux
@@ -22735,7 +22752,7 @@ items:
   feature: Le garde-fou des faces a l'envers relit les assets hors ligne, et le moteur ne porte plus d'instrumentation
     de ce sujet
   status: open
-  priority: 124
+  priority: 19
   code_scope: harnais
   device: false
   owner_test: false
@@ -22753,7 +22770,13 @@ items:
     defects si c''est un truc qu''on fait sur les assets ») ; (2) `game/graphics/opengl_renderer/flip_census.cpp`
     + `floor_probe.cpp` restent compiles dans gk ; (3) `.autoport/acquis/_lib.sh:62-73` (acq_x86_log)
     cache une garde x86 sur le sha de gk + arguments, jamais sur les DONNEES chargees (fr3/*.meshweld,
-    pack) : apres une recuisson, la garde rend un resultat perime.'
+    pack) : apres une recuisson, la garde rend un resultat perime.
+
+
+    URGENT 25/09 : l''ancien acquis/flipped-faces.sh etait rouge par construction et bloquait la fermeture
+    de TOUS les items ; le superviseur l''a retire dans .autoport/acquis-retired/. Ce chantier doit en
+    livrer un remplacant HORS LIGNE qui soit VERT sur l''etat actuel (assets corriges, aucun retournement
+    shader) et ne juge que les donnees, pas le rendu des surfaces minces vues de dos.'
   deliverable: '1. acquis/flipped-faces.sh relit les fichiers corriges du pack HORS LIGNE (tools/mesh_audit
     --check-orient) + grep des shaders ; plus aucune course du jeu.
 
@@ -22764,3 +22787,57 @@ items:
     4. `flipped_acquis_leftovers` ; doit valoir 0.
 
     CONTROLE POSITIF + CONTROLE NEGATIF.'
+- id: owner-crashes-rgressions
+  status: open
+  game: jak1
+  priority: 999
+  feature: Crashes, régressions
+  gate: null
+  depends_on: []
+  device: false
+  owner_test: true
+  owner_ok: null
+  code_scope: a-cadrer
+  max_turns: 600
+  max_retries: 6
+  proof_timeout: 420
+  no_code: true
+  known_cause: 'Ticket cree par l''owner dans Linear le 2026-09-25. Son texte : J''ai remarqué, et c''est
+    dur d''identifier depuis quand car depuis fin juillet j''ai fini mon playthrough et je joue très léger
+    pour tester… Que beaucoup de niveaux provoquent des crashes. Je pense, vu qu''on peut se TP à tous
+    les endroits du jeux, qu''on devrait faire une GROSSE passe à se TP à tous les endroits possibles,
+    faire spin la caméra autour du joueur (360) et avancer à l''aveugle pour détecter si ça crash (attention,
+    la mort n''est pas un crash donc si ça tombe dans le vide/lave/un ennemi nous tue, ne pas compter
+    comme un échec). Il faudrait faire ça dans absolument tous les endroits où on peut se téléporter,
+    et crééer potentiellement un ticket par endroits de crash. Les crash se produisent sur téléphone avec
+    tous les réglages rechargés activés.
+
+    Un qui je pense est une régression parce qu''on l''avait déjà rencontré et corrigé, c''est sur les
+    marécages, on TP au start, on avance un peu et ça crash… On avait passé du temps au début du projet
+    sur ce crash, et je pense que le fix était un workaround qui a impacté les perfs, on l''a peut-être
+    fait sauté en faisant des optimisations (pas grave, faut vraiment fixer plutôt que ralantir le jeux
+    en faisant des trucs bizzares pour contourner le problème)
+
+
+    À terme, ça devrait limite être automatisé comme non-reg à run sur PC et téléphone (téléphone mandatory
+    UNIQUEMENT si accessible).
+
+
+    D''ailleurs sur PC je sais pas si t''es au courrant mais tu fais les tests en 21:9 avec un scaling
+    chelou (genre resolution X, dynamic render scale on/off ou render scale à X%) c''est tout moche et
+    pixelisé.. Tu devrais jouer en 16;9 avec la res à 100% de la taille de la fenêtre ça serait plus clean
+    ! Et sur le Redmi, tu joue en 4:3 avec pas avec tous les réglages rechargés activés (je pense) et
+    pareil un scaling chelou, OK pour ne pas faire du full res parce que le redmi est weak, mais pas non
+    plus super low res au point ou des mesures éventuelles (même si je préfère que tu utilise pas tes
+    capacités de vision) soient pas complètement pétés à cause d''une pixelisation extrême.  Et forcément
+    à l''aspect ratio natif du device !
+
+
+    Bon il y a beaucoup là, et tout est assez urgent, tu peux étudier le truc et split en plusieurs sujets
+    en gardant celui-ci comme parent par example.'
+  notes: 'A CADRER : porte, livrable et perimetre a ecrire par le superviseur avant tout essai.'
+  where: ''
+  deliverable: ''
+  out_of_scope: ''
+  spec: null
+  linear_issue: 9a657f0f-0a44-4bdf-96ac-67db193c3ff1

@@ -7,6 +7,8 @@
 Signale par le worker de lighting-flipped-faces-everywhere, non corrige ; ouvert sous la delegation de l'owner pour les signalements de harnais.
 (1) `.autoport/acquis/flipped-faces.sh` s'appuie sur l'instrumentation MOTEUR (flip_census) : CONFLIT avec l'ordre de l'owner du 25/09 (« Pourquoi le moteur devrait porter le truc des flipped faces defects si c'est un truc qu'on fait sur les assets ») ; (2) `game/graphics/opengl_renderer/flip_census.cpp` + `floor_probe.cpp` restent compiles dans gk ; (3) `.autoport/acquis/_lib.sh:62-73` (acq_x86_log) cache une garde x86 sur le sha de gk + arguments, jamais sur les DONNEES chargees (fr3/*.meshweld, pack) : apres une recuisson, la garde rend un resultat perime.
 
+URGENT 25/09 : l'ancien acquis/flipped-faces.sh etait rouge par construction et bloquait la fermeture de TOUS les items ; le superviseur l'a retire dans .autoport/acquis-retired/. Ce chantier doit en livrer un remplacant HORS LIGNE qui soit VERT sur l'etat actuel (assets corriges, aucun retournement shader) et ne juge que les donnees, pas le rendu des surfaces minces vues de dos.
+
 ## Livrable
 1. acquis/flipped-faces.sh relit les fichiers corriges du pack HORS LIGNE (tools/mesh_audit --check-orient) + grep des shaders ; plus aucune course du jeu.
 2. Retirer flip_census.cpp / floor_probe.cpp de gk (et des deux CMakeLists) si plus rien ne les lit.
