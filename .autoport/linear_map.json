@@ -36,7 +36,7 @@
    "url": "https://linear.app/moukrea/document/e1fe9500339a"
   }
  },
- "_gen": 511,
+ "_gen": 515,
  "_ids": {
   "labels": {
    "ok": "000e105b-24ba-4fa3-a579-bc3bf0869242",
@@ -1083,13 +1083,13 @@
   "url": "https://linear.app/moukrea/issue/JAK-189/un-chantier-visible-ne-part-au-test-de-lowner-que-si-son-ticket-porte"
  },
  "harness-owner-thumbs-up-closes-the-thread": {
-  "hash": "9bc2dee0afe4c9a4b068b7859fff16ecc7c917cc",
+  "hash": "ca13f6e2004ce4bd614df94cfbec756b8eea565e",
   "identifier": "JAK-245",
   "issue_id": "284ef4eb-a1e8-44e5-b0ef-64d2ce29fdd6",
-  "last_state": "Todo",
-  "last_verdict_announced": "validator-001.txt",
+  "last_state": "In Progress",
+  "last_verdict_announced": "validator-002.txt",
   "pulled_at": "2026-09-23T01:41:24.000Z",
-  "state_at": "2026-09-25T05:33:59.265Z",
+  "state_at": "2026-09-25T07:53:23.175Z",
   "url": "https://linear.app/moukrea/issue/JAK-245/un-pouce-de-lowner-sur-le-dernier-message-du-harnais-clot-la"
  },
  "harness-pack-manifest-is-a-build-artefact": {
@@ -1607,13 +1607,13 @@
   "url": "https://linear.app/moukrea/issue/JAK-46/fiabiliser-les-comparaisons-onoff-pour-corriger-les-blancs-hdr"
  },
  "lighting-flipped-faces-everywhere": {
-  "hash": "a2f07fa72f66811cb4066d81af70d000796f2a41",
+  "hash": "72890a3711bfec0f42a3fa3914cd191024417283",
   "identifier": "JAK-279",
   "issue_id": "a6c7bbd7-f461-4af9-8e7c-d653a2ed6979",
-  "last_state": "In Progress",
+  "last_state": "Done",
   "last_verdict_announced": "validator-007.txt",
   "pulled_at": "2026-09-25T05:33:44.243Z",
-  "state_at": "2026-09-25T06:34:16.205Z",
+  "state_at": "2026-09-25T07:53:24.496Z",
   "url": "https://linear.app/moukrea/issue/JAK-279/aucune-surface-a-lenvers-ne-tombe-au-noir-dans-aucun-niveau-ni-aucune"
  },
  "lighting-interiors": {
