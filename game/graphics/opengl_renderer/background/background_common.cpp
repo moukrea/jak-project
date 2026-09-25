@@ -3289,6 +3289,25 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
       autoport_proof::publish("regime_bake_lgt_x1000", (u64)std::lround(l_l * 1000.f));
       autoport_proof::publish("regime_bake_valid", valid ? 1 : 0);
       autoport_proof::publish("regime_amb_contrast_x1000", (u64)std::lround(regime::kAmbContrast * 1000.f));
+      // lighting-shadows essai 10 : part du cuit qu'une ombre portee PEUT retirer sur un sol plat
+      // (normale vers le haut, texel assez clair pour atteindre le plafond f_cap de shade.glsl), pour
+      // chaque astre, avec les memes poids que le shader. Sol a l'ombre / sol eclaire ~ 1 - part.
+      // C'est une borne calculee sur les uniformes, pas un pixel mesure.
+      {
+        const float amb = std::max(a_l, 0.f), lg = std::max(l_l, 0.f);
+        auto cap = [&](float ndl) {
+          const float d = lg * std::max(ndl, 0.f);
+          return d / std::max(amb + d, 1e-4f);
+        };
+        const float w_y = std::min(std::max(rt_sun_elev, 0.f), 1.f);
+        const float w_md = std::min(std::max(green_elev * (rgm.armed ? rgm.sun_fade : 1.f), 0.f), 1.f) *
+                           (1.f - w_y);
+        autoport_proof::publish("shadow_sun_removable_x1000",
+                                (u64)std::lround(1000.f * (valid ? w_y * cap(light_dir[1]) : 0.f)));
+        autoport_proof::publish("shadow_moon_removable_x1000",
+                                (u64)std::lround(1000.f * (valid ? w_md * cap(moon_dir[1]) : 0.f)));
+        autoport_proof::publish("shadow_moon_w_x1000", (u64)std::lround(1000.f * w_md));
+      }
     }
   }
 #ifdef __ANDROID__
