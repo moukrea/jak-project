@@ -36,7 +36,7 @@
    "url": "https://linear.app/moukrea/document/e1fe9500339a"
   }
  },
- "_gen": 652,
+ "_gen": 658,
  "_ids": {
   "labels": {
    "ok": "000e105b-24ba-4fa3-a579-bc3bf0869242",
@@ -1221,6 +1221,14 @@
   "pulled_at": "2026-09-17T05:37:08.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-106/un-fichier-a-moitie-ecrit-ne-tue-plus-la-boucle-du-harnais"
  },
+ "harness-rt-light-leftovers": {
+  "hash": "f27e497dc10223a2bbbfa672b8b89f1402cb3fb9",
+  "identifier": "JAK-289",
+  "issue_id": "7d705fc0-4071-4f55-bb78-eadc0133de97",
+  "last_state": "Todo",
+  "pulled_at": "2026-09-25T17:08:06.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-289/plus-aucune-trace-de-rt-light-dans-le-harnais-proprietes-de-preuve"
+ },
  "harness-secret-guards-hardening": {
   "hash": "ba102df9fc5fe000f5ef3353c500ba0d1195fe13",
   "identifier": "JAK-254",
@@ -1711,6 +1719,14 @@
   "pulled_at": "2026-09-17T05:37:02.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-90/les-reglages-declairage-de-lancien-monde-ne-cohabitent-plus-avec-la"
  },
+ "lighting-local-light-shadows": {
+  "hash": "88919fd8ae5a9cd10b751954640989dfe13d8f95",
+  "identifier": "JAK-288",
+  "issue_id": "32408c9b-1969-402f-a1ba-e8244b62ff55",
+  "last_state": "Backlog",
+  "pulled_at": "2026-09-25T16:37:46.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-288/les-lampes-et-torches-projettent-des-ombres-jak-devant-une-lampe-comme"
+ },
  "lighting-local-lights": {
   "hash": "4c5ae2e7f50b8b2d8a41114c0e62bec8cd5c6f87",
   "identifier": "JAK-52",
@@ -1772,28 +1788,28 @@
   "url": "https://linear.app/moukrea/issue/JAK-50/la-lumiere-cle-nest-pas-toujours-un-soleil"
  },
  "lighting-rt-light-toggle-removed": {
-  "hash": "5b90ef9544cf97b700331bb83d3bc9e4310d0747",
+  "hash": "86092178f2656b038445589c0933b086fb2fe04f",
   "identifier": "JAK-287",
   "issue_id": "ea2b541b-2dfa-4d10-af15-78aa59c43040",
-  "last_state": "In Progress",
+  "last_state": "Done",
   "last_verdict_announced": "validator-002.txt",
   "pulled_at": "2026-09-25T15:08:27.000Z",
-  "state_at": "2026-09-25T16:15:08.992Z",
+  "state_at": "2026-09-25T16:27:42.614Z",
   "url": "https://linear.app/moukrea/issue/JAK-287/le-vieux-reglage-rt-light-disparait-comme-le-veut-la-spec-telephone-et"
  },
  "lighting-shadows": {
-  "hash": "c21c448aef6fd7bb2c006f2f47eb3464349f32ec",
+  "hash": "ace2b0cac8fa38b65e21292a91109cea23d18668",
   "identifier": "JAK-51",
   "issue_id": "923462dc-521a-4c79-ba5f-2e2e8cc4c758",
-  "last_state": "Todo",
-  "last_verdict_announced": "validator-009.txt",
+  "last_state": "In Progress",
+  "last_verdict_announced": "validator-010.txt",
   "pulled_at": "2026-09-25T15:19:14.299Z",
   "relations": [
    "ao-prepass-tie-alpha",
    "lighting-ao-indirect",
    "perf-merc-defuse"
   ],
-  "state_at": "2026-09-25T15:38:21.577Z",
+  "state_at": "2026-09-25T16:27:41.752Z",
   "url": "https://linear.app/moukrea/issue/JAK-51/deux-astres-deux-jeux-dombres-et-les-acteurs-qui-en-projettent"
  },
  "menu-back-label": {
