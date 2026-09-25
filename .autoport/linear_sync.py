@@ -1478,27 +1478,38 @@ def push_existing(L, bl, it, rec, payload, st, h, label, todo):
 
 
 REACTION_FIELDS = "reactions { emoji createdAt user { id app } }"
+# Ce que `close_discussion` lit d'un ticket : son etat (type + heure du passage en Done/Canceled) et, pour chaque
+# commentaire, son fil (`parentId`) et ses reactions.
+CLOSE_FIELDS = "archivedAt completedAt canceledAt state { name type } labels { nodes { id } }"
+CLOSE_COMMENT_FIELDS = "id body createdAt parentId user { id app } botActor { id } " + REACTION_FIELDS
 
 
-def close_on_owner_thumb(L, iss, owner_id, read, todo, talk, dry, name):
-    """LA regle du pouce, pour les tickets du backlog ET hors backlog (23/09, JAK-176 : « Pourquoi les labels
-    subsistent, j'ai mis le pouce sur le dernier message »). Un pouce (ou ✅) de l'owner sur le DERNIER message du
-    harnais, sans commentaire de l'owner apres lui, clot la discussion : « A lire », « A traiter » et « En
-    discussion » tombent ensemble. Avant, seul « A lire » tombait, et « A traiter » restait des qu'un retour
-    precedait un message automatique. Ses retours anterieurs comptent repondus dans owner_sla (meme fonction,
-    `owner_sla.thread_closed`). Un ticket archive n'est dans aucune vue : on ne le ressort pas pour ca.
-    -> True si le fil est clos par un pouce (etiquettes retirees ou deja absentes)."""
+def close_discussion(L, iss, owner_id, read, todo, talk, dry, name):
+    """LA regle de cloture d'une discussion, pour les tickets du backlog ET hors backlog. « A lire », « A traiter »
+    et « En discussion » tombent ensemble quand :
+      * POUCE (23/09 JAK-176, 25/09 JAK-50/277/77) : un pouce (ou ✅) de l'owner sur N'IMPORTE QUEL message du
+        harnais poste apres son dernier commentaire — racine ou fil, peu importe l'ordre (`owner_sla.thread_closed`).
+        Ses retours anterieurs comptent repondus dans owner_sla (meme regle, `owner_sla.owner_closes`). Un
+        commentaire de l'owner apres le pouce rouvre.
+      * CLOS (25/09) : le ticket est Done/Canceled et l'owner n'a rien ecrit apres ce passage (`owner_sla.done_closed`).
+    Un ticket archive n'est dans aucune vue : on ne le ressort pas pour ca.
+    -> True si la discussion est close (etiquettes retirees ou deja absentes)."""
     if iss.get("archivedAt"):
         return False
     cs = iss["comments"]["nodes"]
-    t = OSLA.thread_closed(cs, lambda c: is_owner_comment(c, owner_id), is_harness_comment)
-    if not t:
+    is_owner = lambda c: is_owner_comment(c, owner_id)   # noqa: E731
+    why = ""
+    if OSLA.thread_closed(cs, is_owner, is_harness_comment):
+        why = "pouce de l'owner sur une reponse posterieure a son dernier retour"
+    elif OSLA.done_closed((iss.get("state") or {}).get("type"), iss.get("completedAt"), iss.get("canceledAt"),
+                          cs, is_owner, is_harness_comment):
+        why = "ticket %s sans retour de l'owner depuis" % (iss.get("state") or {}).get("name")
+    if not why:
         return False
     have = {l["id"] for l in iss["labels"]["nodes"]}
     drop = [x for x in (read, todo, talk) if x and x in have]
     if drop:
-        print("  pouce de l'owner sur la derniere reponse de %s : discussion close (%d etiquette(s) retiree(s))"
-              % (name, len(drop)))
+        print("  %s : discussion close, %s (%d etiquette(s) retiree(s))" % (name, why, len(drop)))
         if not dry:
             swap_labels(L, iss["id"], remove=drop)
     return True
@@ -1506,8 +1517,9 @@ def close_on_owner_thumb(L, iss, owner_id, read, todo, talk, dry, name):
 
 def pull_labeled_unmapped(L, mp, read, todo, talk, dry):
     """Tickets HORS backlog (questions closes, tickets de l'owner non adoptes) qui portent nos etiquettes :
-    memes regles que les autres — 👍/✅ sur la derniere reponse robot = lu ; commentaire owner = « A traiter ».
-    17/09 : JAK-173 (question, passee Done sans etre dans la carte) a garde « A lire » 21 min malgre son pouce."""
+    memes regles que les autres (`close_discussion`) ; commentaire owner = « A traiter ».
+    17/09 : JAK-173 (question, passee Done sans etre dans la carte) a garde « A lire » 21 min malgre son pouce.
+    25/09 : etiquettes et commentaires pagines EN ENTIER (sans suite, Linear en rend 50)."""
     known = {v["issue_id"] for k, v in mp.items() if not k.startswith("_")}
     owner_id = owner_user_id(L, mp)
     n = 0
@@ -1515,20 +1527,29 @@ def pull_labeled_unmapped(L, mp, read, todo, talk, dry):
     for lab in (read, todo, talk):
         if not lab:
             continue   # etiquette archivee par l'owner (ensure_label)
-        d = L.q('query($id:String!){ issueLabel(id:$id){ issues { nodes { id identifier archivedAt labels { nodes { id } } comments { nodes { body createdAt user { id app } botActor { id } ' + REACTION_FIELDS + ' } } } } } }', id=lab)
-        for iss in d["issueLabel"]["issues"]["nodes"]:
-            if iss["id"] in known or iss["id"] in seen:
-                continue
-            seen.add(iss["id"])
-            have = {l["id"] for l in iss["labels"]["nodes"]}
-            cs = sorted(iss["comments"]["nodes"], key=lambda c: c["createdAt"])
-            if close_on_owner_thumb(L, iss, owner_id, read, todo, talk, dry, "%s (hors backlog)" % iss["identifier"]):
-                n += 1
-            elif cs and is_owner_comment(cs[-1], owner_id) and todo not in have:
-                print("  retour owner sur %s (hors backlog) : %s" % (iss["identifier"], cs[-1]["body"][:80].replace("\n", " ")))
-                if not dry:
-                    swap_labels(L, iss["id"], add=todo, remove=read)
-                n += 1
+        after = None
+        while True:
+            d = L.q('query($id:String!,$a:String){ issueLabel(id:$id){ issues(first:50, after:$a){ pageInfo { hasNextPage endCursor } '
+                    'nodes { id identifier ' + CLOSE_FIELDS + ' comments(first:100){ pageInfo { hasNextPage endCursor } nodes { '
+                    + CLOSE_COMMENT_FIELDS + ' } } } } } }', id=lab, a=after)
+            conn = d["issueLabel"]["issues"]
+            for iss in conn["nodes"]:
+                if iss["id"] in known or iss["id"] in seen:
+                    continue
+                seen.add(iss["id"])
+                iss["comments"]["nodes"] += OSLA._rest(L, iss["id"], iss["comments"].get("pageInfo"))
+                have = {l["id"] for l in iss["labels"]["nodes"]}
+                cs = sorted(iss["comments"]["nodes"], key=lambda c: c["createdAt"])
+                if close_discussion(L, iss, owner_id, read, todo, talk, dry, "%s (hors backlog)" % iss["identifier"]):
+                    n += 1
+                elif cs and is_owner_comment(cs[-1], owner_id) and todo not in have:
+                    print("  retour owner sur %s (hors backlog) : %s" % (iss["identifier"], cs[-1]["body"][:80].replace("\n", " ")))
+                    if not dry:
+                        swap_labels(L, iss["id"], add=todo, remove=read)
+                    n += 1
+            if not (conn.get("pageInfo") or {}).get("hasNextPage"):
+                break
+            after = conn["pageInfo"]["endCursor"]
     return n
 
 
@@ -2035,7 +2056,7 @@ def pull_owner(L, bl, mp, states_by_id, dry, label_id=None, todo_id=None):
         chunk = ids[i:i + 40]
         # 23/09 : `includeArchived` — sans lui, les 129 tickets archives (sur 209) sortaient du lot et le retour
         # que l'owner y poste n'etait jamais relu.
-        d = L.q('query($ids:[ID!]){ issues(filter:{id:{in:$ids}}, first:40, includeArchived:true){ nodes { id archivedAt state { name } labels { nodes { id } } comments(first:50){ pageInfo { hasNextPage endCursor } nodes { id body createdAt user { id app } botActor { id } ' + REACTION_FIELDS + ' } } } } }', ids=chunk)
+        d = L.q('query($ids:[ID!]){ issues(filter:{id:{in:$ids}}, first:40, includeArchived:true){ nodes { id ' + CLOSE_FIELDS + ' comments(first:50){ pageInfo { hasNextPage endCursor } nodes { ' + CLOSE_COMMENT_FIELDS + ' } } } } }', ids=chunk)
         for iss in d["issues"]["nodes"]:
             # 23/09 : sans suite, Linear ne rend que les 50 commentaires les plus RECENTS (JAK-176 en porte 142, JAK-177 89) :
             # un ticket relie repart du debut, et le retour de l'owner enfoui sous 50 messages du harnais etait saute.
@@ -2072,9 +2093,10 @@ def pull_owner(L, bl, mp, states_by_id, dry, label_id=None, todo_id=None):
                 pulled += 1
                 newest = max(newest, c["createdAt"])
             # Owner 17/09 : « un thumbs up / checkbox en réaction sur ton dernier message » = lu. 23/09 : il clot TOUT
-            # le fil, retour de l'owner compris, s'il est pose apres lui (`close_on_owner_thumb`) ; un retour pose
+            # le fil, retour de l'owner compris ; 25/09 : sur n'importe quel message du harnais poste apres son dernier
+            # retour, et un ticket Done/Canceled sans retour depuis est clos (`close_discussion`). Un retour pose
             # APRES le pouce rouvre normalement (« A traiter »).
-            closed = label_id and close_on_owner_thumb(L, iss, owner_id, label_id, todo_id, _TALK.get("id"), dry, iid)
+            closed = label_id and close_discussion(L, iss, owner_id, label_id, todo_id, _TALK.get("id"), dry, iid)
             if newest != since and label_id and not dry and not closed:
                 swap_labels(L, iss["id"], add=todo_id, remove=label_id)
             rec["pulled_at"] = newest

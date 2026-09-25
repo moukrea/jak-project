@@ -232,35 +232,50 @@ def is_ok_emoji(emoji):
 def owner_closes(comments, is_owner, is_harness, ts_of=None):
     """[(ts_du_pouce, message_du_harnais)] : les pouces de l'owner qui CLOSENT le fil, du plus ancien au plus recent.
 
-    Un pouce clot s'il est pose sur le message du harnais qui etait le DERNIER au moment du pouce. Un pouce
-    sur un message ANCIEN (un message du harnais plus recent existait deja) ne clot rien. `is_owner` est la
-    regle d'auteur des commentaires, appliquee a la reaction (`user { id app }`)."""
+    25/09 (JAK-50, JAK-277, JAK-77 : « j'ai mis la réaction du pouce.. et le label […] toujours là des heures
+    après ») : un pouce clot s'il est pose sur N'IMPORTE QUEL message du harnais poste APRES le dernier commentaire
+    que l'owner avait ecrit au moment du pouce — racine ou reponse de fil, peu importe l'ordre. Avant, il fallait
+    viser le DERNIER message du harnais : un pouce sur « → Terminé » (racine) ne clot rien des qu'une reponse de fil
+    etait arrivee une minute apres. Un pouce sur un message ANTERIEUR au dernier retour de l'owner ne clot rien.
+    `is_owner` est la regle d'auteur des commentaires, appliquee a la reaction (`user { id app }`)."""
     ts_of = _created_at if ts_of is None else ts_of
-    ours = sorted((c for c in (comments or []) if is_harness(c)), key=ts_of)
+    comments = comments or []
+    owners = sorted(ts_of(c) for c in comments if is_owner(c) and not is_harness(c))
     out = []
-    for i, h in enumerate(ours):
-        nxt = ts_of(ours[i + 1]) if i + 1 < len(ours) else None
+    for h in (c for c in comments if is_harness(c)):
         for r in h.get("reactions") or []:
             if not is_ok_emoji(r.get("emoji")) or not is_owner(r):
                 continue
             t = ts_of(r)
-            if t and (nxt is None or t < nxt):
+            last_owner = max((o for o in owners if o < t), default=0)
+            if t and ts_of(h) > last_owner:
                 out.append((t, h))
     return sorted(out, key=lambda x: x[0])
 
 
 def thread_closed(comments, is_owner, is_harness, ts_of=None):
-    """Horodatage du pouce qui clot le fil MAINTENANT, 0 sinon : le DERNIER message du harnais porte un pouce de
-    l'owner, et aucun commentaire de l'owner n'est venu apres ce pouce (un nouveau retour rouvre)."""
+    """Horodatage du pouce qui clot le fil MAINTENANT, 0 sinon : un pouce qui clot (`owner_closes`), sans commentaire
+    de l'owner venu apres lui (un nouveau retour rouvre) ni nouveau message RACINE du harnais poste apres lui (une
+    annonce neuve — « À tester », build publie — n'a pas encore ete lue ; une reponse de fil ne rouvre pas)."""
     ts_of = _created_at if ts_of is None else ts_of
     comments = comments or []
-    ours = [c for c in comments if is_harness(c)]
-    if not ours:
+    t = max((t for t, _h in owner_closes(comments, is_owner, is_harness, ts_of)), default=0)
+    if not t:
         return 0
-    last = max(ours, key=ts_of)
-    t = max((t for t, h in owner_closes(comments, is_owner, is_harness, ts_of) if h is last), default=0)
     last_owner = max((ts_of(c) for c in comments if is_owner(c) and not is_harness(c)), default=0)
-    return t if t and t > last_owner else 0
+    new_root = any(is_harness(c) and not _parent_of(c) and ts_of(c) > t for c in comments)
+    return t if t > last_owner and not new_root else 0
+
+
+def done_closed(state_type, completed_at, canceled_at, comments, is_owner, is_harness, ts_of=None):
+    """True si le ticket est Done/Canceled et que l'owner n'a rien ecrit APRES ce passage (25/09) : la discussion
+    d'un ticket clos est close. L'heure du passage est celle que Linear donne (`completedAt` / `canceledAt`)."""
+    ts_of = _created_at if ts_of is None else ts_of
+    ref = {"completed": completed_at, "canceled": canceled_at}.get(state_type or "")
+    if not ref:
+        return False
+    at = ts_of({"createdAt": ref})
+    return not any(ts_of(c) > at for c in (comments or []) if is_owner(c) and not is_harness(c))
 
 
 def _parent_of(comment):
