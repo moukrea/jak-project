@@ -36,7 +36,7 @@
    "url": "https://linear.app/moukrea/document/e1fe9500339a"
   }
  },
- "_gen": 545,
+ "_gen": 549,
  "_ids": {
   "labels": {
    "ok": "000e105b-24ba-4fa3-a579-bc3bf0869242",
@@ -778,13 +778,13 @@
   "url": "https://linear.app/moukrea/issue/JAK-269/ce-que-directives-promet-est-fait-par-du-code-le-rapport-perime-est"
  },
  "harness-flipped-faces-acquis-offline": {
-  "hash": "d589d152f03f66acabecbde7c71c4888c5f36425",
+  "hash": "b737972c8b9e5aaa3ab0aa70358dcfde9feb8265",
   "identifier": "JAK-283",
   "issue_id": "94aa1d8b-92aa-4d89-bc52-1c8770435a98",
-  "last_state": "In Progress",
+  "last_state": "Done",
   "last_verdict_announced": "validator-002.txt",
   "pulled_at": "2026-09-25T08:20:27.000Z",
-  "state_at": "2026-09-25T10:14:17.187Z",
+  "state_at": "2026-09-25T10:25:36.303Z",
   "url": "https://linear.app/moukrea/issue/JAK-283/le-garde-fou-des-faces-a-lenvers-relit-les-assets-hors-ligne-et-le"
  },
  "harness-goalc-unit-tests-run-again": {
@@ -1732,18 +1732,18 @@
   "url": "https://linear.app/moukrea/issue/JAK-50/la-lumiere-cle-nest-pas-toujours-un-soleil"
  },
  "lighting-shadows": {
-  "hash": "4069f0b0b1ff39826c59a8e0597676365a6eedfb",
+  "hash": "04cb85deb8926c761ebf55d5102facb54b4e944c",
   "identifier": "JAK-51",
   "issue_id": "923462dc-521a-4c79-ba5f-2e2e8cc4c758",
-  "last_state": "Todo",
-  "last_verdict_announced": "validator-008.txt",
+  "last_state": "In Progress",
+  "last_verdict_announced": "validator-009.txt",
   "pulled_at": "2026-09-25T08:55:41.339Z",
   "relations": [
    "ao-prepass-tie-alpha",
    "lighting-ao-indirect",
    "perf-merc-defuse"
   ],
-  "state_at": "2026-09-25T09:38:51.825Z",
+  "state_at": "2026-09-25T10:25:35.680Z",
   "url": "https://linear.app/moukrea/issue/JAK-51/deux-astres-deux-jeux-dombres-et-les-acteurs-qui-en-projettent"
  },
  "menu-back-label": {
