@@ -29,11 +29,12 @@ out vec2 vtx_st;
 
 out float fog;
 
-// lighting-flipped-faces-everywhere : jumeau et donnees vue toujours calcules, hors ifdef,
-// pour eclairer la face vue (correctif de rendu, pas seulement recensement).
+#ifdef OG_FLIP_PROBE
+// lighting-flipped-faces-everywhere : jumeau et donnees vue pour la SONDE seulement.
 out vec4 vtx_color_twin;
 out vec3 vtx_nrm_view;
 out vec3 vtx_pos_view;
+#endif
 
 struct MercMatrixData {
   mat4 X;
@@ -107,8 +108,9 @@ void main() {
   vtx_color = rgba * light_color;
   vtx_st = st_in;
 
+#ifdef OG_FLIP_PROBE
   // lighting-flipped-faces-everywhere : jumeau = meme sommet eclaire avec la normale SOURCE
-  // de sens oppose, pour eclairer la face reellement vue (voiles minces, silhouettes).
+  // de sens oppose (sonde seulement : population vue de dos).
   vtx_pos_view = vtx_pos.xyz / vtx_pos.w;
   vtx_nrm_view = rotated_nrm;
   vec3 light_intensity_twin = light_dir0_fade.xyz * (-rotated_nrm.x)
@@ -120,4 +122,5 @@ void main() {
                         + light_intensity_twin.y * light_col1
                         + light_intensity_twin.z * light_col2;
   vtx_color_twin = rgba * light_color_twin;
+#endif
 }

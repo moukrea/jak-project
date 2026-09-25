@@ -8,9 +8,11 @@ layout(location = 4) out vec4 floor_probe_out;
 out vec4 color;
 #endif
 in vec4 vtx_color;
+#ifdef OG_FLIP_PROBE
 in vec4 vtx_color_twin;
 in vec3 vtx_nrm_view;
 in vec3 vtx_pos_view;
+#endif
 in vec2 vtx_st;
 in float fog;
 
@@ -37,10 +39,8 @@ float rt_luma_merc(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }
 void main() {
 #ifdef OG_FLIP_PROBE
   floor_probe_out = vec4(0.0);
-#endif
-  // lighting-flipped-faces-everywhere : eclaire la face reellement VUE (comme le decor dans
-  // shade.glsl), sauf sur les silhouettes rasantes ou la normale interpolee n'est pas fiable.
-  // mf_face proche de 0 = silhouette : on garde alors l'eclairage d'origine.
+  // lighting-flipped-faces-everywhere essai 3 : SONDE seulement. Le rendu merc est l'eclairage
+  // d'origine, sans retournement (owner 25/09, « pas de repli »).
   vec3 gN = cross(dFdx(vtx_pos_view), dFdy(vtx_pos_view));
   float gNl = length(gN);
   gN = gNl > 1e-12 ? gN / gNl : vec3(0.0, 0.0, 1.0);
@@ -48,8 +48,8 @@ void main() {
   if (dot(gN, Vv) < 0.0) gN = -gN;
   float mf_face = dot(gN, Vv);
   bool mf_flip = dot(vtx_nrm_view, gN) < 0.0;
-  // Seule la COULEUR change de cote : l'alpha reste celui d'origine (transparences intactes).
-  vec4 lit = vec4(((mf_flip && mf_face >= 0.25) ? vtx_color_twin : vtx_color).rgb, vtx_color.a);
+#endif
+  vec4 lit = vtx_color;
 
   if (gfx_hack_no_tex == 0) {
     vec4 T0 = texture(tex_T0, vtx_st);
@@ -82,8 +82,8 @@ void main() {
   }
 
 #ifdef OG_FLIP_PROBE
-  // lighting-flipped-faces-everywhere : merc n'a pas de terme d'eclairage rechargE separe (pas
-  // d'OFF distinct dans la meme image) ; la REFERENCE est le cote VU (L_v).
+  // lighting-flipped-faces-everywhere : merc n'a pas de terme d'eclairage recharge (ON == OFF, le
+  // rendu EST l'origine). x = origine / cote VU (L_v) : population « vue de dos », publiee, non jugee.
   if (u_floor_probe >= 2) {
     vec3 T = (gfx_hack_no_tex == 0) ? texture(tex_T0, vtx_st).rgb : vec3(0.5);
     vec4 L_v = mf_flip ? vtx_color_twin : vtx_color;

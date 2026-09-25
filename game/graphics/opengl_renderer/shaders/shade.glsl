@@ -293,7 +293,7 @@ float rt_sec_vis(vec3 P_rel, vec3 sN, float sndl) {
 // SEUL parametre par lequel elle entre, ce qui permet a shade() de l'evaluer deux fois.
 // lighting-regimes essai 3 : sonde SOL. `occ_force` >= 0 impose l'occultation de la cle (0 = a
 // l'ombre, 1 = au soleil) pour que la sonde evalue le MEME fragment sous les deux etats ; < 0 =
-// l'ombre reelle. `g_shade_lit` / `g_shade_flip` sont relus par shade() sur l'image sondee.
+// l'ombre reelle. `g_shade_lit` est relu par shade() sur l'image sondee.
 float rt_luma(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }
 // Direction unitaire sans NaN : `normalize(0)` rendait NaN (lune non poussee) et la sonde sol
 // relevait des rapports NaN sur village1 (notes/probe-village1-before.log).
@@ -302,32 +302,15 @@ vec3 rt_safe_dir(vec3 v) {
   return l > 1e-6 ? v / l : vec3(0.0, 1.0, 0.0);
 }
 float g_shade_lit = 0.0;
-float g_shade_flip = 0.0;
 vec4 shade_body(in Surface s, float sao, float occ_force) {
   vec4 color = s.base;
   // L'AO en LINEAIRE sur une base encodee gamma : (base^2.2 * sao)^(1/2.2) == base * sao^(1/2.2).
   float ao_mul = (sao >= 1.0) ? 1.0 : pow(max(sao, 0.0), 1.0 / 2.2);
   bool ao_applied = false;
+  // lighting-flipped-faces-everywhere essai 3 : AUCUN retournement de normale ici (owner 25/09,
+  // « pas de repli »). L'orientation des normales du decor est corrigee UNE FOIS dans le pack
+  // recharge (<niveau>.meshweld, tools/mesh_audit --bake) ; sans pack, l'original tel quel.
   vec3 N = s.N;
-  // lighting-regimes essai 3 : LA NORMALE D'OMBRAGE REGARDE DU COTE DE LA FACE VUE. Les normales
-  // lissees du decor suivent l'enroulement des bandes de triangles, qui est pile ou face : la
-  // sonde sol les a trouvees OPPOSEES a la face sur 95 % du sol de village3 et 60 % de celui de
-  // village1 (notes/probe-*-before.log). Une normale tournee vers le bas lisait l'ambiante du
-  // DESSOUS d'un ciel capture (~0) : le sol de village3 rendait 7 % de l'origine. `gN` est la
-  // normale geometrique deja orientee vers la camera par l'hote.
-  g_shade_flip = dot(N, s.gN) < 0.0 ? 1.0 : 0.0;
-  if (g_shade_flip > 0.5) {
-    N = -N;
-  }
-  // lighting-flipped-faces-everywhere : la normale qui PORTE L'OMBRE suit la meme regle. TIE,
-  // TIE au vent et shrub y mettent leur normale lissee (shadow_N = N) : sur une face a l'envers,
-  // l'offset de la carte d'ombre partait DANS la surface et le N.L du soleil valait 0 — l'ombre
-  // de Jak disparaissait sur les ponts de village1 (owner 25/09) et restait sur le sol tfrag,
-  // dont shadow_N est deja la normale de face orientee vers la camera (branche jamais prise).
-  if (dot(s.shadow_N, s.gN) < 0.0) {
-    s.shadow_N = -s.shadow_N;
-    s.shadow_ndl = max(dot(s.shadow_N, normalize(u_rt_sun_dir)), 0.0);
-  }
 
     // lighting-shadows (SPEC §4.8) : le facteur d'ombre portee vient desormais de
     // `rt_key_vis`/`rt_sec_vis` (definis plus haut, atlas tuile), pas d'un calcul inline ici.
@@ -527,7 +510,7 @@ vec4 shade(in Surface s) {
   floor_probe_out = vec4(0.0, 0.0, 0.0, 0.5);
   if (u_floor_probe != 0 && u_rt_light_on != 0 && s.gN.y > 0.7) {
     float p_lit = g_shade_lit > 0.5 ? 1.0 : 0.0;
-    float p_flip = g_shade_flip;
+    float p_flip = dot(s.N, s.gN) < 0.0 ? 1.0 : 0.0;
     float l_off = rt_luma(s.base.rgb);
     float l_on = rt_luma(c.rgb);
     float l_sh = rt_luma(shade_body(s, sao, 0.0).rgb);
