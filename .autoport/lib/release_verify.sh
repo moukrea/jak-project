@@ -86,7 +86,10 @@ CUS_SRC="$T/cus_src.list"; : > "$CUS_SRC"
 if [ "$F_HUD" -eq 1 ] && [ "$GAME" = "jak1" ]; then
   find recharged_assets -maxdepth 1 -type f -name '*.png' >> "$CUS_SRC"
 fi
-find "$FR3_DIR" -maxdepth 1 -type f \( -name '*.grassbake' -o -name '*.grassbake.fp' -o -name '*.grassbiome' \) >> "$CUS_SRC" 2>/dev/null || true
+# lighting-flipped-faces-everywhere : le compagnon <niveau>.meshweld (normales orientees une fois
+# pour toutes, tools/mesh_audit --bake) est DERIVE et toujours embarque, comme le .grassbake
+# (android/build_custom_pack.sh, « ALWAYS — DERIVED »).
+find "$FR3_DIR" -maxdepth 1 -type f \( -name '*.grassbake' -o -name '*.grassbake.fp' -o -name '*.grassbiome' -o -name '*.meshweld' \) >> "$CUS_SRC" 2>/dev/null || true
 if [ "$F_HDMODELS" -eq 1 ]; then
   find "$FR3_DIR/enhanced" -maxdepth 1 -type f -name '*.fr3' >> "$CUS_SRC" 2>/dev/null || true
 fi
@@ -99,22 +102,11 @@ mapfile -t CUS_MEMBERS < <(python3 -c "
 import zipfile
 for n in zipfile.ZipFile('$CUS_ZIP').namelist():
     if not n.endswith('/'): print(n)" | sort)
-# membership: rien hors des 3 familles autorisées
+# membership: la regle vit dans custom_pack_membership.sh (le moteur en lit le verdict aussi)
+. "$(dirname "$0")/custom_pack_membership.sh"
 for m in "${CUS_MEMBERS[@]-}"; do
   [ -n "$m" ] || continue
-  case "$m" in
-    recharged_assets/*.png) [ "$F_HUD" -eq 1 ] || fail "custom-pack contient $m mais recharged-hud est OFF";;
-    fr3/enhanced/*.fr3)     [ "$F_HDMODELS" -eq 1 ] || fail "custom-pack contient $m mais hd-models est OFF";;
-    fr3/*.grassbake)        ;;
-    # la provenance du bake : sans elle le moteur refuse le bake et le niveau perd son herbe
-    fr3/*.grassbake.fp)     ;;
-    # le profil de biome de l'herbe : donnee source, pas derivee (voir game/assets/grass/biomes/)
-    fr3/*.grassbiome)       ;;
-    # physics: la definition des chaines voyage avec recharged_assets (non flag-gate,
-    # comme les PNG du HUD cote livraison) -> accepte inconditionnellement.
-    recharged_assets/physics_chains.txt) ;;
-    *) fail "custom-pack contient un membre hors-règle: $m";;
-  esac
+  why=$(custom_pack_member_ok "$m" "$F_HUD" "$F_HDMODELS") || fail "custom-pack $why"
 done
 # complétude: chaque source attendue doit être dans le pack, au md5 près
 while IFS= read -r src; do

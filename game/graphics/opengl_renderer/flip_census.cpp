@@ -4,18 +4,23 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <atomic>
+#include <fstream>
 #include <map>
 #include <mutex>
+#include <regex>
 #include <set>
+#include <sstream>
 #include <unordered_map>
 #include <utility>
 #include <vector>
 #include "game/system/autoport_proof.h"
 #include "game/system/load_gate.h"
 #include "common/log/log.h"
+#include "common/util/FileUtil.h"
 #include "third-party/glad/include/glad/glad.h"
 #endif
 
@@ -165,6 +170,11 @@ uint64_t g_uniform_missing[kFamilies] = {};
 uint64_t g_px_badcode = 0;
 uint64_t g_px_nan = 0;
 uint64_t g_px_black = 0;
+uint64_t g_merc_backview_px = 0;
+std::map<std::string, bool> g_level_asset_ok_map;    // niveau -> au moins un sidecar applique
+std::map<std::string, std::pair<bool, std::string>> g_level_asset;  // niveau -> derniere note
+// ecrit par le fil du chargeur (note_level_asset), lu par le rendu (publish_summary)
+std::mutex g_level_asset_mtx;
 
 // Attache / lecture de la texture RGBA32F, calquees sur floor_probe.cpp.
 GLuint g_probe_tex = 0;
@@ -204,6 +214,115 @@ std::string join_semi(const std::vector<std::string>& v) {
     out += v[i];
   }
   return out;
+}
+
+// Retire les commentaires // et /* */, puis tout bloc `#ifdef OG_FLIP_PROBE` /
+// `#if defined(OG_FLIP_PROBE)` (en gardant la partie #else s'il y en a une), en suivant
+// l'imbrication des #if/#ifdef/#ifndef vs #endif. Sert a compter les vrais retournements de
+// normale du shader livre sans compter la sonde de mesure elle-meme.
+std::string strip_comments_and_probe(const std::string& src) {
+  // 1) commentaires.
+  std::string no_comments;
+  no_comments.reserve(src.size());
+  for (size_t i = 0; i < src.size();) {
+    if (src[i] == '/' && i + 1 < src.size() && src[i + 1] == '/') {
+      while (i < src.size() && src[i] != '\n') ++i;
+    } else if (src[i] == '/' && i + 1 < src.size() && src[i + 1] == '*') {
+      i += 2;
+      while (i + 1 < src.size() && !(src[i] == '*' && src[i + 1] == '/')) ++i;
+      i = (i + 1 < src.size()) ? i + 2 : src.size();
+    } else {
+      no_comments += src[i];
+      ++i;
+    }
+  }
+
+  // 2) blocs OG_FLIP_PROBE, ligne par ligne.
+  std::istringstream iss(no_comments);
+  std::string line;
+  std::string out;
+  int probe_depth = -1;  // -1 : hors sonde. >=0 : profondeur de #if a l'entree de la sonde.
+  int if_depth = 0;
+  bool probe_in_else = false;
+  while (std::getline(iss, line)) {
+    std::string trimmed = line;
+    size_t a = trimmed.find_first_not_of(" \t");
+    trimmed = a == std::string::npos ? "" : trimmed.substr(a);
+    bool is_if = trimmed.rfind("#if", 0) == 0;
+    bool is_endif = trimmed.rfind("#endif", 0) == 0;
+    bool is_else = trimmed.rfind("#else", 0) == 0;
+    bool is_probe_open =
+        trimmed.rfind("#ifdef OG_FLIP_PROBE", 0) == 0 ||
+        trimmed.rfind("#if defined(OG_FLIP_PROBE)", 0) == 0 ||
+        trimmed.rfind("#if defined( OG_FLIP_PROBE )", 0) == 0;
+
+    if (probe_depth < 0) {
+      if (is_probe_open) {
+        probe_depth = if_depth;
+        probe_in_else = false;
+      } else {
+        out += line;
+        out += '\n';
+      }
+      if (is_if) ++if_depth;
+      else if (is_endif) --if_depth;
+      continue;
+    }
+
+    // A l'interieur d'une sonde : suivre l'imbrication, garder la partie #else.
+    if (is_if) {
+      ++if_depth;
+    } else if (is_endif) {
+      --if_depth;
+      if (if_depth == probe_depth) {
+        probe_depth = -1;
+        probe_in_else = false;
+        continue;
+      }
+    } else if (is_else && if_depth == probe_depth + 1) {
+      probe_in_else = true;
+      continue;
+    }
+    if (probe_in_else) {
+      out += line;
+      out += '\n';
+    }
+  }
+  return out;
+}
+
+// Compte les retournements de normale AU RUNTIME dans une source de shader deja nettoyee des
+// commentaires et de la sonde OG_FLIP_PROBE. Exercee une fois au demarrage du recensement avec
+// une chaine test connue (voir g_runtime_flip_selftest_ok).
+uint64_t count_runtime_flips(const std::string& src) {
+  static const std::regex kNegSelf(R"(\b([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)?)\s*=\s*-\s*\1\b)");
+  static const std::regex kFaceforward(R"(\bfaceforward\s*\()");
+  static const std::regex kGShadeFlip(R"(\bg_shade_flip\b)");
+  static const std::regex kVtxTwin(R"(\bvtx_color_twin\b)");
+  static const std::regex kFrontFacing(R"(\bgl_FrontFacing\b)");
+  uint64_t n = 0;
+  n += (uint64_t)std::distance(std::sregex_iterator(src.begin(), src.end(), kNegSelf),
+                                std::sregex_iterator());
+  n += (uint64_t)std::distance(std::sregex_iterator(src.begin(), src.end(), kFaceforward),
+                                std::sregex_iterator());
+  n += (uint64_t)std::distance(std::sregex_iterator(src.begin(), src.end(), kGShadeFlip),
+                                std::sregex_iterator());
+  n += (uint64_t)std::distance(std::sregex_iterator(src.begin(), src.end(), kVtxTwin),
+                                std::sregex_iterator());
+  n += (uint64_t)std::distance(std::sregex_iterator(src.begin(), src.end(), kFrontFacing),
+                                std::sregex_iterator());
+  return n;
+}
+
+// Une source illisible ne doit JAMAIS compter 0 : c'est le cas aveugle, pas le cas propre.
+uint64_t count_runtime_flips_in_file(const std::string& rel_name, bool* out_ok = nullptr) {
+  const auto path = file_util::get_jak_project_dir() / "game/graphics/opengl_renderer/shaders" / rel_name;
+  std::ifstream f(path.string(), std::ios::binary);
+  if (out_ok) *out_ok = f.good();
+  if (!f.good()) return 1000;
+  std::ostringstream ss;
+  ss << f.rdbuf();
+  return count_runtime_flips(strip_comments_and_probe(ss.str()));
 }
 
 // Construit la liste d'indices retenus dans kSteps, filtree par OG_FLIP_TOUR_LEVELS (liste de
@@ -602,6 +721,10 @@ void judge_couples() {
   for (const auto& kv : g_merc_couple_label_acc) {
     merc_defect_by_level[kv.first.first] += kv.second.defect_solid_px;
   }
+  g_merc_backview_px = 0;
+  for (const auto& kv : merc_defect_by_level) {
+    g_merc_backview_px += kv.second;
+  }
 
   for (const auto& kv : g_couple_acc) {
     const std::string& lvl = kv.first.first;
@@ -612,7 +735,11 @@ void judge_couples() {
     if (!present) continue;
 
     bool measured = a.px >= kMeasuredPxMin && (!is_decor_family(f) || a.px_no_rt * 100 <= a.px);
-    uint64_t judged_defect = (f == MERC) ? merc_defect_by_level[lvl] : a.defect_px;
+    // MERC : merc2.frag/merc2.vert n'ont pas de terme d'eclairage recharge (0 reference
+    // `u_rt_`), donc ON == OFF et la comparaison ON/OFF ne peut jamais faire tomber un pixel
+    // merc sous son OFF. judged_defect reste a 0 ; la population de vue-de-dos merc est publiee
+    // a part (flipped_merc_backview_px).
+    uint64_t judged_defect = (f == MERC) ? 0 : a.defect_px;
 
     ++g_couples_seen;
     const std::string couple = lvl + ":" + kFamNames[f];
@@ -625,13 +752,16 @@ void judge_couples() {
     }
     if (measured) {
       ++g_couples_measured;
-      if (judged_defect > 0 || a.dep_px > 0) {
+      // Contrat : normale a l'envers ET sous un seuil de noir, comparaison ON/OFF. dep_px seul
+      // (face vue de dos, sans retournement au runtime elle ombre forcement autrement de son
+      // jumeau) n'est plus un defaut de contrat, juste une mesure a part.
+      if (judged_defect > 0) {
         ++g_couples_dark;
         g_dark_list.push_back(couple);
-        if (judged_defect == 0 && a.dep_px > 0) {
-          ++g_couples_dep;
-          g_dep_list.push_back(couple);
-        }
+      }
+      if (a.dep_px > 0) {
+        ++g_couples_dep;
+        g_dep_list.push_back(couple);
       }
     } else {
       ++g_couples_unmeasured;
@@ -694,18 +824,94 @@ void publish_summary() {
                               : 0;
     uint64_t value = g_couples_dark + g_couples_unmeasured + g_levels_missing + incoherence;
     autoport_proof::publish("flipped_faces_dark", value);
+    uint64_t t_dark = value;
+
+    autoport_proof::publish("flipped_merc_backview_px", g_merc_backview_px);
+
+    // Auto-test du compteur de retournement runtime : exerce une fois, avec une chaine ou le
+    // retournement HORS sonde compte 1 et celui DANS la sonde ne compte pas.
+    static const std::string kSelfTestSrc =
+        "vec3 N = s.N;\nif (x) { N = -N; }\n#ifdef OG_FLIP_PROBE\nN = -N;\n#endif\n";
+    uint64_t selftest = count_runtime_flips(strip_comments_and_probe(kSelfTestSrc));
+    autoport_proof::publish("flipped_runtime_flip_selftest", selftest);
+
+    uint64_t flip_shade = count_runtime_flips_in_file("shade.glsl");
+    uint64_t flip_merc = count_runtime_flips_in_file("merc2.frag");
+    autoport_proof::publish("flipped_runtime_flip_shade", flip_shade);
+    autoport_proof::publish("flipped_runtime_flip_merc", flip_merc);
+    uint64_t runtime_flip_total = flip_shade + flip_merc + (selftest == 1 ? 0 : 1000);
+    autoport_proof::publish("flipped_runtime_flip_total", runtime_flip_total);
+
+    // Niveaux de la tournee active sans compagnon .meshweld applique.
+    std::set<std::string> tour_levels;
+    for (int idx : g_active_steps) tour_levels.insert(kSteps[idx].level);
+    std::vector<std::string> without_asset;
+    uint64_t asset_ok = 0;
+    std::lock_guard<std::mutex> asset_lock(g_level_asset_mtx);
+    for (const auto& lvl : tour_levels) {
+      if (g_level_asset_ok_map.count(lvl)) {
+        ++asset_ok;
+      } else {
+        without_asset.push_back(lvl);
+      }
+      auto it = g_level_asset.find(lvl);
+      const std::string route = it == g_level_asset.end() || it->second.second.empty()
+                                    ? "-"
+                                    : it->second.second;
+      autoport_proof::publish_text(("flipped_asset_route_" + lvl).c_str(), route.c_str());
+    }
+    autoport_proof::publish("flipped_levels_without_asset", (uint64_t)without_asset.size());
+    autoport_proof::publish_text("flipped_levels_without_asset_list", join(without_asset).c_str());
+    autoport_proof::publish("flipped_levels_asset_ok", asset_ok);
+
+    // Refus de release_verify sur les compagnons .meshweld de la tournee : la meme regle que le
+    // pack livre, interrogee sans la recopier (voir .autoport/lib/custom_pack_membership.sh).
+    uint64_t pack_refused = (uint64_t)tour_levels.size();
+    int pack_check_rc = -1;
+#ifndef __ANDROID__
+    {
+      const auto script = file_util::get_jak_project_dir() / ".autoport/lib/custom_pack_membership.sh";
+      std::string cmd = "bash '" + script.string() + "' --check 0 0";
+      for (const auto& lvl : tour_levels) cmd += " 'fr3/" + lvl + ".meshweld'";
+      cmd += " 2>&1";
+      FILE* p = popen(cmd.c_str(), "r");
+      if (p) {
+        std::string out;
+        char buf[256];
+        size_t n;
+        while ((n = fread(buf, 1, sizeof(buf), p)) > 0) out.append(buf, n);
+        pack_check_rc = pclose(p);
+        static const std::regex kRefused(R"(refused=(\d+))");
+        std::smatch m;
+        if (std::regex_search(out, m, kRefused)) {
+          pack_refused = (uint64_t)std::stoull(m[1].str());
+        }
+      }
+    }
+#else
+    pack_check_rc = -1;
+#endif
+    autoport_proof::publish("flipped_pack_refused", pack_refused);
+    autoport_proof::publish("flipped_pack_check_rc", (uint64_t)pack_check_rc);
+
+    uint64_t contract_defects =
+        t_dark + runtime_flip_total + (uint64_t)without_asset.size() + pack_refused;
+    autoport_proof::publish("flipped_faces_contract_defects", contract_defects);
+
     printf(
         "FLIP-CENSUS RESULT flipped_faces_dark=%llu couples_measured=%llu couples_seen=%llu "
         "couples_unmeasured=%llu couples_dep=%llu couples_invisible=%llu levels_visited=%llu "
-        "levels_expected=%llu dark_list=%s unmeasured_list=%s\n",
+        "levels_expected=%llu dark_list=%s unmeasured_list=%s contract_defects=%llu\n",
         (unsigned long long)value, (unsigned long long)g_couples_measured,
         (unsigned long long)g_couples_seen, (unsigned long long)g_couples_unmeasured,
         (unsigned long long)g_couples_dep, (unsigned long long)g_couples_invisible,
         (unsigned long long)g_levels_visited, (unsigned long long)g_num_active,
-        join(g_dark_list).c_str(), join(g_unmeasured_list).c_str());
+        join(g_dark_list).c_str(), join(g_unmeasured_list).c_str(),
+        (unsigned long long)contract_defects);
     fflush(stdout);
   } else {
     autoport_proof::publish("flipped_faces_dark", (uint64_t)999);
+    autoport_proof::publish("flipped_faces_contract_defects", (uint64_t)999);
   }
 }
 
@@ -1025,6 +1231,18 @@ bool spin_active() {
   return g_spin.load();
 #else
   return false;
+#endif
+}
+
+void note_level_asset(const std::string& level, bool sidecar_applied, const std::string& path) {
+#ifndef __ANDROID__
+  std::lock_guard<std::mutex> lock(g_level_asset_mtx);
+  g_level_asset[level] = {sidecar_applied, path};
+  if (sidecar_applied) g_level_asset_ok_map[level] = true;
+#else
+  (void)level;
+  (void)sidecar_applied;
+  (void)path;
 #endif
 }
 

@@ -455,7 +455,10 @@ constexpr u32 kBakeMagic = 0x4E4F434Du;  // 'MCON'
 //   per-vertex repair had been creating. Same delivery rule as v5/v7/v8, for the fourth time: the
 //   fingerprint is COUNTS-only, so a v8 sidecar still MATCHES this fr3 and would blit the old
 //   normals and the old pins straight back over the fix.
-constexpr u32 kBakeVersion = 9;
+// v10 = orientation collision-first (pas de vote geometrique d'echappee),
+// lighting-flipped-faces-everywhere ; un sidecar v9 porte les normales tfrag inversees et doit
+// etre rejete.
+constexpr u32 kBakeVersion = 10;
 
 // Structural fingerprint: if the fr3 is rebuilt with different geometry, the sidecar must be
 // rejected rather than silently smeared over the wrong vertices. ONE function writes the layout and

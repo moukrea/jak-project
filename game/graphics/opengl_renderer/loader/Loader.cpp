@@ -28,6 +28,7 @@
 #include "common/util/compress.h"
 #include "common/util/rss_census.h"
 #include "game/graphics/opengl_renderer/background/foliage_wind.h"
+#include "game/graphics/opengl_renderer/flip_census.h"
 
 #ifdef __ANDROID__
 #include <malloc.h>
@@ -933,6 +934,7 @@ void Loader::loader_thread() {
         // by tools/mesh_audit --bake and validated against the fr3's structure, so a rebuilt or
         // modded level falls through to the live pass instead of being corrupted.
         bool from_bake = false;
+        std::string bake_route_path;
         if ((cfg.bits & tfrag3::kMeshBitForceLive) == 0) {
           auto p = scoped_prof("mesh-consolidate-sidecar");
           // Round 30 (delivery): ONE resolver, package-copy-wins, and the decision plus the
@@ -941,7 +943,8 @@ void Loader::loader_thread() {
           // cannot — so this precedence IS the delivery route for every geometry fix.
           const auto name = tfrag3::mesh_consolidate_bake_name(result->level_name);
           const auto route = file_util::resolve_fr3_asset(g_game_version, name);
-          from_bake = tfrag3::mesh_consolidate_apply_bake(*result, route.path.string(), do_shrub,
+          bake_route_path = route.path.string();
+          from_bake = tfrag3::mesh_consolidate_apply_bake(*result, bake_route_path, do_shrub,
                                                        mesh_unconsumed);
         }
         if (!from_bake) {
@@ -953,6 +956,7 @@ void Loader::loader_thread() {
           lg::info("[mesh-consolidate] {}", text);
           tfrag3::mesh_audit_append_file(text);
         }
+        flip_census::note_level_asset(result->level_name, from_bake, bake_route_path);
       }
 
       // lighting-bake : la verification du compagnon juge la palette que le rendu lit, donc APRES la

@@ -42,4 +42,9 @@ bool take_warp_request(char* name, size_t cap);
 // 360 degres. Toujours faux sur Android.
 bool spin_active();
 
+// Note, une fois par chargement de niveau, si le sidecar .meshweld a ete applique (route du
+// resolveur en prime pour diagnostic). Appele meme quand le recensement ne tourne pas (bon
+// marche : juste une ecriture de table).
+void note_level_asset(const std::string& level, bool sidecar_applied, const std::string& path);
+
 }  // namespace flip_census

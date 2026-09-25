@@ -43,6 +43,9 @@ static void usage() {
       "  --csv PATH     csv path (default: same dir, mesh_audit_<game>.csv)\n"
       "  --limit N      audit at most N levels (smoke runs)\n"
       "  --bake         also write the precompute sidecar <fr3-dir>/<level>.meshweld\n"
+      "  --geom-orient  bake with the geometric outward-escape orientation vote (wrong for\n"
+      "                 terrain/interiors, see ROUND 32; default is OFF, collision-first)\n"
+      "  --no-geom-orient  accepted, no-op (this is the default now)\n"
       "  --verify-bake  round-trip self-test: re-load the fr3, apply the sidecar, and compare it\n"
       "                 field-by-field against the live pass (requires --bake)\n");
 }
@@ -249,7 +252,7 @@ int main(int argc, char** argv) {
   int limit = -1;
   bool do_bake = false;
   bool verify_bake = false;
-  bool no_geom_orient = false;
+  bool geom_orient = false;
 
   for (int i = 1; i < argc; ++i) {
     std::string a = argv[i];
@@ -276,7 +279,9 @@ int main(int argc, char** argv) {
     } else if (a == "--bake") {
       do_bake = true;
     } else if (a == "--no-geom-orient") {
-      no_geom_orient = true;
+      // no-op : c'est desormais le defaut (voir ROUND 32 plus bas).
+    } else if (a == "--geom-orient") {
+      geom_orient = true;
     } else if (a == "--verify-bake") {
       verify_bake = true;
     } else if (a == "-h" || a == "--help") {
@@ -362,17 +367,16 @@ int main(int argc, char** argv) {
 
   auto cfg = tfrag3::mesh_consolidate_config_from_env();
   // ==============================================================================================
-  // ROUND 31 — THE BAKE RUNS THE GEOMETRIC OUTWARD VOTE, BY DEFAULT.
+  // ROUND 32 — THE GEOMETRIC OUTWARD VOTE IS OFF BY DEFAULT (reverts ROUND 31).
   //
-  // kMeshBitGeomOrient shipped in the previous round and was never once executed on real data: it
-  // is default-OFF in MeshConsolidateConfig (correctly — it is minutes of CPU, so a live device
-  // level load must never pay for it), it can only be turned on through OG_MESH_BITS /
-  // debug.opengoal.mesh.bits, and NO script in this repository sets either. Every sidecar shipped
-  // so far therefore carries the LEGACY collision-first orientation, which is the very rule the
-  // owner's defect report falsifies. The bake is exactly the place the expensive authority belongs:
-  // it runs once here, on the desktop, and the device inherits the answer for free.
-  // --no-geom-orient restores the legacy order for a same-tree A/B.
-  if (!no_geom_orient) {
+  // Census x86 25/09 (OG_FLIP_TOUR, training/beach/village3): the .meshweld baked WITH
+  // kMeshBitGeomOrient forced leaves the stored tfrag normal facing away from the viewed face on
+  // 887372/953716/759012 ppm of visible tfrag pixels; the live pass with default bits
+  // (collision-first authority, no geometric escape vote) gives 98/41835/11301 ppm. The escape
+  // vote picks "the side that sees open air", which is wrong for terrain (nothing under it: both
+  // sides escape) and for interiors. The tessellation stage it was built for is deleted
+  // (mesh-consolidate-without-consumer). --geom-orient re-enables it for A/B only.
+  if (geom_orient) {
     cfg.bits |= tfrag3::kMeshBitGeomOrient;
   }
 
