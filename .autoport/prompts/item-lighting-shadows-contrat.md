@@ -16,6 +16,8 @@ PISTE (non prouvee) : l'ombre n'assombrit que le terme DIRECT ; depuis lighting-
 
 RETOUR OWNER DU 25/09 (sur lighting-regimes, build 16773c) : l'ombre de Jak se voit enfin, MAIS a village1 elle DISPARAIT COMPLETEMENT sur les PONTS, alors qu'elle reste sur les sols et les murs. Piste : les ponts sont probablement des TIE (instances) et ne recoivent pas l'atlas d'ombre des acteurs, ou leur chemin de rendu ne lit pas la visibilite.
 
+RETOUR DE TEST N°3 DE L'OWNER (25/09, build f79a20) : l'ombre est la sur les ponts, « C'est déjà très stylé hein, mais c'set pas encore bon ». Defauts : (1) l'ombre de Jak CLIGNOTE (« blink in and out ») ; (2) des ombres APPARAISSENT SOUDAIN (pop-in) a Sandover, devant la hutte du maire ; (3) une image de l'ancien aplat PS2 a transpire le temps d'une frame ; (4) la LUNE verte ne projette presque pas d'ombre, meme force au maximum.
+
 ## Livrable — le contrat, en entier
 
 Atlas unique tuile, cascades stabilisees pour l'astre dominant, une tuile pour le second, les acteurs dans la passe de profondeur avec leur maillage skinne, ombres de contact sur la prepasse. L'aplat PS2 reste le repli et le mode Original. SPEC 4.8. PREUVE : `FEATURE lighting-shadows armed=1 hits=<pixels de sol ombres par un acteur>` + la ligne `shadow_caster_classes=` seule sur sa ligne ; `--off` doit rendre `armed=0 hits=0` dans la MEME scene. Le publicateur EXISTE : game/system/autoport_proof.{h,cpp} — appelle armed_for("lighting-shadows"), jamais armed(), et n'en ecris pas un second. AMENDEMENT 09-09 (perf) : une seule passe Z merc partagee entre prepasse (4.6), atlas (4.8) et aplat 47, VAO persistant par niveau (API setup_merc_vao conservee). Menu « Ombres d'acteurs » a trois crans vraies / aplat PS2 / aucune + fade-dist expose ; le cran « aucune » desactive la famille shadow-* cote GOAL.
@@ -28,6 +30,8 @@ C. PAS de campagne multi-scenes, PAS de comptage de pixels : l'OEIL, c'est l'own
 AJOUT APRES LE RETOUR N°2 : RENDRE L'OMBRE VISIBLE. Trouver pourquoi l'ombre est si faible (mesurer la part du direct dans la luminance du sol ensoleille sous Jak) la part du direct se corrige dans lighting-regimes (dependance ajoutee le 24/09, owner : ne pas faire le travail deux fois) ; ICI seulement l'application de la visibilite d'ombre, pas un noircissement artificiel. UNE grandeur : rapport de luminance sol-a-l'ombre-de-Jak / sol-au-soleil juste a cote, de jour au village, au reglage PAR DEFAUT ; publier aussi sa valeur a Force max. Viser une ombre nettement lisible (ordre de grandeur : le sol ombre au moins 35 % plus sombre au reglage par defaut) ; l'owner juge a l'oeil ensuite. Pas de campagne multi-scenes.
 
 AJOUT DU 25/09 : l'ombre des acteurs est recue par TOUTES les familles du decor (sol, murs, ponts/TIE, buissons). UNE grandeur : pour chaque famille visible sous Jak au village1, part de pixels a l'ombre de Jak ; une famille a 0 alors que Jak est au-dessus = defaut nomme.
+
+AJOUT APRES LE RETOUR N°3 (preuve legere, une grandeur par defaut, l'oeil c'est l'owner) : (1) clignotement : nombre d'images ou l'ombre atlas de Jak manque alors qu'il est a portee, sur une course de jour ; doit valoir 0 ; (2) pop-in : pas de coupure franche a une distance ou a un changement de cascade (fondu entre cascades et en bout de portee) ; (3) aucune image avec l'aplat PS2 dessine en mode « vraies ombres » (compteur par image) ; (4) lune : de nuit, rapport sol-a-l'ombre / sol-eclaire sous la lune a la force par defaut, lisible comme celui du soleil. Puis livrer.
 
 ## Hors perimetre
 
@@ -65,6 +69,15 @@ l'ombre de Jak et des PNJ au sol, et le matin quand les deux astres sont leves ;
 
 ### 2026-09-25
 > Top donc comme j'ai dit dans l'autre commentaire pour le soucis des faces qui était mal orientés sur village3 il faut s'assurer (via ticket dédié) que ce soucis est règlé partout. Pour les ombres de Jak, on les voit maintenant c'est super ! Mais bizarrement par exemple dans village1 (Sandover Village), sur les ponts, l'ombre disparaît complètement, alors que sur les sols et les murs non, bizarre non ?
+
+### 2026-09-25
+> "Capture impossible : la capture d'écran est refusée par le garde-fou du harnais" c'est débile, certes je préfères vérifier l'aspect visuel moi même, mais tu devrais pouvoir prendre des captures, surtout si c'est pour les joindre à la conversation sur Linear !
+
+### 2026-09-25
+> ça peut servir de mesure dans certains cas… faut pas non plus être débile. Mais je veux pas que ça parte dans des mesures visuelles complexes à fumer X millions tokens et prendre 4h de capture (j'exaggère) pour du faux vert ou du faux rouge alors que ça me prendrait 5 minutes de vérifier moi même ! Deux poids deux mesures !
+
+### 2026-09-25
+> Alors ça fonctionne, on a bien l'ombre sur les ponts et compagnie, mais l'ombre de Jak a tendance a blink in and out, et on a des ombres qui pop-in à sandover village par example (devant la hutte du maire). J'ai même vu le temps d'une frame l'ancien ombrage a plat PS2 transpiré étrangement. La lune (astre vert de la nuit) ne semble pas/plus cast de shadow aussi, poussé au maximum (la force) on voit un peu en pixel peeping mais du coup pas ouf.  C'est déjà très stylé hein, mais c'set pas encore bon !
 
 ## Pourquoi ce fichier existe
 
