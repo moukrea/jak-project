@@ -349,6 +349,22 @@ class Merc2 {
   };
   std::vector<DeferredNativeBatch> m_deferred_native;
 
+  // lighting-shadows essai 10 : draws opaques d'un seau passe AVANT la preparation de l'atlas de
+  // son image, rejoues par replay_deferred_shadows a la fin de cette preparation.
+  struct DeferredShadowBatch {
+    const LevelData* lev = nullptr;
+    u64 frame = 0;
+    std::vector<Draw> draws;
+    std::vector<float> fade;
+    std::vector<math::Vector4f> bones;  // snapshot of [0, m_next_free_bone_vector)
+    bool has_jak = false;
+  };
+  std::vector<DeferredShadowBatch> m_deferred_shadow;
+  void replay_deferred_shadows(SharedRenderState* render_state);
+  static void late_shadow_trampoline(void* self, SharedRenderState* rs) {
+    static_cast<Merc2*>(self)->replay_deferred_shadows(rs);
+  }
+
   struct DrawArgs {
     LevelDrawBucket* lev_bucket;
     const u8* fade;
@@ -426,6 +442,11 @@ class Merc2 {
   // au premier appel de cast_shadows (le shader n'existe pas forcement encore au moment ou
   // Merc2::Merc2 tourne, selon l'ordre de chargement de ShaderLibrary).
   GLint m_shadow_smvp_loc = -1;
+  GLint m_shadow_fade_loc = -1;
+  // lighting-shadows essai 10 : Jak (eichar) par image — vu a portee, projete dans l'atlas.
+  u64 m_jak_seen_frame = UINT64_MAX;
+  u64 m_jak_cast_frame = UINT64_MAX;
+  u32 m_jak_first_bone = UINT32_MAX;
   bool m_shadow_smvp_loc_looked_up = false;
 
   // lighting-shadows : ancre eichar (translation VUE, unites GOAL) capturee par handle_pc_model

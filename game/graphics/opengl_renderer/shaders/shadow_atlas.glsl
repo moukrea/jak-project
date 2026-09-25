@@ -91,10 +91,12 @@ float rt_key_vis(vec3 P_rel, vec3 sN, float sndl) {
       if (v < 0.0) {
         return 1.0;
       }
-      if (c + 1 < n && d > 0.9 * s) {
+      // lighting-shadows essai 10 : fondu cascade->cascade sur 25 % de la borne (10 % avant :
+      // 2 m a 20 m, entre des texels de 39 et 293 mm, se lisait comme une ombre qui surgit).
+      if (c + 1 < n && d > 0.75 * s) {
         float v2 = rt_tile_vis(c + 1, P_rel, sN, sndl, d);
         if (v2 >= 0.0) {
-          v = mix(v, v2, (d - 0.9 * s) / (0.1 * s));
+          v = mix(v, v2, smoothstep(0.75 * s, s, d));
         }
       }
       if (c + 1 == n) {

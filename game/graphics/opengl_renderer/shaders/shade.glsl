@@ -67,6 +67,10 @@ uniform vec3 u_rt_sun_color;
 // its intensity (weaker than sun) AND the (1-sun_elev) crossover weight => 0 by day, full at night.
 uniform vec3 u_rt_moon_dir;
 uniform vec3 u_rt_moon_color;
+// lighting-shadows essai 10 : part du DIRECT CUIT que porte la lune verte (elevation x sun-fade,
+// 0..1, sans l'intensite 0,40 de son supplement). Sans elle, l'ombre lunaire ne retirait que le
+// petit supplement vert (~5 %) : ombre de nuit invisible (retour owner n°3).
+uniform float u_rt_moon_w;
 // lighting-legacy-purge (2026-09-11) : u_rt_ambient_on RETIRE, valeur livree figee a 1 (ambiante toujours active).
 // lighting-legacy-purge (2026-09-11) : entrees des tiers HEMISPHERE et IBL d'AMBIENT MODEL, retirees avec eux. La force d'ambiance atteint le tier SH.
 // lighting-regimes (SPEC §4.10, annexe D.4) : l'ambiante directionnelle est l'ENVIRONNEMENT MESURE.
@@ -334,7 +338,13 @@ vec4 shade_body(in Surface s, float sao, float occ_force) {
                                 vec3(0.6), vec3(1.4)),
                           has_sh);
       float b_l = rt_luma(s.baked.rgb);
-      float d_th = max(u_rt_bake_al.y, 0.0) * ndl;
+      // lighting-shadows essai 10 : la lune prend la part du direct cuit que le soleil laisse
+      // (1 - w_y), a hauteur de son elevation ; sa normale d'orientation entre dans le plafond f_cap.
+      // De jour (w_md = 0) tout est bit-identique a l'essai 9.
+      float w_md = clamp(u_rt_moon_w, 0.0, 1.0) * (1.0 - w_y);
+      float ndl_g = max(dot(N, Lg), 0.0);
+      float ndl_d = (w_y + w_md) > 1e-4 ? mix(ndl, ndl_g, w_md / (w_y + w_md)) : ndl;
+      float d_th = max(u_rt_bake_al.y, 0.0) * ndl_d;
       float f_cap = d_th / max(max(u_rt_bake_al.x, 0.0) + d_th, 1e-4);
       float f_d = (u_rt_bake_al.z > 0.5)
                       ? clamp((b_l - max(u_rt_bake_al.x, 0.0)) / max(b_l, 1e-4), 0.0, f_cap)
@@ -342,7 +352,9 @@ vec4 shade_body(in Surface s, float sao, float occ_force) {
       vec3 ind_y = color.rgb * (1.0 - f_d) * amb_form;
       vec3 dir_bk = color.rgb * f_d;
       vec3 dir_rt = dir_bk * sun_occ * lit_mul_y;
-      vec3 c_y = ind_y + mix(dir_bk, dir_rt, w_y);
+      // Sous la lune, le direct cuit reste tel quel (son supplement vert passe par mod_g) ; a
+      // l'ombre lunaire il s'eteint comme sous le soleil.
+      vec3 c_y = ind_y + mix(dir_bk, dir_rt, w_y) - dir_bk * (w_md * (1.0 - moon_occ));
       vec3 mod_g = mix(vec3(1.0), lit_mul_g, lit_g);
       vec3 rt_lit = max(c_y * mix(vec3(1.0), mod_g, w_g), vec3(0.0));
       // lighting-local-lights : le supplement (calcule en tete de shade_body) passe par la meme

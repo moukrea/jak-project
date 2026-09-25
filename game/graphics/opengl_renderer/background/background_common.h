@@ -272,7 +272,13 @@ float pbr_shadow_actor_blob_cutoff_m_threadsafe();
 u64 pbr_shadow_atlas_draws_cast();
 // lighting-shadows, partie A : verdict par acteur (thread GOAL) et fin d'image (thread rendu)
 // pour le saut de l'aplat PS2 quand l'ombre reelle couvre deja l'acteur.
-void pbr_actor_blob_note(bool skipped);
+void pbr_actor_blob_note(bool skipped, bool near_live = false);
+bool pbr_shadow_atlas_live_threadsafe();
+bool pbr_shadow_merc_cast_deferrable(u64 frame_idx);
+using PbrLateCaster = void (*)(void* ctx, SharedRenderState* rs);
+void pbr_shadow_register_late_caster(PbrLateCaster fn, void* ctx);
+void pbr_shadow_unregister_late_caster(void* ctx);
+u64 pbr_shadow_write_frame();
 void pbr_actor_blob_frame_end(u64 frame_idx, u64 blob_tris);
 // Preuve : l'image courante est-elle l'image de PREPARATION (les merc ecrivent AUSSI l'atlas
 // acteur) ?

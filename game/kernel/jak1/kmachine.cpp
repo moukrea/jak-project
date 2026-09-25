@@ -2539,7 +2539,11 @@ u32 pc_actor_shadow_blob_skip(u32 cam_dist_cm) {
     const float cutoff_m = pbr_shadow_actor_blob_cutoff_m_threadsafe();
     skip = cutoff_m > 0.f && (float)(s32)cam_dist_cm / 100.f < cutoff_m;
   }
-  pbr_actor_blob_note(skip);
+  // lighting-shadows essai 10 : un aplat dessine en cran « vraies » sous la distance d'ombre
+  // d'acteur, atlas vivant, est un aplat qui transpire (compte, doit rester a 0).
+  const bool near_live = mode == 0 && pbr_shadow_atlas_live_threadsafe() &&
+                         (float)(s32)cam_dist_cm / 100.f < Gfx::recharged_actor_shadow_dist_m();
+  pbr_actor_blob_note(skip, near_live);
   return skip ? 1 : 0;
 }
 

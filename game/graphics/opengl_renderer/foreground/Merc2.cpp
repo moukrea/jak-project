@@ -249,6 +249,7 @@ Merc2::Merc2(ShaderLibrary& shaders, const std::vector<GLuint>* anim_slot_array)
   // cutscene-npc-flicker (essai 11) : le rendu declare ses compteurs de couverture HD au
   // recensement (defini plus bas, au-dessus des compteurs qu'il lit).
   npc_flicker::set_render_counters_fn(merc2_npc_platform_counters);
+  pbr_shadow_register_late_caster(&Merc2::late_shadow_trampoline, this);
   ASSERT(fnv64("the quick brown fox jumps over the lazy dog") == 0x7404cea13ff89bb0);
 
   // Set up main vertex array. This will point to the data stored in the .FR3 level file, and will
@@ -344,6 +345,7 @@ Merc2::Merc2(ShaderLibrary& shaders, const std::vector<GLuint>* anim_slot_array)
 }
 
 Merc2::~Merc2() {
+  pbr_shadow_unregister_late_caster(this);
   for (auto& x : m_mod_vtx_buffers) {
     glDeleteBuffers(1, &x.vertex);
     glDeleteVertexArrays(1, &x.vao);
@@ -2546,6 +2548,14 @@ void merc2_hd_ring_slot(u32 companion_pid, int slot) {
   s_hd_ring_slots[companion_pid] = slot;
 }
 
+// lighting-shadows essai 10 : comptes PAR IMAGE de Jak (retour owner n°3 : son ombre clignote).
+// `in_range` = images ou Jak est dessine a moins de la distance d'ombre d'acteur ; `cast` = images
+// ou ses draws sont entres dans l'atlas ; chaque image manquee est rangee sous UNE raison.
+static u64 s_jak_in_range = 0, s_jak_cast = 0, s_jak_miss_setup = 0, s_jak_miss_gate = 0;
+static u64 s_jak_miss_far = 0, s_jak_miss_alpha = 0;
+static u64 s_def_batches = 0, s_def_replayed = 0, s_def_dropped = 0, s_def_modvtx_skipped = 0;
+static u64 s_jak_deferred = 0;
+
 void Merc2::handle_pc_model(const DmaTransfer& setup,
                             SharedRenderState* render_state,
                             ScopedProfilerNode& proff,
@@ -3095,6 +3105,8 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
   // de draw (`first_bone`) n'est PAS la racine : a Sandover il rendait > 40 m pour TOUS les acteurs
   // (`shadow_merc_tot_far`), et aucun n'entrait dans l'atlas.
   float shadow_root_dist_m = 1e9f;
+  const bool shadow_is_jak =
+      autoport_proof::feature_is("lighting-shadows") && i > 0 && std::strstr(name, "eichar");
   if (input_data[0] < MAX_SKEL_BONES) {
     const float* t = reinterpret_cast<const float*>(&skel_matrix_buffer[input_data[0]]);
     shadow_root_dist_m = std::sqrt(t[12] * t[12] + t[13] * t[13] + t[14] * t[14]) / 4096.f;
@@ -4048,6 +4060,13 @@ void Merc2::handle_pc_model(const DmaTransfer& setup,
   // allocate bones in shared bone buffer to be sent to GPU at flush-time
   u32 first_bone = alloc_bones(bone_count, skel_matrix_buffer);
   m_shadow_root_dist.emplace_back(first_bone, shadow_root_dist_m);
+  if (shadow_is_jak && m_jak_seen_frame != render_state->frame_idx) {
+    m_jak_seen_frame = render_state->frame_idx;
+    m_jak_first_bone = first_bone;
+    if (pbr_shadow_atlas_live_threadsafe() && shadow_root_dist_m < pbr_shadow_actor_dist_m()) {
+      s_jak_in_range++;
+    }
+  }
 
   // allocate lights
   if (current_lights.w1) {
@@ -5288,6 +5307,145 @@ u64 pbr_shadow_atlas_draws_cast() {
   return s_atlas_draws_cast;
 }
 
+void Merc2::replay_deferred_shadows(SharedRenderState* render_state) {
+  if (m_deferred_shadow.empty()) {
+    return;
+  }
+  const u64 frame = render_state->frame_idx;
+  if (m_shadow_smvp_loc < 0 || !pbr_shadow_merc_cast_enabled(frame)) {
+    s_def_dropped += m_deferred_shadow.size();
+    m_deferred_shadow.clear();
+    return;
+  }
+  GLint prev_program = 0, prev_vao = 0, prev_fbo = 0, prev_read_fbo = 0, prev_array = 0, prev_ubo = 0;
+  GLint prev_viewport[4] = {0, 0, 0, 0};
+  GLboolean prev_depth_test = glIsEnabled(GL_DEPTH_TEST);
+  GLint prev_depth_func = 0;
+  GLboolean prev_depth_mask = GL_TRUE;
+  GLboolean prev_cull = glIsEnabled(GL_CULL_FACE);
+  GLboolean prev_scissor = glIsEnabled(GL_SCISSOR_TEST);
+  GLboolean prev_blend = glIsEnabled(GL_BLEND);
+  GLboolean prev_poly_offset = glIsEnabled(GL_POLYGON_OFFSET_FILL);
+  GLfloat prev_poly_factor = 0.f, prev_poly_units = 0.f;
+  GLboolean prev_color_mask[4] = {GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE};
+  glGetIntegerv(GL_CURRENT_PROGRAM, &prev_program);
+  glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &prev_vao);
+  glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &prev_array);
+  glGetIntegerv(GL_UNIFORM_BUFFER_BINDING, &prev_ubo);
+  glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &prev_fbo);
+  glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &prev_read_fbo);
+  glGetIntegerv(GL_VIEWPORT, prev_viewport);
+  glGetIntegerv(GL_DEPTH_FUNC, &prev_depth_func);
+  glGetBooleanv(GL_DEPTH_WRITEMASK, &prev_depth_mask);
+  glGetFloatv(GL_POLYGON_OFFSET_FACTOR, &prev_poly_factor);
+  glGetFloatv(GL_POLYGON_OFFSET_UNITS, &prev_poly_units);
+  glGetBooleanv(GL_COLOR_WRITEMASK, prev_color_mask);
+
+  glEnable(GL_DEPTH_TEST);
+  glDepthFunc(GL_LEQUAL);
+  glDepthMask(GL_TRUE);
+  glDisable(GL_BLEND);
+  glDisable(GL_CULL_FACE);
+  glDisable(GL_SCISSOR_TEST);
+  glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+  glEnable(GL_POLYGON_OFFSET_FILL);
+  glPolygonOffset(2.0f, 4.0f);
+  render_state->shaders[ShaderId::MERC_SHADOW].activate();
+#ifdef __ANDROID__
+  glBindBufferBase(GL_UNIFORM_BUFFER, 0, m_bones_buffer);
+#endif
+
+  for (auto& batch : m_deferred_shadow) {
+    if (batch.frame != frame || !batch.lev || batch.draws.empty()) {
+      s_def_dropped++;
+      continue;
+    }
+    // Os : meme curseur d'anneau que flush_draw_buckets / le rejeu natif differe.
+    u32 bones_base = 0;
+    {
+      const u32 n_bone_vec = (u32)batch.bones.size();
+      glBindBuffer(GL_UNIFORM_BUFFER, m_bones_buffer);
+      if (render_state->batch_singledraw) {
+        u32 base = m_bones_ring_base;
+        if (base + n_bone_vec > MAX_SHADER_BONE_VECTORS) {
+          glBufferData(GL_UNIFORM_BUFFER, MAX_SHADER_BONE_VECTORS * sizeof(math::Vector4f), nullptr,
+                       GL_DYNAMIC_DRAW);
+          base = 0;
+        }
+        glBufferSubData(GL_UNIFORM_BUFFER, base * sizeof(math::Vector4f),
+                        n_bone_vec * sizeof(math::Vector4f), batch.bones.data());
+        bones_base = base;
+        u32 next = base + n_bone_vec + m_opengl_buffer_alignment - 1;
+        next = next / m_opengl_buffer_alignment * m_opengl_buffer_alignment;
+        m_bones_ring_base = next;
+      } else {
+        glBufferSubData(GL_UNIFORM_BUFFER, 0, n_bone_vec * sizeof(math::Vector4f),
+                        batch.bones.data());
+      }
+    }
+    glBindVertexArray(m_vao);
+    glBindBuffer(GL_ARRAY_BUFFER, batch.lev->merc_vertices);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, batch.lev->merc_indices);
+    setup_merc_vao();
+    m_vao_vertex_buffer = 0;  // le VAO partage pointe ce niveau hors de la comptabilite du flush
+    m_vao_load_id = UINT64_MAX;
+
+    u64 indices_drawn = 0;
+    for (int tile = 0; tile < kShadowTiles; tile++) {
+      const float* mvp = pbr_shadow_merc_mvp(tile);
+      if (!mvp || !pbr_shadow_bind_write_tile(tile)) {
+        continue;
+      }
+      glUniformMatrix4fv(m_shadow_smvp_loc, 1, GL_FALSE, mvp);
+      s64 last_first_bone = -1;
+      float last_fade = -1.f;
+      for (size_t ki = 0; ki < batch.draws.size(); ki++) {
+        const Draw& d = batch.draws[ki];
+        if (m_shadow_fade_loc >= 0 && batch.fade[ki] != last_fade) {
+          last_fade = batch.fade[ki];
+          glUniform1f(m_shadow_fade_loc, last_fade);
+        }
+        if ((s64)d.first_bone != last_first_bone) {
+          glBindBufferRange(
+              GL_UNIFORM_BUFFER, 1, m_bones_buffer,
+              sizeof(math::Vector4f) * (bones_base + d.first_bone),
+              std::min((GLsizeiptr)(128 * sizeof(ShaderMercMat)),
+                       (GLsizeiptr)(MAX_SHADER_BONE_VECTORS * sizeof(math::Vector4f) -
+                                    sizeof(math::Vector4f) * (bones_base + d.first_bone))));
+          last_first_bone = d.first_bone;
+        }
+        glDrawElements(d.no_strip ? GL_TRIANGLES : GL_TRIANGLE_STRIP, d.index_count,
+                       GL_UNSIGNED_INT, (void*)(sizeof(u32) * d.first_index));
+        indices_drawn += d.index_count;
+      }
+    }
+    pbr_shadow_note_cast(kShadowCastMerc, indices_drawn);
+    s_def_replayed++;
+    if (batch.has_jak && m_jak_cast_frame != frame) {
+      m_jak_cast_frame = frame;
+      s_jak_cast++;
+    }
+  }
+  m_deferred_shadow.clear();
+
+  glPolygonOffset(prev_poly_factor, prev_poly_units);
+  if (!prev_poly_offset) glDisable(GL_POLYGON_OFFSET_FILL);
+  glColorMask(prev_color_mask[0], prev_color_mask[1], prev_color_mask[2], prev_color_mask[3]);
+  if (prev_blend) glEnable(GL_BLEND);
+  if (prev_scissor) glEnable(GL_SCISSOR_TEST);
+  if (prev_cull) glEnable(GL_CULL_FACE);
+  glDepthMask(prev_depth_mask);
+  glDepthFunc(prev_depth_func);
+  if (!prev_depth_test) glDisable(GL_DEPTH_TEST);
+  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, prev_fbo);
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, prev_read_fbo);
+  glViewport(prev_viewport[0], prev_viewport[1], prev_viewport[2], prev_viewport[3]);
+  glBindVertexArray(prev_vao);
+  glBindBuffer(GL_ARRAY_BUFFER, prev_array);
+  glBindBuffer(GL_UNIFORM_BUFFER, prev_ubo);
+  glUseProgram(prev_program);
+}
+
 void Merc2::cast_shadows(const LevelDrawBucket& lev_bucket,
                          const LevelData* lev,
                          SharedRenderState* render_state,
@@ -5313,6 +5471,19 @@ void Merc2::cast_shadows(const LevelDrawBucket& lev_bucket,
     autoport_proof::publish("shadow_merc_tot_far", s_tot_far);
     autoport_proof::publish("shadow_merc_tot_bone_oob", s_tot_oob);
     autoport_proof::publish("shadow_merc_tot_kept", s_tot_kept);
+    autoport_proof::publish("shadow_jak_frames_in_range", s_jak_in_range);
+    autoport_proof::publish("shadow_jak_frames_cast", s_jak_cast);
+    autoport_proof::publish("shadow_jak_missing_frames",
+                            s_jak_in_range > s_jak_cast ? s_jak_in_range - s_jak_cast : 0);
+    autoport_proof::publish("shadow_jak_miss_setup_late", s_jak_miss_setup);
+    autoport_proof::publish("shadow_jak_miss_gate", s_jak_miss_gate);
+    autoport_proof::publish("shadow_jak_miss_far", s_jak_miss_far);
+    autoport_proof::publish("shadow_jak_miss_alpha", s_jak_miss_alpha);
+    autoport_proof::publish("shadow_jak_frames_deferred", s_jak_deferred);
+    autoport_proof::publish("shadow_merc_deferred_batches", s_def_batches);
+    autoport_proof::publish("shadow_merc_deferred_replayed", s_def_replayed);
+    autoport_proof::publish("shadow_merc_deferred_dropped", s_def_dropped);
+    autoport_proof::publish("shadow_merc_deferred_modvtx_skipped", s_def_modvtx_skipped);
     autoport_proof::publish("shadow_merc_min_dist_dm",
                             s_min_dist_m < 1e8f ? (u64)(s_min_dist_m * 10.f) : 999999);
     s_min_dist_m = 1e9f;
@@ -5326,7 +5497,26 @@ void Merc2::cast_shadows(const LevelDrawBucket& lev_bucket,
   }
   const bool casting = pbr_shadow_merc_cast_enabled(render_state->frame_idx);
   const bool prepping = pbr_shadow_actor_prep_frame(render_state->frame_idx);
-  if (!casting && !prepping) {
+  // Jak est-il dans CE seau, cette image, et pas encore projete ?
+  bool jak_here = false;
+  if (m_jak_seen_frame == render_state->frame_idx && m_jak_cast_frame != render_state->frame_idx &&
+      Gfx::recharged_actor_shadow_mode() == 0) {
+    for (u32 di = 0; di < lev_bucket.next_free_draw && !jak_here; di++) {
+      jak_here = lev_bucket.draws[di].first_bone == m_jak_first_bone;
+    }
+    for (u32 di = 0; di < lev_bucket.next_free_envmap_draw && !jak_here; di++) {
+      jak_here = lev_bucket.envmap_draws[di].first_bone == m_jak_first_bone;
+    }
+  }
+  const bool deferring = !casting && pbr_shadow_merc_cast_deferrable(render_state->frame_idx);
+  if (!casting && !deferring && jak_here) {
+    if (pbr_shadow_write_frame() != render_state->frame_idx) {
+      s_jak_miss_setup++;  // l'atlas de cette image n'est pas encore (ou pas) prepare
+    } else {
+      s_jak_miss_gate++;
+    }
+  }
+  if (!casting && !prepping && !deferring) {
     s_no_gate++;
     return;
   }
@@ -5340,6 +5530,7 @@ void Merc2::cast_shadows(const LevelDrawBucket& lev_bucket,
   if (!m_shadow_smvp_loc_looked_up) {
     m_shadow_smvp_loc_looked_up = true;
     m_shadow_smvp_loc = glGetUniformLocation(shadow_shader.id(), "u_merc_smvp");
+    m_shadow_fade_loc = glGetUniformLocation(shadow_shader.id(), "u_merc_shadow_fade");
   }
   if (m_shadow_smvp_loc < 0) {
     s_no_loc++;
@@ -5354,11 +5545,19 @@ void Merc2::cast_shadows(const LevelDrawBucket& lev_bucket,
   const float max_dist_m = shared_cutoff_m > 0.f ? shared_cutoff_m : pbr_shadow_actor_dist_m();
   std::vector<const Draw*> kept;
   kept.reserve(lev_bucket.next_free_draw + lev_bucket.next_free_envmap_draw);
+  // lighting-shadows essai 10 : fondu en bout de portee (20 % de la frontiere) au lieu d'une
+  // coupure nette : le draw est tramé dans la profondeur (merc_shadow.frag), le filtre PCF de la
+  // lecture moyenne la trame. Plus d'ombre qui apparait d'un coup a la frontiere.
+  std::vector<float> kept_fade;
+  kept_fade.reserve(kept.capacity());
+  bool jak_kept = false, jak_far = false, jak_alpha = false;
   u64 skipped_far = 0, skipped_alpha = 0;
   auto consider = [&](const Draw* arr, u32 count) {
     for (u32 di = 0; di < count; di++) {
       const Draw& d = arr[di];
+      const bool is_jak = jak_here && d.first_bone == m_jak_first_bone;
       if (d.mode.get_ab_enable() || !d.mode.get_depth_write_enable() || !d.mode.get_zt_enable()) {
+        jak_alpha |= is_jak;
         skipped_alpha++;
         s_tot_alpha++;
         continue;
@@ -5382,16 +5581,56 @@ void Merc2::cast_shadows(const LevelDrawBucket& lev_bucket,
         s_min_dist_m = dist_m;
       }
       if (dist_m > max_dist_m) {
+        jak_far |= is_jak;
         skipped_far++;
         s_tot_far++;
         continue;
       }
       s_tot_kept++;
+      jak_kept |= is_jak;
       kept.push_back(&d);
+      kept_fade.push_back(std::min(1.f, std::max(0.f, (max_dist_m - dist_m) / (0.2f * max_dist_m))));
     }
   };
   consider(lev_bucket.draws.data(), lev_bucket.next_free_draw);
   consider(lev_bucket.envmap_draws.data(), lev_bucket.next_free_envmap_draw);
+  if (deferring) {
+    // Rejoue a la fin de la preparation de l'atlas de CETTE image (replay_deferred_shadows).
+    if (!kept.empty()) {
+      auto& batch = m_deferred_shadow.emplace_back();
+      batch.lev = lev;
+      batch.frame = render_state->frame_idx;
+      batch.bones.assign(m_shader_bone_vector_buffer,
+                         m_shader_bone_vector_buffer + m_next_free_bone_vector);
+      for (size_t ki = 0; ki < kept.size(); ki++) {
+        if (kept[ki]->flags & MOD_VTX) {
+          // Tampon de sommets modifies recycle par le seau suivant : non rejouable.
+          s_def_modvtx_skipped++;
+          continue;
+        }
+        batch.draws.push_back(*kept[ki]);
+        batch.fade.push_back(kept_fade[ki]);
+        batch.has_jak |= jak_here && kept[ki]->first_bone == m_jak_first_bone;
+      }
+      s_def_batches++;
+      if (batch.has_jak) {
+        s_jak_deferred++;
+      }
+    } else if (jak_here && jak_far) {
+      s_jak_miss_far++;
+    }
+    return;
+  }
+  if (casting && jak_here) {
+    if (jak_kept) {
+      m_jak_cast_frame = render_state->frame_idx;
+      s_jak_cast++;
+    } else if (jak_far) {
+      s_jak_miss_far++;
+    } else if (jak_alpha) {
+      s_jak_miss_alpha++;
+    }
+  }
 
   if (kept.empty()) {
     s_kept_empty++;
@@ -5452,8 +5691,13 @@ void Merc2::cast_shadows(const LevelDrawBucket& lev_bucket,
       }
       glUniformMatrix4fv(m_shadow_smvp_loc, 1, GL_FALSE, mvp);
       s64 last_first_bone = -1;
-      for (const Draw* dp : kept) {
-        const Draw& d = *dp;
+      float last_fade = -1.f;
+      for (size_t ki = 0; ki < kept.size(); ki++) {
+        const Draw& d = *kept[ki];
+        if (m_shadow_fade_loc >= 0 && kept_fade[ki] != last_fade) {
+          last_fade = kept_fade[ki];
+          glUniform1f(m_shadow_fade_loc, last_fade);
+        }
         if (d.flags & MOD_VTX) {
           glBindVertexArray(d.mod_vtx_buffer.vao);
           glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, lev->merc_indices);

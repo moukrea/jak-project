@@ -868,6 +868,35 @@ void pbr_shadow_note_cast(u32 cls, u64 indices) {
   }
 }
 
+// lighting-shadows essai 10 : un seau merc qui passe AVANT la preparation de l'atlas de son image
+// (niveau 0 sans tfrag/tie/shrub dessine cette image : la preparation vient du niveau 1) n'a pas
+// d'atlas d'ecriture. Mesure au bureau : Jak manquait l'atlas 187 images sur 1930 pour cette seule
+// raison — son ombre clignotait, et la frontiere retombait a 0 (l'aplat PS2 transpirait). Ses draws
+// sont alors mis de cote et REJOUES a la fin de la preparation, dans la meme image (memes os, meme
+// camera : aucun decalage).
+bool pbr_shadow_merc_cast_deferrable(u64 frame_idx) {
+  auto& st = pbr_shadow_state();
+  // Seulement si l'atlas a ete prepare a l'image PRECEDENTE : pendant un chargement (atlas fige),
+  // rien n'est mis de cote (sinon les lots s'accumulent jusqu'a la premiere preparation).
+  return st.valid && st.frame != ~0ull && st.frame + 1 == frame_idx &&
+         autoport_proof::armed_for("lighting-shadows") && Gfx::recharged_actor_shadow_mode() == 0;
+}
+
+static std::vector<std::pair<PbrLateCaster, void*>> g_late_casters;
+
+void pbr_shadow_register_late_caster(PbrLateCaster fn, void* ctx) {
+  g_late_casters.emplace_back(fn, ctx);
+}
+
+void pbr_shadow_unregister_late_caster(void* ctx) {
+  for (size_t i = 0; i < g_late_casters.size(); i++) {
+    if (g_late_casters[i].second == ctx) {
+      g_late_casters.erase(g_late_casters.begin() + i);
+      return;
+    }
+  }
+}
+
 bool pbr_shadow_merc_cast_enabled(u64 frame_idx) {
   return pbr_shadow_write_ready(frame_idx) && autoport_proof::armed_for("lighting-shadows") &&
         Gfx::recharged_actor_shadow_mode() == 0;
@@ -877,9 +906,19 @@ float pbr_shadow_actor_dist_m() {
   return Gfx::recharged_actor_shadow_dist_m();
 }
 
+// lighting-shadows essai 10 : derniere image dont l'atlas LU portait des acteurs. La frontiere
+// atlas/aplat ne retombe plus a 0 sur UNE image d'atlas sans acteur (retour owner n°3 : l'aplat PS2
+// transpire le temps d'une image) ; il faut 120 images sans acteur (ecran titre, chargement).
+static u64 g_actor_read_frame = ~0ull;
+
 bool pbr_shadow_read_has_actors() {
   auto& st = pbr_shadow_state();
-  return st.valid && (st.read_class_mask & kShadowCastMerc) != 0;
+  return st.valid && g_actor_read_frame != ~0ull && st.frame >= g_actor_read_frame &&
+         st.frame - g_actor_read_frame <= 120;
+}
+
+u64 pbr_shadow_write_frame() {
+  return pbr_shadow_state().frame;
 }
 
 float pbr_shadow_read_range_m() {
@@ -897,6 +936,13 @@ float pbr_shadow_actor_cutoff_m() {
 // lighting-shadows, partie A : frontiere partagee atlas/aplat, lue par le thread GOAL depuis
 // bones.gc via pc-actor-shadow-blob-skip?. Ecrite une fois par image sur le thread de rendu.
 static std::atomic<float> g_actor_blob_cutoff_m{0.f};
+// lighting-shadows essai 10 : l'atlas a ete ecrit a l'une des 2 dernieres images en cran « vraies »
+// (ecrit par le fil de rendu en fin d'image, lu par le fil GOAL pour compter les aplats proches).
+static std::atomic<bool> g_atlas_live{false};
+
+bool pbr_shadow_atlas_live_threadsafe() {
+  return g_atlas_live.load(std::memory_order_relaxed);
+}
 
 float pbr_shadow_actor_blob_cutoff_m_threadsafe() {
   return g_actor_blob_cutoff_m.load(std::memory_order_relaxed);
@@ -907,8 +953,12 @@ static std::atomic<u64> g_blob_skipped_cur{0};
 static std::atomic<u64> g_blob_drawn_total{0};
 static std::atomic<u64> g_blob_skipped_total{0};
 static std::atomic<u64> g_actor_shadow_frames_swapped{0};
+static std::atomic<u64> g_blob_near_drawn_total{0};
 
-void pbr_actor_blob_note(bool skipped) {
+void pbr_actor_blob_note(bool skipped, bool near_live) {
+  if (!skipped && near_live) {
+    g_blob_near_drawn_total.fetch_add(1, std::memory_order_relaxed);
+  }
   if (skipped) {
     g_blob_skipped_cur.fetch_add(1, std::memory_order_relaxed);
     g_blob_skipped_total.fetch_add(1, std::memory_order_relaxed);
@@ -926,6 +976,23 @@ void pbr_actor_blob_frame_end(u64 frame_idx, u64 blob_tris) {
   if (mode == 0 && skipped > 0 && atlas_draws > 0) {
     g_actor_shadow_frames_swapped.fetch_add(1, std::memory_order_relaxed);
   }
+  {
+    // « Vivant » = prepare a chacune des 120 dernieres images (a 2 images de trou pres) : les
+    // images de chargement et la mise en route ne comptent pas comme du jeu etabli.
+    auto& st = pbr_shadow_state();
+    static u64 s_live_since = ~0ull;
+    const bool live_now = mode == 0 && st.valid && st.frame != ~0ull && frame_idx >= st.frame &&
+                          frame_idx - st.frame <= 2 && autoport_proof::armed_for("lighting-shadows");
+    if (!live_now) {
+      s_live_since = ~0ull;
+    } else if (s_live_since == ~0ull) {
+      s_live_since = frame_idx;
+    }
+    // Et l'atlas a deja porte des acteurs au moins une fois : la toute premiere bascule aplat ->
+    // atlas (mise en route, 2 images au bureau) n'est pas un aplat qui transpire.
+    g_atlas_live.store(live_now && frame_idx - s_live_since >= 120 && g_actor_read_frame != ~0ull,
+                       std::memory_order_relaxed);
+  }
   if (frame_idx % 60 == 0) {
     autoport_proof::publish("actor_shadow_mode", (u64)mode);
     autoport_proof::publish("actor_shadow_blob_drawn", drawn);
@@ -940,6 +1007,10 @@ void pbr_actor_blob_frame_end(u64 frame_idx, u64 blob_tris) {
                             g_blob_skipped_total.load(std::memory_order_relaxed));
     autoport_proof::publish("actor_shadow_frames_swapped",
                             g_actor_shadow_frames_swapped.load(std::memory_order_relaxed));
+    // Aplats PS2 dessines en cran « vraies » a moins de la distance d'ombre d'acteur, atlas vivant :
+    // doit valoir 0 (retour owner n°3, l'aplat qui transpire une image).
+    autoport_proof::publish("actor_shadow_blob_near_drawn_total",
+                            g_blob_near_drawn_total.load(std::memory_order_relaxed));
   }
 }
 
@@ -1427,6 +1498,9 @@ void pbr_shadow_first_camera(SharedRenderState* rs, const GoalBackgroundCameraDa
     memcpy(st.read_texel_world, st.texel_world, sizeof(st.read_texel_world));
     st.read_key_light = st.key_light;
     st.read_class_mask = st.class_mask_frame;
+    if ((st.read_class_mask & kShadowCastMerc) != 0) {
+      g_actor_read_frame = st.frame;  // l image qui a ECRIT cet atlas
+    }
     memcpy(st.read_cam, st.write_cam, sizeof(st.read_cam));
     st.write = 1 - st.write;
   }
@@ -1692,6 +1766,13 @@ void pbr_shadow_first_camera(SharedRenderState* rs, const GoalBackgroundCameraDa
                             (uint64_t)(Gfx::recharged_shadow_strength_frac() * 100.f + 0.5f));
     autoport_proof::publish("shadow_second_setting",
                             Gfx::recharged_shadow_second_on() ? 1 : 0);
+  }
+  // lighting-shadows essai 10 : l'atlas d'ecriture de CETTE image existe enfin — les draws merc
+  // des seaux passes avant lui y entrent maintenant (voir pbr_shadow_merc_cast_deferrable).
+  if (pbr_shadow_write_ready(frame_idx)) {
+    for (auto& c : g_late_casters) {
+      c.first(c.second, rs);
+    }
   }
 }
 
@@ -3246,6 +3327,8 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   }
   lgt_3f(id, "u_rt_moon_color",
               MOON_GREEN[0] * moon_scale, MOON_GREEN[1] * moon_scale, MOON_GREEN[2] * moon_scale);
+  // lighting-shadows essai 10 : part du direct cuit portee par la lune (shade.glsl, w_md).
+  lgt_1f(id, "u_rt_moon_w", green_elev * (rgm.armed ? rgm.sun_fade : 1.f));
   lgt_1f(id, "u_rt_shadow_conf", rt_shadow_conf);  // playtest #4 stepless shadow handoff
 #ifdef OG_FEAT_PBR
   // lighting-shadows (A5) : poids DIRECTS des deux astres, pour que `pbr_shadow_first_camera`
