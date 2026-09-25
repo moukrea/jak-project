@@ -36,7 +36,7 @@
    "url": "https://linear.app/moukrea/document/e1fe9500339a"
   }
  },
- "_gen": 493,
+ "_gen": 503,
  "_ids": {
   "labels": {
    "ok": "000e105b-24ba-4fa3-a579-bc3bf0869242",
@@ -180,13 +180,13 @@
   "url": "https://linear.app/moukrea/issue/JAK-159/la-mesure-de-stabilite-de-lao-echantillonne-le-meme-instant-de-scene-a"
  },
  "arm64-integer-division-matches-x86": {
-  "hash": "e2f336ac4abcacdebd97284b156dd538f8cbef8c",
+  "hash": "bee14b5c4b7ca8dc6df1a49340433cf962449f76",
   "identifier": "JAK-281",
   "issue_id": "ef62f448-d6bd-44f0-9d48-e69689320e4a",
-  "last_state": "In Progress",
+  "last_state": "Done",
   "last_verdict_announced": "validator-002.txt",
   "pulled_at": "2026-09-24T23:49:36.000Z",
-  "state_at": "2026-09-25T05:11:15.146Z",
+  "state_at": "2026-09-25T05:19:09.675Z",
   "url": "https://linear.app/moukrea/issue/JAK-281/sur-le-telephone-la-division-entiere-donne-exactement-le-meme-resultat"
  },
  "build-and-harness-leftovers": {
@@ -1083,12 +1083,13 @@
   "url": "https://linear.app/moukrea/issue/JAK-189/un-chantier-visible-ne-part-au-test-de-lowner-que-si-son-ticket-porte"
  },
  "harness-owner-thumbs-up-closes-the-thread": {
-  "hash": "daf0ea9962f024704ed4df22f31d1e1ad06ed561",
+  "hash": "9bc2dee0afe4c9a4b068b7859fff16ecc7c917cc",
   "identifier": "JAK-245",
   "issue_id": "284ef4eb-a1e8-44e5-b0ef-64d2ce29fdd6",
-  "last_state": "Done",
+  "last_state": "Todo",
   "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-23T01:41:24.000Z",
+  "state_at": "2026-09-25T05:33:59.265Z",
   "url": "https://linear.app/moukrea/issue/JAK-245/un-pouce-de-lowner-sur-le-dernier-message-du-harnais-clot-la"
  },
  "harness-pack-manifest-is-a-build-artefact": {
@@ -1606,13 +1607,13 @@
   "url": "https://linear.app/moukrea/issue/JAK-46/fiabiliser-les-comparaisons-onoff-pour-corriger-les-blancs-hdr"
  },
  "lighting-flipped-faces-everywhere": {
-  "hash": "c1cc094f4eec5b14c1b2daef99d59dc10a41c463",
+  "hash": "58ee8593c9765581620d60e47a076b2dd314c714",
   "identifier": "JAK-279",
   "issue_id": "a6c7bbd7-f461-4af9-8e7c-d653a2ed6979",
-  "last_state": "À arbitrer",
+  "last_state": "Todo",
   "last_verdict_announced": "validator-005.txt",
-  "pulled_at": "2026-09-25T00:32:05.545Z",
-  "state_at": "2026-09-25T05:11:14.651Z",
+  "pulled_at": "2026-09-25T05:33:44.243Z",
+  "state_at": "2026-09-25T05:31:04.693Z",
   "url": "https://linear.app/moukrea/issue/JAK-279/aucune-surface-a-lenvers-ne-tombe-au-noir-dans-aucun-niveau-ni-aucune"
  },
  "lighting-interiors": {
@@ -1683,12 +1684,12 @@
   "url": "https://linear.app/moukrea/issue/JAK-56/du-redmi-au-snapdragon-8-elite-des-paliers-et-chaque-ajout-debrayable"
  },
  "lighting-regimes": {
-  "hash": "c19666955f3c0f289525518a59456c2d02a7841e",
+  "hash": "61560a109aadbf890280f321a9095a594fd5bb2a",
   "identifier": "JAK-50",
   "issue_id": "c0ae94ec-54bb-4d1d-bd7c-880e12a25428",
   "last_state": "Done",
   "last_verdict_announced": "validator-003.txt",
-  "pulled_at": "2026-09-24T23:46:39.636Z",
+  "pulled_at": "2026-09-25T05:32:06.425Z",
   "relations": [
    "lighting-bake"
   ],
@@ -1696,10 +1697,10 @@
   "url": "https://linear.app/moukrea/issue/JAK-50/la-lumiere-cle-nest-pas-toujours-un-soleil"
  },
  "lighting-shadows": {
-  "hash": "9dfb68c640bdfac786d33e3d0e307eda81034169",
+  "hash": "dd25279d9f95435dffda4f92c411183149a4e4f3",
   "identifier": "JAK-51",
   "issue_id": "923462dc-521a-4c79-ba5f-2e2e8cc4c758",
-  "last_state": "Todo",
+  "last_state": "In Progress",
   "last_verdict_announced": "validator-005.txt",
   "pulled_at": "2026-09-24T20:47:55.659Z",
   "relations": [
@@ -1707,7 +1708,7 @@
    "lighting-ao-indirect",
    "perf-merc-defuse"
   ],
-  "state_at": "2026-09-24T23:47:47.033Z",
+  "state_at": "2026-09-25T05:19:07.779Z",
   "url": "https://linear.app/moukrea/issue/JAK-51/deux-astres-deux-jeux-dombres-et-les-acteurs-qui-en-projettent"
  },
  "menu-back-label": {
@@ -1781,12 +1782,12 @@
   "url": "https://linear.app/moukrea/issue/JAK-173"
  },
  "owner-level-teleport-menu": {
-  "hash": "c855eb4febb8a73fd73a4a97f98f98fd4538c7c8",
+  "hash": "918e89f5dda553e3211873fb418f42083337bc65",
   "identifier": "JAK-277",
   "issue_id": "369d9397-a686-4914-b66f-33b6c4b774fa",
   "last_state": "Done",
   "last_verdict_announced": "validator-002.txt",
-  "pulled_at": "2026-09-24T18:03:39.202Z",
+  "pulled_at": "2026-09-25T05:31:47.861Z",
   "state_at": "2026-09-24T18:05:02.856Z",
   "url": "https://linear.app/moukrea/issue/JAK-277/un-menu-de-teleportation-vers-nimporte-quel-niveau-ouvert-par-une"
  },
@@ -1855,12 +1856,12 @@
   "url": "https://linear.app/moukrea/issue/JAK-78/le-compilateur-goal-utilise-les-31-registres-de-larm64"
  },
  "perf-codegen-arm64-scalar": {
-  "hash": "71855b34b4814a221e5f4b3ee17e860bc0d4c269",
+  "hash": "1905252b5764b2b64d4d6c34dcd5ce5dae151fc0",
   "identifier": "JAK-77",
   "issue_id": "1a43f366-ec9e-40f1-bcb2-4e1698505d53",
   "last_state": "Done",
   "last_verdict_announced": "validator-001.txt",
-  "pulled_at": "2026-09-24T23:55:25.128Z",
+  "pulled_at": "2026-09-25T05:31:54.867Z",
   "state_at": "2026-09-24T23:56:20.028Z",
   "url": "https://linear.app/moukrea/issue/JAK-77/float-vers-int-division-et-swizzle-en-une-ou-deux-instructions"
  },
