@@ -1326,6 +1326,11 @@ uint64_t Tie3::draw_wind_depth_prepass(SharedRenderState* rs) {
 // et dessiner les plages statiques completes NORMAL + NORMAL_ENVMAP. Le chemin VENT n'est plus
 // exclu : il est rejoue juste apres par `draw_wind_depth_prepass`, avec SON programme.
 uint64_t Tie3::draw_depth_prepass(SharedRenderState* rs) {
+  // lighting-flipped-faces-everywhere : niveau decharge ou recharge depuis notre dernier
+  // setup_for_level => cache pendant (SIGSEGV au changement de niveau, core du 25/09).
+  if (rs && rs->loader && !rs->loader->tfrag3_level_is_current(m_level_name, m_load_id)) {
+    return 0;
+  }
 #ifdef OG_FEAT_PBR
   // La prepasse tourne AVANT le premier draw_matching_draws_for_tree de l'image : le restart
   // de strip (UINT32_MAX) doit etre arme ici, comme la-bas.
@@ -1872,9 +1877,8 @@ void Tie3::envmap_second_pass_draw(const Tree& tree, int geom, int idx,
 
       prof.add_draw_call();
       lighting_census::note_world_draw(lighting_census::Kind::Tie);
-      flip_census::before_draw(flip_census::TIE, render_state->shaders[ShaderId::ETIE].id(), render_state->frame_idx, m_level_name);
+      // passe envmap superposee : la base de la meme geometrie est deja sondee
       glDrawElements(tree.draw_mode, count, GL_UNSIGNED_INT, (void*)(first * sizeof(u32)));
-      flip_census::after_draw();
       contact_record(draw_idx, next, first, count);
       shrub_contact_measurement::draw_elements(m_level_name, geom, idx, render_state->frame_idx, tree.draw_mode, count, GL_UNSIGNED_INT, (void*)(first * sizeof(u32)));
       draw_idx = next;
@@ -1918,20 +1922,18 @@ void Tie3::envmap_second_pass_draw(const Tree& tree, int geom, int idx,
 
     if (render_state->no_multidraw) {
       lighting_census::note_world_draw(lighting_census::Kind::Tie);
-      flip_census::before_draw(flip_census::TIE, render_state->shaders[ShaderId::ETIE].id(), render_state->frame_idx, m_level_name);
+      // passe envmap superposee : la base de la meme geometrie est deja sondee
       glDrawElements(tree.draw_mode, singledraw_indices.second, GL_UNSIGNED_INT,
                      (void*)(singledraw_indices.first * sizeof(u32)));
-      flip_census::after_draw();
       contact_record(draw_idx, draw_idx + 1, singledraw_indices.first, singledraw_indices.second);
       shrub_contact_measurement::draw_elements(m_level_name, geom, idx, render_state->frame_idx, tree.draw_mode, singledraw_indices.second, GL_UNSIGNED_INT,
                      (void*)(singledraw_indices.first * sizeof(u32)));
     } else {
       lighting_census::note_world_draw(lighting_census::Kind::Tie);
-      flip_census::before_draw(flip_census::TIE, render_state->shaders[ShaderId::ETIE].id(), render_state->frame_idx, m_level_name);
+      // passe envmap superposee : la base de la meme geometrie est deja sondee
       glMultiDrawElements(
           tree.draw_mode, &tree.multidraw_count_buffer[multidraw_indices.first], GL_UNSIGNED_INT,
           &tree.multidraw_index_offset_buffer[multidraw_indices.first], multidraw_indices.second);
-      flip_census::after_draw();
       for (int contact_i = 0; contact_i < multidraw_indices.second; ++contact_i) {
         const auto contact_slot = multidraw_indices.first + contact_i;
         contact_record(draw_idx, draw_idx + 1,

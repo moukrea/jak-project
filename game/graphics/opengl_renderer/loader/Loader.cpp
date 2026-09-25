@@ -388,6 +388,12 @@ Loader::~Loader() {
  *
  * This is safe to call from the graphics thread
  */
+bool Loader::tfrag3_level_is_current(const std::string& level_name, u64 load_id) {
+  std::unique_lock<std::mutex> lk(m_loader_mutex);
+  const auto& existing = m_loaded_tfrag3_levels.find(level_name);
+  return existing != m_loaded_tfrag3_levels.end() && existing->second->load_id == load_id;
+}
+
 const LevelData* Loader::get_tfrag3_level(const std::string& level_name) {
   std::unique_lock<std::mutex> lk(m_loader_mutex);
   const auto& existing = m_loaded_tfrag3_levels.find(level_name);

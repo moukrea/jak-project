@@ -89,6 +89,11 @@ void Shrub::init_shaders(ShaderLibrary& shaders) {
 // `caster_index_buffer` reste la propriete de la passe soleil : ses slivers y dessinaient les
 // traits d'ombre fantomes de l'owner, et ils n'ont rien a voir avec la profondeur de l'image.
 uint64_t Shrub::draw_depth_prepass(SharedRenderState* rs) {
+  // lighting-flipped-faces-everywhere : niveau decharge ou recharge depuis notre dernier
+  // setup_for_level => cache pendant (SIGSEGV au changement de niveau, core du 25/09).
+  if (rs && rs->loader && !rs->loader->tfrag3_level_is_current(m_level_name, m_load_id)) {
+    return 0;
+  }
   uint64_t total = 0;
 #ifdef __ANDROID__
   // GLES n'a pas d'index de restart reglable : le mode fixe restarte sur tout-a-un, ce qui EST

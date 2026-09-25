@@ -2,15 +2,15 @@
 
 #ifdef OG_FLIP_PROBE
 layout(location = 0) out vec4 color;
-in vec3 vtx_probe_pos;
-in vec3 vtx_probe_nrm;
-in vec4 vtx_probe_twin;
 uniform int u_floor_probe;
 layout(location = 4) out vec4 floor_probe_out;
 #else
 out vec4 color;
 #endif
 in vec4 vtx_color;
+in vec4 vtx_color_twin;
+in vec3 vtx_nrm_view;
+in vec3 vtx_pos_view;
 in vec2 vtx_st;
 in float fog;
 
@@ -37,26 +37,34 @@ float rt_luma_merc(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }
 void main() {
 #ifdef OG_FLIP_PROBE
   floor_probe_out = vec4(0.0);
-  vec3 gN = cross(dFdx(vtx_probe_pos), dFdy(vtx_probe_pos));
-  float gNl = length(gN);
-  gN = gNl > 1e-12 ? gN * (1.0 / gNl) : vec3(0.0, 0.0, 1.0);
-  if (dot(gN, -vtx_probe_pos) < 0.0) gN = -gN;
-  float fc_flip = dot(normalize(vtx_probe_nrm), gN) < 0.0 ? 1.0 : 0.0;
 #endif
+  // lighting-flipped-faces-everywhere : eclaire la face reellement VUE (comme le decor dans
+  // shade.glsl), sauf sur les silhouettes rasantes ou la normale interpolee n'est pas fiable.
+  // mf_face proche de 0 = silhouette : on garde alors l'eclairage d'origine.
+  vec3 gN = cross(dFdx(vtx_pos_view), dFdy(vtx_pos_view));
+  float gNl = length(gN);
+  gN = gNl > 1e-12 ? gN / gNl : vec3(0.0, 0.0, 1.0);
+  vec3 Vv = normalize(-vtx_pos_view);
+  if (dot(gN, Vv) < 0.0) gN = -gN;
+  float mf_face = dot(gN, Vv);
+  bool mf_flip = dot(vtx_nrm_view, gN) < 0.0;
+  // Seule la COULEUR change de cote : l'alpha reste celui d'origine (transparences intactes).
+  vec4 lit = vec4(((mf_flip && mf_face >= 0.25) ? vtx_color_twin : vtx_color).rgb, vtx_color.a);
+
   if (gfx_hack_no_tex == 0) {
     vec4 T0 = texture(tex_T0, vtx_st);
     // all merc is tcc=rgba and modulate
     if (decal_enable == 0) {
-      color = vtx_color * T0 * 2.0;
+      color = lit * T0 * 2.0;
     } else {
       color = T0;
     }
     color.a *= 2.0;
   } else {
-    color.rgb = vtx_color.rgb;
+    color.rgb = lit.rgb;
 
     if (decal_enable == 0) {
-      color.a = vtx_color.a * 2.0;
+      color.a = lit.a * 2.0;
     } else {
       color.a = 1.0;
     }
@@ -75,20 +83,24 @@ void main() {
 
 #ifdef OG_FLIP_PROBE
   // lighting-flipped-faces-everywhere : merc n'a pas de terme d'eclairage rechargE separe (pas
-  // d'OFF distinct dans la meme image) ; la REFERENCE est donc le jumeau.
+  // d'OFF distinct dans la meme image) ; la REFERENCE est le cote VU (L_v).
   if (u_floor_probe >= 2) {
     vec3 T = (gfx_hack_no_tex == 0) ? texture(tex_T0, vtx_st).rgb : vec3(0.5);
+    vec4 L_v = mf_flip ? vtx_color_twin : vtx_color;
     float fc_on;
-    float fc_tw;
+    float fc_v;
     if (decal_enable != 0) {
       fc_on = rt_luma_merc(T);
-      fc_tw = rt_luma_merc(T);
+      fc_v = rt_luma_merc(T);
     } else {
-      fc_on = rt_luma_merc(vtx_color.rgb * T * 2.0);
-      fc_tw = rt_luma_merc(vtx_probe_twin.rgb * T * 2.0);
+      fc_on = rt_luma_merc(lit.rgb * T * 2.0);
+      fc_v = rt_luma_merc(L_v.rgb * T * 2.0);
     }
-    floor_probe_out = vec4(fc_on / max(fc_tw, 1e-4), 1.0, fc_tw,
-                           1.0 + fc_flip + 4.0 * float(u_floor_probe));
+    // y = cosinus d'incidence de la FACE (0 = rasante, silhouette ; 1 = de face) : une normale
+    // interpolee qui passe derriere la vue sur une silhouette n'est pas une face a l'envers.
+    floor_probe_out = vec4(fc_on / max(fc_v, 1e-4), mf_face, fc_v,
+                           1.0 + (mf_flip ? 1.0 : 0.0) + 2.0 * (gl_FrontFacing ? 1.0 : 0.0) +
+                               4.0 * float(u_floor_probe));
   }
 #endif
 

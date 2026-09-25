@@ -540,6 +540,11 @@ bool TFragment::setup_for_level(const std::vector<tfrag3::TFragmentTreeKind>& tr
 // que lier et dessiner. Meme jeu de casters que la passe soleil : NORMAL / DIRT / ICE, jamais
 // LOWRES (coque LOD lointaine jusqu'a +57 m au-dessus du sol, OWNER #4) ni TRANS / WATER.
 uint64_t TFragment::draw_depth_prepass(SharedRenderState* rs) {
+  // lighting-flipped-faces-everywhere : niveau decharge ou recharge depuis notre dernier
+  // setup_for_level => cache pendant (SIGSEGV au changement de niveau, core du 25/09).
+  if (rs && rs->loader && !rs->loader->tfrag3_level_is_current(m_level_name, m_load_id)) {
+    return 0;
+  }
   // lighting-ao-indirect (i) : le TERRAIN ne bouge pas. Il le DIT, au lieu d'heriter du
   // deplacement pose par le contributeur precedent — c'est exactement le piege que
   // `first_tfrag_draw_setup` ferme pour la passe couleur : un `u_tie_sway_amp` laisse a sa

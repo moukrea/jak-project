@@ -319,6 +319,15 @@ vec4 shade_body(in Surface s, float sao, float occ_force) {
   if (g_shade_flip > 0.5) {
     N = -N;
   }
+  // lighting-flipped-faces-everywhere : la normale qui PORTE L'OMBRE suit la meme regle. TIE,
+  // TIE au vent et shrub y mettent leur normale lissee (shadow_N = N) : sur une face a l'envers,
+  // l'offset de la carte d'ombre partait DANS la surface et le N.L du soleil valait 0 — l'ombre
+  // de Jak disparaissait sur les ponts de village1 (owner 25/09) et restait sur le sol tfrag,
+  // dont shadow_N est deja la normale de face orientee vers la camera (branche jamais prise).
+  if (dot(s.shadow_N, s.gN) < 0.0) {
+    s.shadow_N = -s.shadow_N;
+    s.shadow_ndl = max(dot(s.shadow_N, normalize(u_rt_sun_dir)), 0.0);
+  }
 
     // lighting-shadows (SPEC §4.8) : le facteur d'ombre portee vient desormais de
     // `rt_key_vis`/`rt_sec_vis` (definis plus haut, atlas tuile), pas d'un calcul inline ici.

@@ -28,10 +28,18 @@ bool active();
 void frame_tick(uint64_t frame_idx);
 
 // Juste avant / apres chaque tirage couleur des familles suivies.
-void before_draw(Family f, unsigned program, uint64_t frame_idx, const std::string& level_name);
+void before_draw(Family f,
+                  unsigned program,
+                  uint64_t frame_idx,
+                  const std::string& level_name,
+                  const char* label = nullptr);
 void after_draw();
 
 // Fil GOAL : rend vrai une fois par demande de teleport posee par la tournee.
 bool take_warp_request(char* name, size_t cap);
+
+// Vrai pendant la fenetre de mesure : le fil GOAL pousse le stick droit a fond pour balayer
+// 360 degres. Toujours faux sur Android.
+bool spin_active();
 
 }  // namespace flip_census

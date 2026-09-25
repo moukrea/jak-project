@@ -6079,7 +6079,9 @@ void Merc2::do_draws(const Draw* draw_array,
         GLint flip_cur_prog = 0;
         glGetIntegerv(GL_CURRENT_PROGRAM, &flip_cur_prog);
         if ((GLuint)flip_cur_prog == render_state->shaders[ShaderId::MERC2].id()) {
-          flip_census::before_draw(flip_census::MERC, (GLuint)flip_cur_prog, render_state->frame_idx, "");
+          char flip_label[24];
+          snprintf(flip_label, sizeof(flip_label), "h%llx", (unsigned long long)draw.hash);
+          flip_census::before_draw(flip_census::MERC, (GLuint)flip_cur_prog, render_state->frame_idx, lev->level->level_name, flip_label);
         }
         glDrawElements(draw.no_strip ? GL_TRIANGLES : GL_TRIANGLE_STRIP, draw.index_count,
                        GL_UNSIGNED_INT, (void*)(sizeof(u32) * draw.first_index));
@@ -6132,8 +6134,24 @@ void Merc2::do_draws(const Draw* draw_array,
       if (!f1a_nodraw) {
         const auto roi = lighting_census::roi_before();
         const GLuint fpq = fp_draw_before(draw.hash, draw.fp_inside);
+        // Passe unique (chemin majoritaire) : la sonder aussi, sinon aucun couple merc n'est
+        // mesure quand w1==0 || set_fade (cf. branche "draw rgb" ci-dessus, sondee seulement
+        // dans l'autre branche du if).
+        GLint flip_cur_prog = 0;
+        glGetIntegerv(GL_CURRENT_PROGRAM, &flip_cur_prog);
+        const bool flip_probe_here =
+            !set_fade && (GLuint)flip_cur_prog == render_state->shaders[ShaderId::MERC2].id();
+        if (flip_probe_here) {
+          char flip_label[24];
+          snprintf(flip_label, sizeof(flip_label), "h%llx", (unsigned long long)draw.hash);
+          flip_census::before_draw(flip_census::MERC, (GLuint)flip_cur_prog,
+                                    render_state->frame_idx, lev->level->level_name, flip_label);
+        }
         glDrawElements(draw.no_strip ? GL_TRIANGLES : GL_TRIANGLE_STRIP, draw.index_count,
                        GL_UNSIGNED_INT, (void*)(sizeof(u32) * draw.first_index));
+        if (flip_probe_here) {
+          flip_census::after_draw();
+        }
         soft_draw_census::record("merc", lev->level->merc_data.indices.data(), lev->level->merc_data.indices.size(), draw.first_index, draw.index_count, draw.no_strip ? GL_TRIANGLES : GL_TRIANGLE_STRIP);
         fp_draw_after(fpq);
         lighting_census::roi_after(roi, "merc", di, set_fade ? "envmap" : "base", draw.hash,

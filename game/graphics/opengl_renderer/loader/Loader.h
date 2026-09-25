@@ -47,6 +47,11 @@ class Loader {
   // tranches. Voir le pave de l'implementation pour pourquoi le defaut vient de la.
   void update_blocking(TexturePool& tex_pool, bool announce = true, float budget_ms = 0.f);
   const LevelData* get_tfrag3_level(const std::string& level_name);
+  // lighting-flipped-faces-everywhere : la prepasse d'ombre dessine des contributeurs dont le
+  // niveau a pu etre decharge depuis leur dernier render (bucket vide => pas de setup_for_level).
+  // Vrai si `level_name` est charge SOUS ce load_id. Ne compte PAS comme un usage : ne remet pas
+  // frames_since_last_used a zero (sinon la prepasse garderait en vie un niveau quitte).
+  bool tfrag3_level_is_current(const std::string& level_name, u64 load_id);
   std::optional<MercRef> get_merc_model(const char* model_name);
   const tfrag3::Level& load_common(TexturePool& tex_pool, const std::string& name);
   // Ghonor-boot-crash : « est-ce que load_common(name) trouverait son fichier ? », pose avec LE
