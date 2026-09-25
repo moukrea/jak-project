@@ -6016,7 +6016,7 @@ items:
   delivered: '2026-09-25'
 - id: lighting-shadows
   feature: Deux astres, deux jeux d'ombres, et les acteurs qui en projettent
-  status: in-progress
+  status: open
   priority: 28
   owner_feedback:
   - date: '2026-09-03'
@@ -6219,9 +6219,11 @@ items:
   - debug.opengoal.lighting=1
   - debug.opengoal.level.warp=village1-warp
   - debug.opengoal.tod.hour=8
+  - debug.opengoal.level.warp.pos=-95.4 15.5 111.38
   proof_env:
   - OG_LEVEL_WARP=village1-warp
   - OG_TOD_HOUR=8
+  - OG_LEVEL_WARP_POS=-95.4 15.5 111.38
   supervisor_recovery: true
   gate_verdict:
     result: porte-tenue
@@ -20492,7 +20494,7 @@ items:
 - id: harness-owner-thumbs-up-closes-the-thread
   feature: 'Un pouce de l''owner sur le dernier message du harnais clot la discussion du ticket : plus
     aucune etiquette « A traiter », « A lire » ni « En discussion » n''y reste'
-  status: open
+  status: in-progress
   priority: 19
   code_scope: harnais
   device: false
@@ -22501,7 +22503,7 @@ items:
 - id: lighting-flipped-faces-everywhere
   feature: Aucune surface a l'envers ne tombe au noir, dans aucun niveau ni aucune famille de rendu (decor
     et personnages)
-  status: open
+  status: validated
   priority: 18
   code_scope: jeu
   device: false
@@ -22615,10 +22617,10 @@ items:
   gate_verdict:
     result: porte-tenue
     date: '2026-09-25'
-    proof_sha: 627393c528cce0b2
-    proof_bytes: 178937
-    attempt: 2
-    journal: validator-002.txt
+    proof_sha: f0a98c8d0d54191f
+    proof_bytes: 183890
+    attempt: 7
+    journal: validator-007.txt
   notes: '25/09 (superviseur) : bloque a 5 essais sur une porte moteur trop compliquee ; contrat resserre
     sur une preuve hors ligne des assets, budget rouvert.
 
@@ -22729,3 +22731,36 @@ items:
     4. `goalc_unit_tests_broken` = tests en echec ou non lances ; doit valoir 0.
 
     CONTROLE POSITIF (casser une instruction de l''emetteur -> un test rougit) + CONTROLE NEGATIF.'
+- id: harness-flipped-faces-acquis-offline
+  feature: Le garde-fou des faces a l'envers relit les assets hors ligne, et le moteur ne porte plus d'instrumentation
+    de ce sujet
+  status: open
+  priority: 124
+  code_scope: harnais
+  device: false
+  owner_test: false
+  max_retries: 4
+  gate:
+    key: flipped_acquis_leftovers
+    op: ==
+    value: 0
+  prompt: prompts/item-harness-flipped-faces-acquis-offline.md
+  known_cause: 'Signale par le worker de lighting-flipped-faces-everywhere, non corrige ; ouvert sous
+    la delegation de l''owner pour les signalements de harnais.
+
+    (1) `.autoport/acquis/flipped-faces.sh` s''appuie sur l''instrumentation MOTEUR (flip_census) : CONFLIT
+    avec l''ordre de l''owner du 25/09 (« Pourquoi le moteur devrait porter le truc des flipped faces
+    defects si c''est un truc qu''on fait sur les assets ») ; (2) `game/graphics/opengl_renderer/flip_census.cpp`
+    + `floor_probe.cpp` restent compiles dans gk ; (3) `.autoport/acquis/_lib.sh:62-73` (acq_x86_log)
+    cache une garde x86 sur le sha de gk + arguments, jamais sur les DONNEES chargees (fr3/*.meshweld,
+    pack) : apres une recuisson, la garde rend un resultat perime.'
+  deliverable: '1. acquis/flipped-faces.sh relit les fichiers corriges du pack HORS LIGNE (tools/mesh_audit
+    --check-orient) + grep des shaders ; plus aucune course du jeu.
+
+    2. Retirer flip_census.cpp / floor_probe.cpp de gk (et des deux CMakeLists) si plus rien ne les lit.
+
+    3. Le cache des gardes x86 inclut l''empreinte des donnees chargees.
+
+    4. `flipped_acquis_leftovers` ; doit valoir 0.
+
+    CONTROLE POSITIF + CONTROLE NEGATIF.'
