@@ -82,6 +82,9 @@ struct State {
   // sonde
   bool probe_frame = false;
   uint64_t probes = 0;
+  // raisons de sortie de la sonde, comptees AVANT tout retour (un compteur apres un retour
+  // anticipe confondrait « jamais appelee » et « rien a relire »)
+  uint64_t probe_calls = 0, probe_armed = 0, probe_skip_idle = 0, probe_skip_size = 0;
   uint64_t probe_lit_last = 0, probe_lit_max = 0, probe_world_last = 0;
   GLuint probe_fbo = 0, probe_tex = 0;
   int probe_w = 0, probe_h = 0;
@@ -329,7 +332,11 @@ void update(SharedRenderState* rs, const GoalBackgroundCameraData& cam) {
   s.frames_active++;
   s.lights_visible_max = std::max<uint64_t>(s.lights_visible_max, cands.size());
   s.flicker_lights_max = std::max(s.flicker_lights_max, flicker_lights);
-  s.probe_frame = autoport_proof::feature_is(kItemId) && (rs->frame_idx % kProbeEvery) == 0;
+  // Cadence sur le compteur PROPRE de la grille (images ou elle a tourne), pas sur frame_idx.
+  s.probe_frame = autoport_proof::feature_is(kItemId) && (s.frames_active % kProbeEvery) == 1;
+  if (s.probe_frame) {
+    s.probe_armed++;
+  }
 
   autoport_proof::publish("ll_lights_loaded", loaded);
   autoport_proof::publish("ll_lights_loaded_max", s.lights_loaded_max);
@@ -346,6 +353,9 @@ void update(SharedRenderState* rs, const GoalBackgroundCameraData& cam) {
   autoport_proof::publish("ll_flicker_max_permille",
                           (uint64_t)std::lround(std::min(s.flicker_max, 1.f) * 1000.f));
   autoport_proof::publish("ll_gain_milli", (uint64_t)std::lround(s.gain * 1000.f));
+  autoport_proof::publish("ll_probe_armed", s.probe_armed);
+  autoport_proof::publish("ll_probe_calls", s.probe_calls);
+  autoport_proof::publish("ll_probe_skip_idle", s.probe_skip_idle);
 }
 
 void bind_program_uniforms(GLuint program) {
@@ -376,7 +386,11 @@ void bind_program_uniforms(GLuint program) {
 
 void proof_post_opaque(SharedRenderState* rs) {
   State& s = state();
+  s.probe_calls++;
   if (!s.probe_frame || !s.active || !rs) {
+    if (s.probe_armed) {
+      s.probe_skip_idle++;
+    }
     return;
   }
   s.probe_frame = false;  // une seule relecture par image sondee
@@ -387,6 +401,8 @@ void proof_post_opaque(SharedRenderState* rs) {
   const int w = rs->render_fb_w > 0 ? rs->render_fb_w : prev_vp[2];
   const int h = rs->render_fb_h > 0 ? rs->render_fb_h : prev_vp[3];
   if (w <= 0 || h <= 0 || (int64_t)w * h > 3840 * 2160) {
+    s.probe_skip_size++;
+    autoport_proof::publish("ll_probe_skip_size", s.probe_skip_size);
     return;
   }
   GLboolean prev_scissor = glIsEnabled(GL_SCISSOR_TEST);
