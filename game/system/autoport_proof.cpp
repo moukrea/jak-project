@@ -252,6 +252,8 @@ void emit_locked() {
     // `recharged-hud-toggle` compte LES IMAGES QUE SON BANC A JUGEES — `hits_means` de son item.
     // Le compteur global du binaire monte pour les trois chantiers du HUD en meme temps et ne
     // dirait rien des images ou la bascule du reglage a ete appliquee ET mesuree.
+    // `lighting-local-lights` compte LES PIXELS ECLAIRES PAR AU MOINS UNE LUMIERE LOCALE sur
+    // les images sondees (ClusterGrid.cpp) — `hits_means` de son item.
     uint64_t hits = (id == ao_item::kId || id == "ao-prepass-tie-alpha" ||
                      id == "shrub-trunk-contact" ||
                      id == "soft-baseline" || id == "grass-baseline-cost" ||
@@ -260,7 +262,8 @@ void emit_locked() {
                      id == "grass-path-transitions" || id == "hud-3d-pickups" ||
                      id == "hud-eco-gauge" || id == "hud-heart" ||
                      id == "recharged-hud-toggle" || id == "grass-wind" ||
-                     id == "lighting-shadows" || id == "lighting-flipped-faces-everywhere")
+                     id == "lighting-shadows" || id == "lighting-flipped-faces-everywhere" ||
+                     id == "lighting-local-lights")
                         ? site_hits_ref()[id]
                         : g_hits;
     if (id == "water-ocean-mesh") {

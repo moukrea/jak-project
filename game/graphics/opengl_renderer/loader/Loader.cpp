@@ -266,7 +266,6 @@ static std::vector<local_lights::Light> lighting_local_lights_load(const tfrag3:
   }
   autoport_proof::publish(("lights_extracted_" + ll_sanitize_level_key(lev.level_name)).c_str(),
                           (uint64_t)out.size());
-  autoport_proof::note_hit_for(kLocalLightsItem, out.size() + 1);
   return out;
 }
 
@@ -332,7 +331,6 @@ static void lighting_local_lights_census(const tfrag3::Level& lev) {
     }
     autoport_proof::publish_text("lights_unjudged_list", joined.c_str());
   }
-  autoport_proof::note_hit_for(kLocalLightsItem, 1);
 }
 
 static bool read_live_mood_table(const std::string& level, tfrag3::lightbake::MoodTable& out) {

@@ -32,6 +32,7 @@
 #include "game/graphics/opengl_renderer/LoadingScreenTextures.h"
 #include "game/graphics/opengl_renderer/ProgressRenderer.h"
 #include "game/graphics/opengl_renderer/PrePass.h"
+#include "game/graphics/opengl_renderer/ClusterGrid.h"
 #include "game/graphics/opengl_renderer/background/background_common.h"
 #include "game/graphics/opengl_renderer/frame_ubo.h"
 #include "game/graphics/opengl_renderer/gl_uniform_cache.h"
@@ -1967,6 +1968,7 @@ void OpenGLRenderer::dispatch_buckets_jak1(DmaFollower dma,
       prepass::proof_post_opaque(&m_render_state);
 #ifdef OG_FEAT_PBR
       pbr_shadow_proof_post_opaque(&m_render_state);
+      cluster_grid::proof_post_opaque(&m_render_state);
 #endif
     }
 

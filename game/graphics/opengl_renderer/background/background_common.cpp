@@ -4,6 +4,7 @@
 #include "game/system/recharged_gating.h"
 
 #include "game/graphics/opengl_renderer/PrePass.h"
+#include "game/graphics/opengl_renderer/ClusterGrid.h"
 
 #include <algorithm>
 #include <array>
@@ -2654,6 +2655,10 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // lighting-ao-indirect : la texture d'AO d'ecran (unite 8) et ses uniformes, pour chaque
   // programme qui inclut shade.glsl (no-op documente sur les autres : location -1).
   prepass::bind_screen_ao(id, render_state);
+#ifdef OG_FEAT_PBR
+  // lighting-local-lights (SPEC §4.9) : uniformes u_ll_* et textures de la grille (unites 4-6).
+  cluster_grid::bind_program_uniforms(id);
+#endif
   // -----------------------------------------------------------------------------------------
   // Grecharged-foliage-wind3 (owner 2026-08-31, defaut D2) — LE VERROU (a) DU BALANCEMENT TIE.
   //
@@ -4152,6 +4157,9 @@ void update_render_state_from_pc_settings(SharedRenderState* state, const TfragP
     // qui rejoue les contributeurs (`prepass::draw_shadow_casters`), donc son propre entretien
     // (bascule, matrices, effacement de l'atlas d'ecriture) doit etre a jour en premier.
     pbr_shadow_first_camera(state, data.camera);
+    // lighting-local-lights (SPEC §4.9) : la grille de clusters, remplie ICI, sur le fil de
+    // rendu, une fois par image — avant le premier draw ombre.
+    cluster_grid::update(state, data.camera);
 #endif
     prepass::on_first_camera(state, data.camera);
   }

@@ -398,7 +398,9 @@ if [ -f "$ROOT/$RHUD_SRC/light_emitters.txt" ]; then
 fi
 if [ -f "$FR3_DIR/light_candidates.txt" ]; then
   mkdir -p "$STAGE/fr3"
-  ln -s "$FR3_DIR/light_candidates.txt" "$STAGE/fr3/light_candidates.txt"
+  # FR3_DIR est RELATIF (out/<jeu>/fr3) : un lien relatif pendait dans l'etage et cassait
+  # le md5sum de bundleJak1CustomPack (gradle ECHOUE a chaque tour depuis le 25/09 13:52).
+  ln -s "$ROOT/$FR3_DIR/light_candidates.txt" "$STAGE/fr3/light_candidates.txt"
   MEMBERS+=("fr3/light_candidates.txt")
 fi
 # foliage-wind (essai 11) : le sidecar de vent NATIF des buissons (raideur par prototype et

@@ -173,6 +173,8 @@ struct Surface {
 // morceau exige EN PORTEE, chez chaque hote qui l'inclut : `u_rt_light_on`, `u_rt_regime`
 // (declares ci-dessus).
 #include "shadow_atlas.glsl"
+// lighting-local-lights (SPEC §4.9) : lampes, torches, lave. Voir local_lights.glsl.
+#include "local_lights.glsl"
 
 // Rend la couleur ombree. Le brouillard, l'alpha et le discard restent a l'hote : ce n'est pas
 // de l'eclairage.
@@ -189,6 +191,9 @@ vec3 rt_safe_dir(vec3 v) {
   return l > 1e-6 ? v / l : vec3(0.0, 1.0, 0.0);
 }
 float g_shade_lit = 0.0;
+// lighting-local-lights : ce que les lumieres locales ont AJOUTE a ce fragment (max des canaux),
+// relu par shade() sur l'image sondee (`u_ll_proof`).
+float g_ll_add = 0.0;
 vec4 shade_body(in Surface s, float sao, float occ_force) {
   vec4 color = s.base;
   // L'AO en LINEAIRE sur une base encodee gamma : (base^2.2 * sao)^(1/2.2) == base * sao^(1/2.2).
@@ -327,6 +332,15 @@ vec4 shade_body(in Surface s, float sao, float occ_force) {
       vec3 c_y = ind_y + mix(dir_bk, dir_rt, w_y);
       vec3 mod_g = mix(vec3(1.0), lit_mul_g, lit_g);
       vec3 rt_lit = max(c_y * mix(vec3(1.0), mod_g, w_g), vec3(0.0));
+      // lighting-local-lights (SPEC §4.9) : les lumieres locales ECLAIRENT la texture (albedo),
+      // elles s'ajoutent au cuit au lieu de le multiplier — une lanterne eclaire aussi la ou ND
+      // avait mis du noir. Le supplement passe par la meme marge que le soleil (rt_g) : il ne
+      // fabrique pas de blanc.
+      if (u_ll_on != 0) {
+        vec3 ll_add = s.tex0.rgb * ll_irradiance(s.P_rel, N);
+        g_ll_add = max(ll_add.r, max(ll_add.g, ll_add.b));
+        rt_lit += ll_add;
+      }
       // lighting-hdr (essai 62) : LE SUPPLEMENT NE FABRIQUE PAS DE BLANC — la marge ne borne que
       // ce qui ECLAIRCIT (fondu sous 0,7, jamais au-dessus de 0,995). Ce qui ASSOMBRIT passe
       // entier : avant, la meme marge eteignait aussi l'ombre sur tout texel clair.
@@ -385,6 +399,12 @@ vec4 shade(in Surface s) {
   // l'atlas ACTEUR (rempli par les merc a la preparation) l'occulte alors que l'atlas complet
   // dit aussi "ombre" ; vert sinon. `pbr_shadow_proof_before_bucket`/`post_opaque` (C++)
   // isolent ensuite les pixels de SOL touches par cette couleur.
+  // lighting-local-lights : image sondee — vert si les lumieres locales ont ajoute au moins
+  // 1/255 a ce fragment, bleu sinon. ClusterGrid.cpp relit l'image apres l'opaque et compte.
+  if (u_ll_proof != 0) {
+    return vec4(0.0, g_ll_add >= (1.0 / 255.0) ? 1.0 : 0.0, g_ll_add >= (1.0 / 255.0) ? 0.0 : 1.0,
+                c.a);
+  }
   if (u_shadow_proof != 0) {
     if (u_pbr_shadow_on == 0) {
       return vec4(0.0, 1.0, 0.0, s.base.a);
