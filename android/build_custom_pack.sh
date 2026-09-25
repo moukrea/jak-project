@@ -22,6 +22,8 @@
 #   fr3/<name>.meshweld           (ALWAYS — DERIVED: mesh-consolidation sidecar)
 #   fr3/<name>.grassbake          (ALWAYS — validated feature)
 #   fr3/<name>.lightbake          (ALWAYS — DERIVED: lighting-bake companion, tools/light_bake)
+#   recharged_assets/light_emitters.txt (ALWAYS if present — lexique des lumieres locales TIE)
+#   fr3/light_candidates.txt      (IF PRESENT — recensement --emitter-census, tools/light_bake)
 #   recharged_assets/<name>.png   (ALWAYS — DELIVERY is no longer flag-gated)
 #   recharged_assets/physics_chains.txt (ALWAYS if present — secondary-motion chain defs)
 #   (per-texture PBR material properties are NOT here any more — see the note at the
@@ -208,6 +210,8 @@ data_freshness_guard(){
     "${RHUD_SRC}"$'\t''physics_mesh.txt'$'\t''recharged_assets/'
     "${RHUD_SRC}"$'\t''foliage_wind_protos.txt'$'\t''recharged_assets/'
     "${RHUD_SRC}"$'\t''foliage_wind_shrub.txt'$'\t''recharged_assets/'
+    "${RHUD_SRC}"$'\t''light_emitters.txt'$'\t''recharged_assets/'
+    "${FR3_DIR}"$'\t''light_candidates.txt'$'\t''fr3/'
   )
   local n_cov=0 spec cdir cglob cpfx cbase want
   for spec in "${cov_specs[@]}"; do
@@ -382,6 +386,20 @@ if [ -f "$ROOT/$RHUD_SRC/foliage_wind_protos.txt" ]; then
   ln -s "$ROOT/$RHUD_SRC/foliage_wind_protos.txt" "$STAGE/recharged_assets/foliage_wind_protos.txt"
   MEMBERS+=("recharged_assets/foliage_wind_protos.txt")
   echo "[custom-pack] lexique de vegetation TIE: 1 (livraison inconditionnelle; sans lui, zero balancement statique)"
+fi
+# lighting-local-lights (SPEC §5.3.8) : lexique des lumieres locales TIE. Meme regle que le
+# lexique de vegetation ci-dessus : donnee A NOUS, livraison inconditionnelle ; sans lui, tout
+# candidat tombe dans lights_unjudged et aucune lumiere locale n'est publiee.
+if [ -f "$ROOT/$RHUD_SRC/light_emitters.txt" ]; then
+  mkdir -p "$STAGE/recharged_assets"
+  ln -s "$ROOT/$RHUD_SRC/light_emitters.txt" "$STAGE/recharged_assets/light_emitters.txt"
+  MEMBERS+=("recharged_assets/light_emitters.txt")
+  echo "[custom-pack] lexique de lumieres locales: 1 (livraison inconditionnelle; sans lui, lights_unjudged couvre tout)"
+fi
+if [ -f "$FR3_DIR/light_candidates.txt" ]; then
+  mkdir -p "$STAGE/fr3"
+  ln -s "$FR3_DIR/light_candidates.txt" "$STAGE/fr3/light_candidates.txt"
+  MEMBERS+=("fr3/light_candidates.txt")
 fi
 # foliage-wind (essai 11) : le sidecar de vent NATIF des buissons (raideur par prototype et
 # wind-index par instance, extraits des DGO par decompiler/level_extractor/extract_shrub.cpp sous

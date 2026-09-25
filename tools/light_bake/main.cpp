@@ -20,12 +20,14 @@
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
+#include <map>
 #include <mutex>
 #include <string>
 #include <thread>
 #include <vector>
 
 #include "common/custom_data/LightBake.h"
+#include "common/custom_data/LocalLights.h"
 #include "common/custom_data/MeshConsolidate.h"
 #include "common/custom_data/Tfrag3Data.h"
 #include "common/util/FileUtil.h"
@@ -408,16 +410,107 @@ struct LevelStats {
   u64 palette_a_bytes_changed = 0;
   bool ok = false;
   std::string err;
+  // lighting-local-lights (SPEC §5.3.8)
+  int ll_lights = 0, ll_instances_lit = 0, ll_candidates = 0, ll_unjudged = 0;
 };
 
 struct Options {
   bool bake = false, verify = false, enhanced = true;
+  bool lights_only = false, emitter_census = false;
   int rays = 64;
   int threads = 0;
   fs::path fr3_dir, mood_file, report, csv;
+  fs::path emitters_file;
 };
 
-LevelStats bake_level(const Options& opt, const std::string& level, const std::string& mood_text) {
+// Ecrit `lights_body` (u32 count + enregistrements, cf. LocalLights.h) comme corps de la section
+// kSecLights d'un .lightbake DEJA EXISTANT, en laissant tout le reste du fichier identique a
+// l'octet. Ecriture atomique (fichier temporaire + rename).
+bool patch_lights_section(const fs::path& path, const std::vector<u8>& lights_body,
+                          std::string* err) {
+  auto data = file_util::read_binary_file(path);
+  size_t p = 0;
+  auto need = [&](size_t n) { return p + n <= data.size(); };
+  auto get_u32 = [&]() {
+    u32 v = 0;
+    memcpy(&v, &data[p], 4);
+    p += 4;
+    return v;
+  };
+  if (!need(4) || get_u32() != lb::kMagic) {
+    if (err) *err = "magic";
+    return false;
+  }
+  if (!need(4) || get_u32() != lb::kVersion) {
+    if (err) *err = "version";
+    return false;
+  }
+  if (!need(4)) {
+    if (err) *err = "truncated";
+    return false;
+  }
+  u32 nlen = get_u32();
+  if (!need(nlen)) {
+    if (err) *err = "truncated";
+    return false;
+  }
+  p += nlen;
+  if (!need(8)) {
+    if (err) *err = "truncated";
+    return false;
+  }
+  get_u32();  // num_verts
+  u32 nt = get_u32();
+  const size_t per_tree = 1 + 1 + 4 + 4 + 8;
+  if (!need((size_t)nt * per_tree)) {
+    if (err) *err = "truncated";
+    return false;
+  }
+  p += (size_t)nt * per_tree;
+  if (!need(8)) {
+    if (err) *err = "truncated";
+    return false;
+  }
+  get_u32();
+  get_u32();  // tfrag3_version, mood_hash
+  size_t body_start = std::string::npos, body_len = 0, sz_field_pos = 0;
+  while (p + 8 <= data.size()) {
+    size_t sec_pos = p;
+    u32 sec = get_u32();
+    u32 sz = get_u32();
+    if (!need(sz)) {
+      if (err) *err = "section-size";
+      return false;
+    }
+    if (sec == (u32)lb::kSecLights) {
+      body_start = p;
+      body_len = sz;
+      sz_field_pos = sec_pos + 4;
+      break;
+    }
+    p += sz;
+  }
+  if (body_start == std::string::npos) {
+    if (err) *err = "no-lights-section";
+    return false;
+  }
+  std::vector<u8> out;
+  out.reserve(data.size() - body_len + lights_body.size());
+  out.insert(out.end(), data.begin(), data.begin() + sz_field_pos);
+  u32 newsz = (u32)lights_body.size();
+  const u8* szp = (const u8*)&newsz;
+  out.insert(out.end(), szp, szp + 4);
+  out.insert(out.end(), lights_body.begin(), lights_body.end());
+  out.insert(out.end(), data.begin() + body_start + body_len, data.end());
+  fs::path tmp = path;
+  tmp += ".tmp";
+  file_util::write_binary_file(tmp, out.data(), out.size());
+  fs::rename(tmp, path);
+  return true;
+}
+
+LevelStats bake_level(const Options& opt, const std::string& level, const std::string& mood_text,
+                      const local_lights::Lexicon& lex) {
   LevelStats st;
   st.level = level;
   auto t_start = std::chrono::steady_clock::now();
@@ -768,15 +861,29 @@ LevelStats bake_level(const Options& opt, const std::string& level, const std::s
       level, st.trees, st.colors, st.colors_used, st.rays, st.art_p50, st.art_p95,
       st.triples > st.zero ? (double)st.clamped / (st.triples - st.zero) : 0.0, st.regimes);
 
+  local_lights::ExtractStats llst;
+  auto ll_lights = local_lights::extract(lev, lex, &llst);
+  st.ll_lights = llst.lights;
+  st.ll_instances_lit = llst.instances_lit;
+  st.ll_candidates = llst.protos_candidate;
+  st.ll_unjudged = llst.protos_unjudged;
+
   if (opt.bake) {
     auto bytes = lb::serialize(bake);
     st.bytes = bytes.size();
-    file_util::write_binary_file(opt.fr3_dir / lb::lightbake_name(level), bytes.data(),
-                                 bytes.size());
+    const auto out_path = opt.fr3_dir / lb::lightbake_name(level);
+    file_util::write_binary_file(out_path, bytes.data(), bytes.size());
+    std::vector<u8> lights_body;
+    local_lights::serialize(ll_lights, lights_body);
+    std::string perr;
+    if (!patch_lights_section(out_path, lights_body, &perr)) {
+      st.err = "lights-patch: " + perr;
+    }
+    st.bytes = fs::file_size(out_path);
     // relecture : ce que le moteur lira
     lb::Bake back;
     std::string derr;
-    auto disk = file_util::read_binary_file(opt.fr3_dir / lb::lightbake_name(level));
+    auto disk = file_util::read_binary_file(out_path);
     if (!lb::deserialize(disk, back, &derr)) {
       st.err = "relecture: " + derr;
     } else {
@@ -812,12 +919,16 @@ int main(int argc, char** argv) {
     else if (a == "--mood-file") opt.mood_file = next();
     else if (a == "--report") opt.report = next();
     else if (a == "--csv") opt.csv = next();
-    else if (a == "--probe-cell" || a == "--emitters" || a == "--overrides") {
+    else if (a == "--emitters") opt.emitters_file = next();
+    else if (a == "--lights-only") opt.lights_only = true;
+    else if (a == "--emitter-census") opt.emitter_census = true;
+    else if (a == "--probe-cell" || a == "--overrides") {
       next();
-      fmt::print(stderr, "[light_bake] {} : sondes/emetteurs non cuits en version {}\n", a,
+      fmt::print(stderr, "[light_bake] {} : sondes/overrides non cuits en version {}\n", a,
                  lb::kVersion);
     } else if (a == "-h" || a == "--help") {
       fmt::print("light_bake [--bake] [--verify] [--rays N] [--fr3-dir DIR] [--mood-file F]\n"
+                 "           [--emitters FILE] [--lights-only] [--emitter-census]\n"
                  "           [--report FILE] [--csv FILE] [--no-enhanced] [--threads N] niveaux...\n");
       return 0;
     } else levels.push_back(a);
@@ -827,8 +938,115 @@ int main(int argc, char** argv) {
   if (opt.fr3_dir.empty()) opt.fr3_dir = root / "out" / "jak1" / "fr3";
   if (opt.mood_file.empty())
     opt.mood_file = root / "goal_src" / "jak1" / "engine" / "gfx" / "mood" / "mood-tables.gc";
+  if (opt.emitters_file.empty()) opt.emitters_file = local_lights::default_lexicon_path();
+  const local_lights::Lexicon lex = local_lights::load_lexicon(opt.emitters_file.string());
+
+  if (opt.emitter_census) {
+    // Recense TOUS les *.fr3 du dossier, sans se limiter aux quatre niveaux par defaut.
+    std::map<std::string, std::pair<int, std::vector<std::string>>> per_proto;  // instances, niveaux
+    int total_instances = 0;
+    for (const auto& ent : fs::directory_iterator(opt.fr3_dir)) {
+      if (!ent.is_regular_file() || ent.path().extension() != ".fr3") continue;
+      const std::string lvl = ent.path().stem().string();
+      Level lev;
+      bool weld = false;
+      load_level(ent.path(), opt.fr3_dir / mesh_consolidate_bake_name(lvl), lev, weld);
+      if (lev.tie_trees.empty()) continue;
+      for (const auto& tree : lev.tie_trees[0]) {
+        // dedoublonne par instance (vis_idx_in_pc_bvh) : une meme instance peut apparaitre dans
+        // plusieurs vis_groups (un par texture/draw), elle ne compte qu'une fois.
+        std::map<uint16_t, std::string> inst_proto;
+        for (const auto& draw : tree.static_draws) {
+          for (const auto& vg : draw.vis_groups) {
+            if (vg.tie_proto_idx >= tree.proto_names.size()) continue;
+            const std::string& proto = tree.proto_names[vg.tie_proto_idx];
+            if (!local_lights::is_candidate(proto)) continue;
+            inst_proto[vg.vis_idx_in_pc_bvh] = proto;
+          }
+        }
+        for (const auto& [vis_idx, proto] : inst_proto) {
+          auto& e = per_proto[proto];
+          e.first++;
+          total_instances++;
+          if (std::find(e.second.begin(), e.second.end(), lvl) == e.second.end()) {
+            e.second.push_back(lvl);
+          }
+        }
+      }
+    }
+    int unjudged = 0;
+    std::vector<std::string> unjudged_names;
+    std::string body;
+    for (const auto& [proto, info] : per_proto) {
+      if (!lex.judged(proto)) {
+        unjudged++;
+        unjudged_names.push_back(proto);
+      }
+    }
+    std::vector<std::pair<std::string, std::pair<int, std::vector<std::string>>>> sorted(
+        per_proto.begin(), per_proto.end());
+    std::sort(sorted.begin(), sorted.end(),
+              [](const auto& a, const auto& b) { return a.second.first > b.second.first; });
+    body += fmt::format(
+        "# light_candidates.txt — recense {} (lighting-local-lights) : proto instances niveaux\n"
+        "# total prototypes candidats={} instances={}\n",
+        opt.fr3_dir.string(), (int)sorted.size(), total_instances);
+    for (const auto& [proto, info] : sorted) {
+      std::string levs;
+      for (size_t i = 0; i < info.second.size(); i++) {
+        if (i) levs += ",";
+        levs += info.second[i];
+      }
+      body += fmt::format("{} {} {}\n", proto, info.first, levs);
+    }
+    file_util::write_text_file(opt.fr3_dir / "light_candidates.txt", body);
+    fmt::print("[light_bake] census candidates={} instances={} unjudged={}\n", (int)sorted.size(),
+               total_instances, unjudged);
+    if (!unjudged_names.empty()) {
+      std::string names;
+      for (size_t i = 0; i < unjudged_names.size(); i++) {
+        if (i) names += ",";
+        names += unjudged_names[i];
+      }
+      fmt::print("[light_bake] unjudged: {}\n", names);
+    }
+    return 0;
+  }
+
   if (levels.empty()) levels = {"village1", "swamp", "lavatube", "snow"};
   const std::string mood_text = file_util::read_text_file(opt.mood_file);
+
+  if (opt.lights_only) {
+    bool all_ok = true;
+    for (const auto& lvl : levels) {
+      fs::path fr3 = opt.fr3_dir / (lvl + ".fr3");
+      if (opt.enhanced && fs::exists(opt.fr3_dir / "enhanced" / (lvl + ".fr3"))) {
+        fr3 = opt.fr3_dir / "enhanced" / (lvl + ".fr3");
+      }
+      fs::path lb_path = opt.fr3_dir / lb::lightbake_name(lvl);
+      if (!fs::exists(fr3) || !fs::exists(lb_path)) {
+        fmt::print("[light_bake] {} : fr3 ou .lightbake absent, ignore\n", lvl);
+        all_ok = false;
+        continue;
+      }
+      Level lev;
+      bool weld = false;
+      load_level(fr3, opt.fr3_dir / mesh_consolidate_bake_name(lvl), lev, weld);
+      local_lights::ExtractStats llst;
+      auto lights = local_lights::extract(lev, lex, &llst);
+      std::vector<u8> body;
+      local_lights::serialize(lights, body);
+      std::string perr;
+      if (!patch_lights_section(lb_path, body, &perr)) {
+        fmt::print("[light_bake] {} : echec patch lights ({})\n", lvl, perr);
+        all_ok = false;
+        continue;
+      }
+      fmt::print("[light_bake] {} lights={} instances_lit={} candidates={} unjudged={}\n", lvl,
+                 llst.lights, llst.instances_lit, llst.protos_candidate, llst.protos_unjudged);
+    }
+    return all_ok ? 0 : 2;
+  }
 
   std::string report, csv =
       "level,fr3,weld,trees,colors,colors_used,verts,bvh_tris,rays,art_residual_p50,"
@@ -837,7 +1055,7 @@ int main(int argc, char** argv) {
   float worst = 0;
   bool all_ok = true;
   for (const auto& lvl : levels) {
-    auto st = bake_level(opt, lvl, mood_text);
+    auto st = bake_level(opt, lvl, mood_text, lex);
     const double cf = st.triples > st.zero ? (double)st.clamped / (st.triples - st.zero) : 0.0;
     std::string blk = fmt::format(
         "== light_bake {} ==\n"
@@ -848,14 +1066,18 @@ int main(int argc, char** argv) {
         "palette_a_bytes_changed={} fr3_bytes_changed={}\n"
         "art_raw_p05_p25_p50_p75_p95={:.3f},{:.3f},{:.3f},{:.3f},{:.3f} art_clamped_low={} art_clamped_high={}\n"
         "regimes={}\n"
-        "probes=0 probe_bytes=0 lights=0 lights_unjudged=non-mesure\n"
+        "probes=0 probe_bytes=0 lights={} lights_instances_lit={} lights_candidates={} "
+        "lights_unjudged={}\n"
         "bytes={} seconds={:.1f} ok={}{}\n",
         st.level, st.fr3, st.weld, st.trees, st.colors, st.colors_used, st.verts, st.bvh_tris,
         st.rays, st.art_p50, st.art_p95, cf, st.triples ? (double)st.zero / st.triples : 0.0, st.maxdelta, st.maxdelta_b, st.verified,
         st.palette_a_bytes_changed, st.fr3_bytes_changed, st.raw_p[0], st.raw_p[1], st.raw_p[2],
-        st.raw_p[3], st.raw_p[4], st.clamp_low, st.clamp_high, st.regimes, st.bytes, st.seconds,
+        st.raw_p[3], st.raw_p[4], st.clamp_low, st.clamp_high, st.regimes, st.ll_lights,
+        st.ll_instances_lit, st.ll_candidates, st.ll_unjudged, st.bytes, st.seconds,
         st.ok ? 1 : 0, st.err.empty() ? "" : " err=" + st.err);
     fmt::print("{}", blk);
+    fmt::print("[light_bake] {} lights={} instances_lit={} candidates={} unjudged={}\n", st.level,
+               st.ll_lights, st.ll_instances_lit, st.ll_candidates, st.ll_unjudged);
     fmt::print("diag skyvis_mean={:.3f} keyvis_mean={:.3f} keyvis_lit_frac={:.3f} nor_stored_frac={:.3f} n_up_frac={:.3f}\n",
                st.sky_n ? st.sky_sum / st.sky_n : 0, st.kv_n ? st.kv_sum / st.kv_n : 0,
                st.kv_n ? (double)st.kv_pos / st.kv_n : 0, st.nvert ? (double)st.nor_stored / st.nvert : 0,

@@ -38,6 +38,7 @@ add_library(common
         cross_sockets/XSocketServer.cpp
         custom_data/MeshConsolidate.cpp
         custom_data/LightBake.cpp
+        custom_data/LocalLights.cpp
         custom_data/MeshOrient.cpp
         custom_data/pack_helpers.cpp
         custom_data/TangentDerive.cpp

@@ -18,6 +18,7 @@
 #include <set>
 
 #include "common/custom_data/LightBake.h"
+#include "common/custom_data/LocalLights.h"
 #include "common/custom_data/MeshConsolidate.h"
 #include "common/goal_constants.h"
 #include "common/global_profiler/GlobalProfiler.h"
@@ -168,6 +169,171 @@ AUTOPORT_FEATURE_SITE(kLightBakeItem);
 static float s_bake_maxdelta = 0.f;
 static uint64_t s_bake_levels_verified = 0, s_bake_levels_rejected = 0, s_bake_levels_missing = 0;
 static uint64_t s_bake_indices = 0, s_bake_trees_rejected = 0, s_bake_palette_a_changed = 0;
+
+// lighting-local-lights (SPEC-refonte-lumiere §4.9, §5.7.1) : lecture de la section kSecLights du
+// compagnon .lightbake, INDEPENDANTE de la porte lighting-bake, plus le recensement vivant du
+// lexique light_emitters.txt et des candidats light_candidates.txt.
+constexpr const char* kLocalLightsItem = "lighting-local-lights";
+AUTOPORT_FEATURE_SITE(kLocalLightsItem);
+// Noms de prototype candidats (jeton d'emetteur, §5.3.8) vus dans TOUS les niveaux TIE charges
+// depuis le demarrage du processus : l'union grandit, elle ne retombe jamais quand un niveau est
+// evince.
+static std::set<std::string> s_ll_live_candidates;
+
+static std::string ll_sanitize_level_key(const std::string& level_name) {
+  std::string out;
+  out.reserve(level_name.size());
+  for (char c : level_name) {
+    if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_') {
+      out.push_back(c);
+    } else {
+      out.push_back('_');
+    }
+  }
+  return out;
+}
+
+// Parcours minimal du meme format de section que tfrag3::lightbake::deserialize (LightBake.cpp) :
+// on n'a besoin que du corps de la section kSecLights, pas de reconstruire tout `Bake`.
+static bool ll_find_lights_section(const std::vector<u8>& bytes, const u8** out_body,
+                                    u32* out_size) {
+  const u8* p = bytes.data();
+  const u8* e = bytes.data() + bytes.size();
+  auto need = [&](size_t n) { return (size_t)(e - p) >= n; };
+  auto get_u32 = [&]() -> u32 {
+    u32 v = 0;
+    memcpy(&v, p, 4);
+    p += 4;
+    return v;
+  };
+  if (!need(4) || get_u32() != tfrag3::lightbake::kMagic) {
+    return false;
+  }
+  if (!need(4) || get_u32() != tfrag3::lightbake::kVersion) {
+    return false;
+  }
+  if (!need(4)) return false;
+  u32 name_len = get_u32();
+  if (!need(name_len)) return false;
+  p += name_len;
+  if (!need(4)) return false;
+  get_u32();  // num_verts
+  if (!need(4)) return false;
+  u32 nt = get_u32();
+  if (nt > 100000) return false;
+  const size_t tree_hdr_bytes = (size_t)nt * (1 + 1 + 4 + 4 + 8);
+  if (!need(tree_hdr_bytes)) return false;
+  p += tree_hdr_bytes;
+  if (!need(8)) return false;
+  get_u32();  // tfrag3_version
+  get_u32();  // mood_hash
+  while (p < e) {
+    if (!need(8)) return false;
+    u32 sec = get_u32();
+    u32 sz = get_u32();
+    if (!need(sz)) return false;
+    if (sec == (u32)tfrag3::lightbake::kSecLights) {
+      *out_body = p;
+      *out_size = sz;
+      return true;
+    }
+    p += sz;
+  }
+  return false;
+}
+
+static std::vector<local_lights::Light> lighting_local_lights_load(const tfrag3::Level& lev) {
+  std::vector<local_lights::Light> out;
+  namespace lb = tfrag3::lightbake;
+  const auto name = lb::lightbake_name(lev.level_name);
+  const auto route = file_util::resolve_fr3_asset(g_game_version, name);
+  if (!fs::exists(route.path)) {
+    lg::info("[lighting-local-lights] level={} pas de compagnon ({})", lev.level_name,
+             route.path.string());
+    autoport_proof::publish(("lights_extracted_" + ll_sanitize_level_key(lev.level_name)).c_str(),
+                            0);
+    return out;
+  }
+  const auto bytes = file_util::read_binary_file(route.path);
+  const u8* body = nullptr;
+  u32 size = 0;
+  if (!ll_find_lights_section(bytes, &body, &size)) {
+    lg::warn("[lighting-local-lights] level={} section LIGHTS introuvable/corrompue",
+             lev.level_name);
+  } else if (!local_lights::deserialize(body, size, out)) {
+    lg::warn("[lighting-local-lights] level={} enregistrements LIGHTS corrompus", lev.level_name);
+    out.clear();
+  }
+  autoport_proof::publish(("lights_extracted_" + ll_sanitize_level_key(lev.level_name)).c_str(),
+                          (uint64_t)out.size());
+  autoport_proof::note_hit_for(kLocalLightsItem, out.size() + 1);
+  return out;
+}
+
+// Recensement vivant : relu a CHAQUE chargement (SPEC §5.7.1) — le lexique et le fichier de
+// candidats peuvent changer sans reconstruction du binaire.
+static void lighting_local_lights_census(const tfrag3::Level& lev) {
+  namespace ll = local_lights;
+  if (!lev.tie_trees.empty()) {
+    for (const auto& t : lev.tie_trees[0]) {
+      for (const auto& proto : t.proto_names) {
+        if (ll::is_candidate(proto)) {
+          s_ll_live_candidates.insert(proto);
+        }
+      }
+    }
+  }
+
+  ll::Lexicon lex = ll::load_lexicon(ll::default_lexicon_path());
+  const auto route = file_util::resolve_fr3_asset(g_game_version, "light_candidates.txt");
+  bool cand_ok = false;
+  auto candidates = ll::load_candidates(route.path.string(), &cand_ok);
+  autoport_proof::publish("lights_candidates_file", cand_ok ? 1 : 0);
+
+  if (!lex.loaded) {
+    autoport_proof::publish_text("lights_unjudged", "lexique_absent");
+    return;
+  }
+  if (!cand_ok) {
+    autoport_proof::publish_text("lights_unjudged", "candidats_absents");
+    return;
+  }
+
+  std::set<std::string> U;
+  uint64_t instances_sum = 0;
+  for (const auto& c : candidates) {
+    U.insert(c.proto);
+    instances_sum += (uint64_t)c.instances;
+  }
+  for (const auto& p : s_ll_live_candidates) {
+    U.insert(p);
+  }
+
+  std::vector<std::string> unjudged;
+  for (const auto& p : U) {
+    if (!lex.judged(p)) {
+      unjudged.push_back(p);
+    }
+  }
+
+  autoport_proof::publish("lights_unjudged", (uint64_t)unjudged.size());
+  autoport_proof::publish("lights_candidates", (uint64_t)U.size());
+  autoport_proof::publish("lights_candidate_instances", instances_sum);
+  autoport_proof::publish("lights_lexicon_bad_lines", (uint64_t)lex.bad_lines);
+  autoport_proof::publish("lights_lexicon_rules",
+                          (uint64_t)(lex.lights.size() + lex.excluded.size()));
+  if (unjudged.empty()) {
+    autoport_proof::publish_text("lights_unjudged_list", "-");
+  } else {
+    std::string joined;
+    for (size_t i = 0; i < unjudged.size(); i++) {
+      if (i) joined += ",";
+      joined += unjudged[i];
+    }
+    autoport_proof::publish_text("lights_unjudged_list", joined.c_str());
+  }
+  autoport_proof::note_hit_for(kLocalLightsItem, 1);
+}
 
 static bool read_live_mood_table(const std::string& level, tfrag3::lightbake::MoodTable& out) {
   if (g_game_version != GameVersion::Jak1 || !g_ee_main_mem) {
@@ -965,6 +1131,16 @@ void Loader::loader_thread() {
         lighting_bake_verify_level(*result);
       }
 
+      // lighting-local-lights (SPEC §4.9) : relit la section kSecLights du meme compagnon,
+      // INDEPENDAMMENT de la porte lighting-bake — la grille de clusters a besoin des lumieres
+      // meme quand la verification de palette n'est pas armee.
+      std::vector<local_lights::Light> ll_loaded_lights;
+      {
+        auto p = scoped_prof("local-lights-load");
+        ll_loaded_lights = lighting_local_lights_load(*result);
+        lighting_local_lights_census(*result);
+      }
+
 #if !AUTOPORT_ORIGIN_ABLATE
       {
         auto p = scoped_prof("foliage-contact-final-geometry");
@@ -994,6 +1170,7 @@ void Loader::loader_thread() {
       // move this level to "initializing" state.
       m_initializing_tfrag3_levels[lev] = std::make_unique<LevelData>();  // reset load state
       m_initializing_tfrag3_levels[lev]->level = std::move(result);
+      m_initializing_tfrag3_levels[lev]->local_lights = std::move(ll_loaded_lights);
       m_level_to_load = "";
       m_file_load_done_cv.notify_all();
     }

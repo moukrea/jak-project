@@ -3,6 +3,7 @@
 #include <atomic>
 
 #include "common/common_types.h"
+#include "common/custom_data/LocalLights.h"
 #include "common/custom_data/Tfrag3Data.h"
 #include "common/util/Timer.h"
 
@@ -14,6 +15,12 @@ struct LevelData {
   std::unique_ptr<tfrag3::Level> level;
   std::vector<GLuint> textures;
   u64 load_id = UINT64_MAX;
+
+  // lighting-local-lights (SPEC §4.9) : les lumieres locales relues depuis la section kSecLights
+  // du compagnon <niveau>.lightbake (Loader.cpp, INDEPENDANT de la porte lighting-bake). VIDE si
+  // le compagnon ou la section sont absents. Consulte par ClusterGrid, une fois par image, sur le
+  // fil de rendu — jamais reecrit apres le chargement.
+  std::vector<local_lights::Light> local_lights;
 
   // ===== Grecharged-texture-hotreload ==========================================================
   // `add_texture` consulte les portes des textures Recharged UNE FOIS, au televersement. Le

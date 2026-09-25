@@ -1,0 +1,95 @@
+# light_emitters.txt — lexique des lumieres locales (SPEC-refonte-lumiere §4.9, §5.3.8, §5.7.1).
+#
+# Un verdict par prototype TIE. Deux verdicts possibles, aucun implicite.
+#   LUMIERE <proto>  type=<point|spot|area>  rgb=<r,g,b|auto>  cd=<intensite>  r=<rayon m>
+#                    [off=<x,y,z>] [cone=<inner deg,outer deg>] [flicker=<0..7>]
+#   EXCLU   <proto>  <raison en clair>
+#
+# Placement : sans off=, la lumiere est au barycentre (pondere par la surface) de la geometrie de
+# l'instance ; avec off=, elle est a off (metres, axes du monde) du CENTRE DU BAS de la boite de
+# l'instance — la hauteur de la flamme au-dessus du pied du lampadaire.
+# rgb=auto : moyenne des textures de l'instance ponderee par la surface — la couleur que Naughty
+# Dog a peinte. C'est la regle des jumeaux -glow.mb (§5.3.8, source 2) : le jumeau porte la
+# surface emissive, le prototype de base est EXCLU parce que son jumeau le represente.
+# r est la coupure : au-dela, la lumiere ne contribue pas. flicker= est le creneau de mood que la
+# lumiere suit (update-mood-flames ecrit times[creneau].w) ; absent = lumiere fixe.
+# Denominateur (annexe C) : 62 prototypes candidats, 1192 instances. Tout nouveau candidat trouve
+# dans les fr3 et absent d'ici est compte dans lights_unjudged (porte == 0).
+
+# ---- Sandover (village1) : creneau 5 = update-mood-flames 5 1 ---------------------------------
+LUMIERE vil1-outdoor-light.mb        type=point rgb=255,214,140 cd=14 r=9  off=0,1.8,0 flicker=5
+EXCLU   vil1-planterbox-01.mb        jardiniere : « lant » vient de « planter »
+EXCLU   vil1-windowplanter-01.mb     jardiniere de fenetre : « lant » vient de « planter »
+
+# ---- Plages / jungle / ile de l'entrainement : pas de creneau de flamme -----------------------
+LUMIERE lantern.mb                   type=point rgb=255,196,110 cd=8  r=6  off=0,0.9,0
+LUMIERE lamp.mb                      type=point rgb=255,210,150 cd=8  r=6
+EXCLU   palmplant-base.mb            palmier : « lant » vient de « plant »
+EXCLU   bch-palmplant-base.mb        palmier de la plage : « lant » vient de « plant »
+LUMIERE triangular-lite.mb           type=point rgb=auto cd=4  r=4
+LUMIERE triangular-lite-top.mb       type=point rgb=auto cd=4  r=4
+LUMIERE center-wall-lite.mb          type=point rgb=auto cd=5  r=5
+LUMIERE wall-top-lite.mb             type=point rgb=auto cd=5  r=5
+EXCLU   plantboss-shaft-mid.mb       puits de la plante boss : « lant » vient de « plant »
+
+# ---- Brumes (misty) : creneau 2 = update-mood-flames 2 4 --------------------------------------
+LUMIERE torch-geo.mb                 type=point rgb=255,150,60  cd=16 r=10 off=0,1.4,0 flicker=2
+LUMIERE oval-lite.mb                 type=point rgb=auto cd=5  r=5
+LUMIERE spotlight-tower-a.mb         type=point rgb=230,240,255 cd=20 r=14
+LUMIERE spotlight-tower-b.mb         type=point rgb=230,240,255 cd=20 r=14
+LUMIERE spotlight-tower-c.mb         type=point rgb=230,240,255 cd=20 r=14
+LUMIERE spotlight-tower-d.mb         type=point rgb=230,240,255 cd=20 r=14
+
+# ---- Village de Rock (village2) et village3 : creneau 4 = update-mood-flames 4 -----------------
+LUMIERE vil2-sticklite.mb            type=point rgb=255,160,70  cd=12 r=8  off=0,1.6,0 flicker=4
+LUMIERE vil2-outdoor-light.mb        type=point rgb=255,214,140 cd=14 r=9  off=0,1.8,0 flicker=4
+LUMIERE vil3-lantern-miners.mb       type=point rgb=255,196,110 cd=10 r=7  flicker=4
+EXCLU   vil3-warpgate-clamp.mb       pince du teleporteur : « lamp » vient de « clamp »
+
+# ---- Montagne enneigee : creneau 4 = update-mood-flames 4 --------------------------------------
+LUMIERE snow-forttorch.mb            type=point rgb=255,150,60  cd=18 r=11 off=0,1.6,0 flicker=4
+LUMIERE snow-torchpole.mb            type=point rgb=255,150,60  cd=16 r=10 off=0,1.6,0 flicker=4
+LUMIERE snow-eggroom-glow.mb         type=point rgb=auto cd=6  r=6
+
+# ---- Collines (rolling) : lumieres precurseurs --------------------------------------------------
+LUMIERE prec-tunnel-hole-lite.mb     type=point rgb=auto cd=3  r=4
+LUMIERE prec-tunnel-gate-lite.mb     type=point rgb=auto cd=5  r=5
+LUMIERE prec-pipes-b-light.mb        type=point rgb=auto cd=5  r=5
+LUMIERE tri-window-lite1.mb          type=point rgb=auto cd=4  r=4
+LUMIERE tri-window-lite2.mb          type=point rgb=auto cd=4  r=4
+LUMIERE tri-window-lite3.mb          type=point rgb=auto cd=4  r=4
+LUMIERE big-bubble-lite.mb           type=point rgb=auto cd=5  r=5
+
+# ---- Temple de la jungle (jungleb) : jumeaux -glow et antre de la plante boss ------------------
+LUMIERE jng-halfsphere-glow.mb       type=point rgb=auto cd=4  r=4
+LUMIERE jng-wall-a-base-glow.mb      type=point rgb=auto cd=4  r=4
+LUMIERE jng-wall-a-just-light.mb     type=point rgb=auto cd=4  r=4
+LUMIERE jng-wall-b-glow.mb           type=point rgb=auto cd=4  r=4
+LUMIERE jng-wall-c-glow.mb           type=point rgb=auto cd=4  r=4
+LUMIERE jng-wall-d-glow.mb           type=point rgb=auto cd=4  r=4
+LUMIERE plantboss-wall-01-glow.mb    type=point rgb=auto cd=6  r=6
+EXCLU   plantboss-wall-01.mb         mur de l'antre : sa lumiere est portee par son jumeau -glow
+LUMIERE eggroom-wall-01-glow.mb      type=point rgb=auto cd=6  r=6
+LUMIERE eggroom-floor-glow.mb        type=point rgb=auto cd=6  r=6
+LUMIERE pod-center-glow.mb           type=point rgb=auto cd=6  r=6
+LUMIERE pod-north-glow.mb            type=point rgb=auto cd=6  r=6
+LUMIERE pod-west-glow.mb             type=point rgb=auto cd=6  r=6
+EXCLU   plantboss-litepod.mb         piece de batiment, pas un luminaire
+EXCLU   plantboss-support.mb         support de l'antre : « lant » vient de « plant »
+EXCLU   plantboss-floor.mb           sol de l'antre : « lant » vient de « plant »
+EXCLU   plantboss-funnel.mb          entonnoir de l'antre : « lant » vient de « plant »
+EXCLU   plantboss-roof.mb            toit de l'antre : « lant » vient de « plant »
+EXCLU   plantboss-shaft.mb           puits de l'antre : « lant » vient de « plant »
+
+# ---- Citadelle : creneau 4 = update-mood-flames 4 ; murs precurseurs et leurs jumeaux ---------
+LUMIERE torch.mb                     type=point rgb=255,150,60  cd=18 r=11 off=0,1.4,0 flicker=4
+LUMIERE column-big-light.mb          type=point rgb=auto cd=10 r=8
+LUMIERE wall-light-norm.mb           type=point rgb=auto cd=6  r=6
+LUMIERE pre-wall-light-norm-glow.mb  type=point rgb=auto cd=6  r=6
+EXCLU   pre-wall-light-norm.mb       applique : sa lumiere est portee par son jumeau -glow
+LUMIERE pre-wall-light-broken-glow.mb type=point rgb=auto cd=5 r=5
+EXCLU   pre-wall-light-broken-base.mb socle d'applique brisee : la lumiere est portee par le jumeau -glow
+EXCLU   pre-wall-light-broken-details.mb debris d'applique brisee : la lumiere est portee par le jumeau -glow
+LUMIERE pre-wall-a-glow.mb           type=point rgb=auto cd=3  r=4
+LUMIERE pre-wall-base-broken-glow.mb type=point rgb=auto cd=3  r=4
+EXCLU   cit-warpgate-clamp.mb        pince du teleporteur : « lamp » vient de « clamp »
