@@ -103,11 +103,21 @@ def test_codex_rate_refusal_never_burns_retry(orch, codex_repo, events):
     assert out.stderr_tail
 
 
-def test_codex_auth_error_is_blocked_not_retried(orch, codex_repo):
+def test_codex_auth_error_pauses_not_blocked_nor_counted(orch, codex_repo):
+    # PANNE-D-AUTH/ (25/09) : un refus d'authentification est l'environnement, pas le chantier.
+    # Il bloquait l'item ; il met desormais la boucle en pause (voir test_auth_outage.py).
     fake_codex(codex_repo, [{'type': 'error', 'message': '401 Unauthorized authentication failed'}], rc=1)
+    state = orch.load_state()
+    out = orch.run_attempt(dict(ITEM), state)
+    assert out.kind == 'auth'
+    assert '401' in out.reason
+    assert not state['retries'].get('demo')
+
+
+def test_codex_missing_model_is_still_blocked(orch, codex_repo):
+    fake_codex(codex_repo, [{'type': 'error', 'message': '404 model not found'}], rc=1)
     out = orch.run_attempt(dict(ITEM), orch.load_state())
     assert out.kind == 'blocked'
-    assert '401' in out.reason
 
 
 def test_codex_tools_containing_error_words_are_not_api_failures(orch, codex_repo):

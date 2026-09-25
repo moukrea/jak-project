@@ -102,7 +102,7 @@ def _lock_path(path):
 DIGEST_MEMO = os.path.join(AP, ".last_status_digest")   # ignore par git (.autoport/.last_*)
 
 
-def _signature_digest(a_tester, empeche_digest, degrade_digest, mort_digest=""):
+def _signature_digest(a_tester, empeche_digest, degrade_digest, mort_digest="", auth_digest=""):
     """L'unique signature du digest : « A tester » + « Preuve impossible » + « degrade »
     (+ les dependances mortes, quand il y en a : une file gelee reveille le superviseur).
     La dette ne bouge pas d'elle-meme et ne reveille rien ; une machine qui ne peut plus
@@ -111,6 +111,10 @@ def _signature_digest(a_tester, empeche_digest, degrade_digest, mort_digest=""):
     corps = a_tester + "\n" + empeche_digest + "\n" + degrade_digest
     if mort_digest:
         corps += "\n" + mort_digest
+    # PANNE-D-AUTH/ : vide tant que la pause n'a pas passe son seuil d'alerte, puis un jeton FIXE
+    # par panne — le superviseur est reveille une fois, pas a chaque sonde.
+    if auth_digest:
+        corps += "\n" + auth_digest
     return hashlib.sha256(corps.encode("utf-8")).hexdigest()
 # Une feature livree avant cette date l'a ete sur un build que l'owner n'a plus : elle part
 # dans « Dette a trier », pas dans la liste de ce qu'il peut tester ce soir.
@@ -345,6 +349,33 @@ def pacing_line(path=None):
         return ""
     return ("En pause : frein d'usage depuis %s (voulu par l'owner ; le harnais attend, "
             "rien n'est compté)" % _pacing.human_since(float(rec.get("since_epoch") or 0)))
+
+
+def _auth_outage_module():
+    here = os.path.dirname(os.path.abspath(__file__))
+    import importlib.util as _iu                 # noqa: PLC0415 — importable sous tout nom
+    spec = _iu.spec_from_file_location("_autoport_auth_outage", os.path.join(here, "auth_outage.py"))
+    mod = _iu.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod, os.path.join(os.path.dirname(here), "logs", "auth-pause.json")
+
+
+def auth_pause_line(path=None):
+    """PANNE-D-AUTH/ : « En pause : authentification API refusee depuis HH:MM » quand
+    l'orchestrateur a publie une pause et qu'il vit encore."""
+    try:
+        mod, default = _auth_outage_module()
+        return mod.status_line(path or default)
+    except Exception:                            # noqa: BLE001 — le statut ne meurt pas de ca
+        return ""
+
+
+def auth_pause_digest(path=None):
+    try:
+        mod, default = _auth_outage_module()
+        return mod.digest_token(path or default)
+    except Exception:                            # noqa: BLE001
+        return ""
 
 
 class BacklogError(Exception):
@@ -1069,6 +1100,11 @@ class Backlog:
         pause = pacing_line()
         if pause:
             en_cours = (en_cours + "\n" if en_cours else "## En cours\n") + pause
+        # PANNE-D-AUTH/ : l'orchestrateur attend que l'API accepte de nouveau nos identifiants.
+        auth_pause = auth_pause_line()
+        if auth_pause:
+            en_cours = (en_cours + "\n" if en_cours else "## En cours\n") + auth_pause
+        auth_digest = auth_pause_digest()
 
         # `owner_test: false` : la preuve est machine (empreinte, reproductibilite), il n'y a rien
         # que l'owner puisse regarder en jeu. Il l'a dit le 2026-09-04 : « s'il n'y a rien a
@@ -1149,7 +1185,7 @@ class Backlog:
         # Les trois blocs qui FONT la signature, gardes pour `signature_digest()`. On les
         # range ici plutot que de les recalculer ailleurs : deux calculs de la meme signature
         # divergent le jour ou l'un des deux est modifie.
-        self._blocs_digest = (a_tester, empeche_digest, degrade_digest, mort_digest)
+        self._blocs_digest = (a_tester, empeche_digest, degrade_digest, mort_digest, auth_digest)
 
         cout = ""
         try:
@@ -1193,7 +1229,8 @@ class Backlog:
         # d'elle-meme et ne doit pas reveiller un digest, mais une machine qui ne peut plus
         # mesurer, si. L'age y entre par son PALIER et non a la seconde — sinon le digest se
         # reveillerait a chaque appel et il n'y aurait plus de digest du tout.
-        digest = _signature_digest(a_tester, empeche_digest, degrade_digest, mort_digest)
+        digest = _signature_digest(a_tester, empeche_digest, degrade_digest, mort_digest,
+                                   auth_digest)
         previous = ""
         try:
             with open(DIGEST_MEMO, encoding="utf-8") as fh:

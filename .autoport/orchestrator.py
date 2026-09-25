@@ -74,6 +74,7 @@ from lib import safe_reload
 from lib import suite_gate
 from lib import owner_capture
 from lib import pacing
+from lib import auth_outage
 from lib import acquis_budget
 
 BACKEND = "claude"
@@ -273,6 +274,21 @@ NO_PROGRESS_SEC = 45 * 60
 PACING_PUBLISH_AFTER_S = 60.0
 GUARD_KILLS = ("no-progress", "hard-silence", "post-result", "exit-stall", "tool-budget")
 
+# ============================================================
+# PANNE-D-AUTH/ : UN REFUS D'AUTHENTIFICATION N'EST PAS UN ECHEC DU CHANTIER (2026-09-25)
+# ============================================================
+# 25/09 vers 14h55 : jeton OAuth de la CLI revoque. `fatal_config_reason` rangeait le 401 avec
+# les erreurs de configuration : 25 items BLOQUES en cascade, puis « rien d'ouvert », orch=0 ;
+# l'essai qui travaillait deja (lighting-local-lights essai 2) a ete COMPTE. Desormais un refus
+# d'authentification ecrit PAR LA CLI (`lib/auth_outage.py`) sort en `auth` : ni compte, ni
+# empreinte, pas de validateur, l'item est rouvert, et l'orchestrateur se met EN PAUSE : il ne
+# prend plus d'item, re-sonde l'API par un appel minimal et reprend seul quand elle repond.
+# Au-dela de AUTH_ALERT_AFTER_S, le superviseur est reveille UNE fois (signature du digest).
+AUTH_PROBE_EVERY_S = 300
+AUTH_ALERT_AFTER_S = 1800
+AUTH_PROBE_TIMEOUT_S = 180
+AUTH_PROBE_MODEL = "claude-haiku-4-5-20251001"     # la sonde : un tour, le modele le moins cher
+
 # A handoff is a short note, not a report.
 HANDOFF_MAX_LINES = 30
 
@@ -400,6 +416,8 @@ BACKLOG_LIB = AUTOPORT_DIR / "lib" / "backlog.py"
 GENERIC_VALIDATOR = AUTOPORT_DIR / "validators" / "generic.sh"
 LOG_ROOT = AUTOPORT_DIR / "logs"
 PACING_NOW = LOG_ROOT / "pacing-now.json"   # FREIN-D-USAGE/ — gitignore : ce n'est pas un progres
+AUTH_PAUSE_NOW = LOG_ROOT / "auth-pause.json"     # PANNE-D-AUTH/ — la pause EN COURS
+AUTH_JOURNAL = LOG_ROOT / "auth-outage.jsonl"     # PANNE-D-AUTH/ — pause, sondes, alerte, reprise
 REPORTS_DIR = AUTOPORT_DIR / "reports"
 OWNER_OK_DIR = AUTOPORT_DIR / "owner-ok"
 SHIELD_GUARD = AUTOPORT_DIR / "shield_guard.sh"
@@ -3167,6 +3185,7 @@ class Outcome:
       archived        the owner archived the item mid-attempt: NOT counted, nothing written
       no-start        refused at the door, zero work: NOT counted
       infra           529 storm: NOT counted
+      auth            the API refused our credentials (401/403): NOT counted, loop PAUSES
     """
     kind: str
     reason: str = ""
@@ -3761,6 +3780,15 @@ def run_attempt(item: dict, state: dict) -> Outcome:
             f"de {MAX_ABORTED_IN_A_ROW}, l'essai EST compté — sinon l'item tourne sans "
             f"fin sans jamais être jugé.", "red")
 
+    # PANNE-D-AUTH/debut
+    # AVANT `fatal_config_reason`, et QUEL QUE SOIT le travail fait : le 401 qui coupe un essai
+    # en plein travail n'est pas plus la faute du chantier que celui qui le refuse a la porte.
+    # Le travail est commite ; `retries`, `fingerprints` et le validateur ne sont pas touches.
+    auth = auth_outage.refusal_in_file(attempt_log) if (rc != 0 and not abort_reason) else ""
+    if auth:
+        _checkpoint(f"essai {seq} — authentification API refusée (non compté)")
+        return Outcome("auth", auth, seq=seq, stderr_tail=stderr_tail)
+    # PANNE-D-AUTH/fin
     fatal = fatal_config_reason(attempt_log) if (rc != 0 and (not did_work or BACKEND == "codex")) else ""
     if fatal:
         if did_work:
@@ -4235,6 +4263,78 @@ def release_stale_in_progress(bk) -> list[str]:
     return freed
 
 
+def auth_probe() -> tuple[bool, str]:
+    """PANNE-D-AUTH/ : l'appel minimal — un tour, sans outil, hors du depot (ni CLAUDE.md, ni
+    crochet de projet). (repond, ce qu'on a vu)."""
+    if BACKEND == "codex":
+        err = cli_backend.auth_error()
+        return (not err, err or "codex login status : authentifié")
+    import tempfile
+    cmd = ["claude", "-p", "Réponds seulement : ok", "--output-format", "json",
+           "--model", AUTH_PROBE_MODEL, "--max-turns", "1"]
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=AUTH_PROBE_TIMEOUT_S,
+                           stdin=subprocess.DEVNULL, cwd=tempfile.gettempdir())
+    except (OSError, subprocess.SubprocessError) as e:
+        return False, f"sonde impossible : {e}"[:160]
+    ev: dict = {}
+    for line in reversed((r.stdout or "").strip().splitlines()):
+        try:
+            ev = json.loads(line)
+            break
+        except ValueError:
+            continue
+    if r.returncode == 0 and isinstance(ev, dict) and ev and not ev.get("is_error"):
+        return True, "l'API répond (sonde claude -p, un tour)"
+    st = ev.get("api_error_status") if isinstance(ev, dict) else None
+    said = (str(ev.get("result") or "") if isinstance(ev, dict) else "") or (r.stderr or "").strip()
+    return False, f"sonde refusée (sortie {r.returncode}, API {st or '?'}) : {said[:120]}"
+
+
+def auth_pause(iid: str, reason: str) -> bool:
+    """PANNE-D-AUTH/ : la pause. Aucun item n'est pris ; l'API est re-sondee toutes les
+    AUTH_PROBE_EVERY_S ; True quand elle repond, False sur un signal. Chaque evenement est
+    journalise dans AUTH_JOURNAL, l'etat courant publie dans AUTH_PAUSE_NOW."""
+    since = time.time()
+    rec = {"orchestrator_pid": os.getpid(), "since_epoch": round(since, 1), "item": iid,
+           "reason": reason[:200], "backend": BACKEND, "probes": 0, "alerted": 0,
+           "probe_every_s": AUTH_PROBE_EVERY_S, "alert_after_s": AUTH_ALERT_AFTER_S}
+    auth_outage.publish(AUTH_PAUSE_NOW, rec)
+    auth_outage.journal(AUTH_JOURNAL, "pause", item=iid, reason=reason[:200])
+    log(f"⏸ EN PAUSE : authentification API refusée ({reason[:120]}). Aucun item n'est pris ; "
+        f"l'API est re-sondée toutes les {format_duration(AUTH_PROBE_EVERY_S)}.", "bold yellow")
+    try:
+        while not HALT:
+            nap(AUTH_PROBE_EVERY_S)
+            if HALT:
+                break
+            ok, detail = auth_probe()
+            rec["probes"] += 1
+            waited = time.time() - since
+            auth_outage.journal(AUTH_JOURNAL, "probe", ok=int(ok), detail=detail[:160],
+                                waited_s=round(waited))
+            if ok:
+                auth_outage.journal(AUTH_JOURNAL, "resume", item=iid, waited_s=round(waited),
+                                    probes=rec["probes"], alerted=rec["alerted"])
+                log(f"▶ REPRISE : {detail} — après {format_duration(waited)} de pause et "
+                    f"{rec['probes']} sonde(s). {iid} est repris.", "bold green")
+                return True
+            log(f"⏸ sonde {rec['probes']} : toujours refusée — {detail}", "yellow")
+            if waited >= AUTH_ALERT_AFTER_S and not rec["alerted"]:
+                rec["alerted"], rec["alerted_epoch"] = 1, round(time.time(), 1)
+                auth_outage.journal(AUTH_JOURNAL, "alert", waited_s=round(waited))
+                log(f"🔔 ALERTE SUPERVISEUR : authentification API refusée depuis "
+                    f"{format_duration(waited)}. Il faut renouveler l'identifiant de la CLI "
+                    f"(`{BACKEND}` en interactif). Alerte émise une seule fois pour cette panne.",
+                    "bold red")
+            auth_outage.publish(AUTH_PAUSE_NOW, rec)
+        auth_outage.journal(AUTH_JOURNAL, "halt", waited_s=round(time.time() - since),
+                            probes=rec["probes"])
+        return False
+    finally:
+        auth_outage.unpublish(AUTH_PAUSE_NOW)
+
+
 def _startup_refusals() -> str:
     """'' when we may start, otherwise the reason and what to do about it."""
     import shutil
@@ -4533,6 +4633,16 @@ def main(argv: list[str] | None = None) -> int:
                 log(f"L'API n'a annoncé aucune heure de réouverture — repli sur "
                     f"{NO_START_FALLBACK_SLEEP}s.", "dim")
                 nap(NO_START_FALLBACK_SLEEP)
+
+        elif out.kind == "auth":
+            # PANNE-D-AUTH/ : l'environnement, pas le chantier. L'item est rouvert tel quel et
+            # on ne prend AUCUN autre item tant que l'API refuse : c'est ce qui a fait la cascade.
+            _write_status(bk, iid, "open")
+            no_start_streak = 0
+            log(f"⏸ {iid} : {out.reason} — essai NON COMPTÉ, ni empreinté, validateur non "
+                f"lancé ; item rouvert.", "bold yellow")
+            if not auth_pause(iid, out.reason):
+                break
 
         elif out.kind == "infra":
             _write_status(bk, iid, "open")
