@@ -36,7 +36,7 @@
    "url": "https://linear.app/moukrea/document/e1fe9500339a"
   }
  },
- "_gen": 541,
+ "_gen": 545,
  "_ids": {
   "labels": {
    "ok": "000e105b-24ba-4fa3-a579-bc3bf0869242",
@@ -778,13 +778,13 @@
   "url": "https://linear.app/moukrea/issue/JAK-269/ce-que-directives-promet-est-fait-par-du-code-le-rapport-perime-est"
  },
  "harness-flipped-faces-acquis-offline": {
-  "hash": "d2f4f5617bf6256c659b011a62a400956e61044e",
+  "hash": "d589d152f03f66acabecbde7c71c4888c5f36425",
   "identifier": "JAK-283",
   "issue_id": "94aa1d8b-92aa-4d89-bc52-1c8770435a98",
   "last_state": "In Progress",
-  "last_verdict_announced": "validator-001.txt",
+  "last_verdict_announced": "validator-002.txt",
   "pulled_at": "2026-09-25T08:20:27.000Z",
-  "state_at": "2026-09-25T09:39:28.826Z",
+  "state_at": "2026-09-25T10:14:17.187Z",
   "url": "https://linear.app/moukrea/issue/JAK-283/le-garde-fou-des-faces-a-lenvers-relit-les-assets-hors-ligne-et-le"
  },
  "harness-goalc-unit-tests-run-again": {
