@@ -6255,7 +6255,7 @@ items:
   delivered: '2026-09-25'
 - id: lighting-local-lights
   feature: Les lampes, torches et laves eclairent enfin
-  status: open
+  status: to-test
   priority: 30
   owner_feedback:
   - date: '2026-09-03'
@@ -6278,7 +6278,10 @@ items:
   prompt: prompts/item-lighting-local-lights.md
   owner_ok: null
   device: true
-  where: Sandover a la nuit tombee sous un lampadaire, les torches de la neige, la lave du lavatube
+  where: 'Sandover a la nuit tombee sous un lampadaire, et les torches de la neige (menu de teleportation,
+    heure = nuit). PAS la lave : elle n''eclaire pas encore (source non implementee). Seuls village1,
+    neige, marais et tube de lave ont leurs lampes ; jungle et misty pas encore. Jak et les PNJ ne recoivent
+    pas encore la lumiere des lampes.'
   known_cause: 'LIS D''ABORD prompts/SPEC-refonte-lumiere.md : c''est le contrat, il porte le detail que
     ce prompt ne repete pas. Zero lumiere ponctuelle, alors que la donnee les nomme : 62 prototypes candidats,
     1192 instances, dont 16 jumeaux -glow.mb qui SONT les surfaces emissives authorees. SPEC 5.3.8 et
@@ -6313,8 +6316,24 @@ items:
   proof_props:
   - debug.opengoal.recharged=1
   - debug.opengoal.lighting=1
-  - debug.opengoal.level.warp=village1-warp
+  - debug.opengoal.level.warp=village1-hut
+  - debug.opengoal.level.warp.pos=-63.6 12.3 2.7
   - debug.opengoal.tod.hour=21
+  proof_env:
+  - OG_RECHARGED=1
+  - OG_LIGHTING=1
+  - OG_LEVEL_WARP=village1-hut
+  - OG_LEVEL_WARP_POS=-63.6 12.3 2.7
+  - GRASS_TOD=21
+  - OG_RT_LIGHT=0
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-25'
+    proof_sha: d3502a4266e7d9f2
+    proof_bytes: 74683
+    attempt: 4
+    journal: validator-004.txt
+  delivered: '2026-09-25'
 - id: lighting-interiors
   feature: Les interieurs gardent leur lumiere, sans fuite par les murs
   status: open
@@ -8257,7 +8276,7 @@ items:
     build_sha: 0dec48ef5981b6e5
 - id: perf-codegen-arm64-regs
   feature: Le compilateur GOAL utilise les 31 registres de l'arm64
-  status: open
+  status: in-progress
   priority: 58
   game: jak1
   gate:
@@ -22970,7 +22989,7 @@ items:
 - id: harness-api-auth-outage-pauses-not-blocks
   feature: Une panne d'authentification de l'API met l'orchestrateur en pause au lieu de bloquer toute
     la file
-  status: in-progress
+  status: validated
   priority: 17
   code_scope: harnais
   device: false
@@ -22999,3 +23018,10 @@ items:
     CONTROLE POSITIF (API simulee qui rend 401 puis 200) + CONTROLE NEGATIF (un vrai echec de modele reste
     compte).'
   no_code: true
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-25'
+    proof_sha: f197d3887d317f9c
+    proof_bytes: 82236
+    attempt: 1
+    journal: validator-001.txt
