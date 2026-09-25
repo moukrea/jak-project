@@ -232,9 +232,21 @@ while IFS= read -r seg; do
   else
     _cap=""
   fi
-  if [[ -n $_cap && ! $seg =~ \.autoport/linear-attach/ ]]; then
-    refuse "\`${_cap}\` : la preuve par image est interdite." \
-           "une preuve = un compteur ecrit par le moteur, lu par .autoport/lib/proof_run.sh ; une ILLUSTRATION pour Linear s'ecrit sous .autoport/linear-attach/ puis part par linear_sync.py --attach." ;
+  # ASSOUPLI (owner 25/09 : « ça peut servir de mesure dans certains cas… faut pas non plus être
+  # débile. Mais je veux pas que ça parte dans des mesures visuelles complexes à fumer X millions
+  # tokens et prendre 4h de capture ») : une capture est permise, mais PLAFONNEE par essai. Au-dela
+  # de CAPTURE_MAX, c'est une campagne visuelle : refusee. Hors d'un essai (superviseur), pas de plafond.
+  if [[ -n $_cap ]]; then
+    _att="${AUTOPORT_ATTEMPT_ID:-}"
+    if [[ -n $_att ]]; then
+      _cf="${CLAUDE_PROJECT_DIR:-.}/.autoport/logs/.captures-${_att//[^A-Za-z0-9_.@-]/_}"
+      _n=$(( $(cat "$_cf" 2>/dev/null || echo 0) + 1 ))
+      echo "$_n" > "$_cf" 2>/dev/null || true
+      if (( _n > ${CAPTURE_MAX:-8} )); then
+        refuse "\`${_cap}\` : ${_n}e capture de cet essai (plafond ${CAPTURE_MAX:-8}) : c'est une campagne visuelle." \
+               "une ou deux captures pour illustrer ou verifier un cas simple ; au-dela, livre le build et laisse l'owner juger (5 minutes pour lui)."
+      fi
+    fi
   fi
 done <<< "$SEGS"
 
