@@ -22569,7 +22569,10 @@ items:
     attempt: 2
     journal: validator-002.txt
   notes: '25/09 (superviseur) : bloque a 5 essais sur une porte moteur trop compliquee ; contrat resserre
-    sur une preuve hors ligne des assets, budget rouvert.'
+    sur une preuve hors ligne des assets, budget rouvert.
+
+    budget : plafond 9 = 5 essais brules sur l''ancienne porte moteur (abandonnee) + 4 essais pour le
+    contrat resserre hors ligne.'
 - id: acquis-lighting-regimes
   feature: 'La lumiere principale par creneau (validee) ne peut plus regresser : un acquis la protege'
   status: open
