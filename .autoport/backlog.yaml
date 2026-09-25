@@ -6008,7 +6008,7 @@ items:
   delivered: '2026-09-25'
 - id: lighting-shadows
   feature: Deux astres, deux jeux d'ombres, et les acteurs qui en projettent
-  status: open
+  status: in-progress
   priority: 28
   owner_feedback:
   - date: '2026-09-03'
@@ -22456,14 +22456,14 @@ items:
 - id: lighting-flipped-faces-everywhere
   feature: Aucune surface a l'envers ne tombe au noir, dans aucun niveau ni aucune famille de rendu (decor
     et personnages)
-  status: in-progress
-  priority: 21
+  status: open
+  priority: 20
   code_scope: jeu
   device: false
   owner_test: false
-  max_retries: 5
+  max_retries: 9
   gate:
-    key: flipped_faces_contract_defects
+    key: flipped_asset_defects
     op: ==
     value: 0
   prompt: prompts/item-lighting-flipped-faces-everywhere.md
@@ -22492,42 +22492,26 @@ items:
     sinon les niveaux corriges ne pourront pas partir dans le zip. Merc : l''enroulement n''est pas coherent
     (gl_FrontFacing vrai sur 47 a 90 % des pixels merc selon le niveau) ; les surfaces minces vues de
     dos (voiles du moulin de village1) changent visiblement.'
-  deliverable: '1. Recenser, pour CHAQUE niveau du jeu et chaque famille (tfrag, TIE, TIE au vent, shrub,
-    herbe, ocean, merc), la part de pixels dont la normale pointe a l''envers ET qui tombent sous un seuil
-    de noir anormal (comparaison eclairage recharge ON / OFF, meme image).
+  deliverable: 'CONTRAT RESSERRE LE 25/09 SUR ORDRE DE L''OWNER (« Pourquoi le moteur devrait porter le
+    truc des flipped faces defects si c''est un truc qu''on fait sur les assets du jeu directement ? Je
+    crois que tu te complique la vie sur les preuves… reprend et boucle ce sujet c''est pas un truc de
+    fou que je demande »). Tout ce qui precede sur des sondes moteur, des couples niveau/famille au noir
+    et des mesures sur telephone est ABANDONNE.
 
-    2. Corriger toute famille ou niveau qui en a encore (merc compris si concerne).
+    1. L''outil de notre chaine d''assets lit chaque niveau extrait de l''ISO (original intact), oriente
+    les normales fautives, et ecrit la version corrigee dans le zip d''assets RECHARGES. Le jeu la prend
+    si elle est la, sinon l''original tel quel. Aucun retournement de normale dans AUCUN shader (shade.glsl
+    ET merc2.frag).
 
-    3. `flipped_faces_dark` = nombre de couples (niveau, famille) en defaut ; doit valoir 0. Publier le
-    tableau et le nombre de couples mesures (un couple non mesure = defaut).
+    2. PREUVE HORS LIGNE, sans lancer le jeu : `flipped_asset_defects` = (triangles dont la normale stockee
+    pointe a l''envers, relus DANS les fichiers corriges du pack) + (niveaux du jeu sans fichier corrige
+    dans le pack) + (retournements de normale restant dans les shaders) + (refus de release_verify.sh
+    sur ces fichiers). Doit valoir 0. Publier le nombre de niveaux et de triangles relus.
 
-    4. Devient ensuite un ACQUIS (acquis/flipped-faces.sh). Preuve programmatique seulement, pas de capture.
+    3. Si les personnages (merc) ont aussi des normales a l''envers dans leurs donnees, meme traitement
+    ; sinon le dire en une ligne.
 
-    5. COUT (question de l''owner, 25/09 : « Le correctif actuel est un shader qui flip les normales au
-    runtime ? Ça a pas un coût de perfs ça ? ») : le correctif actuel fait, pour CHAQUE pixel de CHAQUE
-    image, un produit scalaire et un retournement dans shade(). Preferer le corriger UNE FOIS au chargement
-    (orienter les normales stockees des faces a l''envers dans la donnee du niveau, a partir de la normale
-    de collision ou de la geometrie), ce qui rend le cout d''execution nul et corrige aussi tout autre
-    lecteur de ces normales. Mesurer le cout du retournement au runtime sur le telephone (regimes alternes
-    dans UNE course, memoire feedback_gain_measured_by_alternating_regimes_inside_one_run) et publier
-    l''ecart ; le retournement du shader est de toute facon retire (voir 6).
-
-    6. OU CORRIGER (owner 25/09, precise) : les assets extraits de l''ISO restent des ORIGINAUX NON MODIFIES
-    (leur zip a eux). La correction produit des fichiers de niveau corriges qui vont dans le ZIP D''ASSETS
-    RECHARGES (le notre, pas inclus au binaire, pose « par-dessus » les originaux ; celui qu''on fournit
-    sur jak-builds pour tester). Donc : un outil de notre chaine d''assets qui lit l''original extrait,
-    oriente les normales fautives, et ecrit la version corrigee dans le pack recharge ; le jeu la prefere
-    quand elle est presente, sinon il garde l''original. NE PAS modifier l''extracteur ni les originaux.
-    Cout nul au jeu. PAS DE REPLI (owner 25/09 : « Pas de repli, l''asset est là où pas là. Si pas là,
-    tant pis on fait pas ton repli shader. ») : une fois les niveaux corriges dans le pack recharge, RETIRER
-    le retournement de normale de shade() ; sans pack recharge, le jeu montre l''original tel quel.
-
-
-    PORTE REFAITE LE 25/09 : `flipped_faces_contract_defects` = (couples niveau/famille encore au noir)
-    + (occurrences d''un retournement de normale au runtime dans shade.glsl ET merc2.frag : doit valoir
-    0, owner « pas de repli ») + (niveaux du jeu SANS version corrigee dans le pack recharge) + (refus
-    de release_verify.sh sur les fichiers corriges). Doit valoir 0. Le jeu sans pack recharge montre l''original
-    tel quel.'
+    4. Puis livrer : l''owner regarde en jeu.'
   owner_feedback:
   - date: '2026-09-25'
     text: Top donc comme j'ai dit dans l'autre commentaire pour le soucis des faces qui était mal orientés
@@ -22569,6 +22553,14 @@ items:
       comment: e3f2abf6-90a2-4795-a83a-f1c538ef458c
       ticket: a6c7bbd7-f461-4af9-8e7c-d653a2ed6979
       at: '2026-09-25T00:32:05.545Z'
+  - date: '2026-09-25'
+    text: Pourquoi le moteur devrait porte le truc des fliped faces defects si c'est un truc qu'on fait
+      sur les assets du jeu directement ? Je crois que tu te complique la vie sur les preuves… tu m'a
+      saoulé encore une fois… reprend et boucle ce sujet c'est pas un truc de fou que je demande
+    via:
+      comment: 761b7570-b018-4950-80e7-385d4fb10a5a
+      ticket: a6c7bbd7-f461-4af9-8e7c-d653a2ed6979
+      at: '2026-09-25T05:29:22.204Z'
   gate_verdict:
     result: porte-tenue
     date: '2026-09-25'
@@ -22576,6 +22568,8 @@ items:
     proof_bytes: 178937
     attempt: 2
     journal: validator-002.txt
+  notes: '25/09 (superviseur) : bloque a 5 essais sur une porte moteur trop compliquee ; contrat resserre
+    sur une preuve hors ligne des assets, budget rouvert.'
 - id: acquis-lighting-regimes
   feature: 'La lumiere principale par creneau (validee) ne peut plus regresser : un acquis la protege'
   status: open
@@ -22603,7 +22597,7 @@ items:
 - id: arm64-integer-division-matches-x86
   feature: Sur le telephone, la division entiere donne exactement le meme resultat que sur PC (semantique
     32 bits du jeu d'origine)
-  status: open
+  status: validated
   priority: 26
   code_scope: jeu
   device: false
@@ -22644,6 +22638,13 @@ items:
       source: supervisor
       at: '2026-09-24T23:49:32+00:00'
       by: autoport feedback
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-25'
+    proof_sha: 05e14667716f2dba
+    proof_bytes: 77417
+    attempt: 2
+    journal: validator-002.txt
 - id: harness-goalc-unit-tests-run-again
   feature: Les tests unitaires du compilateur GOAL tournent de nouveau et sont rebatis avec lui
   status: open
