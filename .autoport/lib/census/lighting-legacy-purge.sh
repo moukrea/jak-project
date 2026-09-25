@@ -146,20 +146,20 @@ pub lighting_legacy_census_ran 1
 # ── 1. LE BLOB DE SHADERS ANDROID ─────────────────────────────────────────────────────────────
 if [ "$HAVE_BLOB" -eq 0 ]; then
   BLOB_HITS=$(hits "$BLOB" "${REMOVED_UNIFORMS[@]}")
-  # LE TEMOIN NE PORTE PLUS QUE `u_rt_light_on` (census-audit-blind-spots, 2026-09-12). Il
+  # LE TEMOIN NE PORTE PLUS QUE `u_lighting_on` (census-audit-blind-spots, 2026-09-12). Il
   # portait aussi `u_pbr_shadow_on` et `tex_PBR_SHADOW`, tous deux declares par
   # `shaders/pbr_uniforms.glsl` — que `SRC_FILES` ci-dessus veut voir QUITTER l'arbre. Deux tiers
   # de ce temoin disparaissaient donc le jour ou CET item aboutit, pendant que le zero qu'il
-  # garde devenait moins falsifiable. `shade.glsl`, qui declare `u_rt_light_on`, n'est vise par
+  # garde devenait moins falsifiable. `shade.glsl`, qui declare `u_lighting_on` (ex `u_rt_light_on`), n'est vise par
   # aucune liste de suppression.
-  BLOB_CTL=$(hits "$BLOB" u_rt_light_on)
+  BLOB_CTL=$(hits "$BLOB" u_lighting_on)
 else
   BLOB_HITS=-1; BLOB_CTL=0
 fi
 pub lighting_legacy_blob_hits "$BLOB_HITS"
 pub lighting_legacy_blob_control "$BLOB_CTL"
 if [ "$BLOB_CTL" -eq 0 ]; then
-  note "temoin blob a zero (u_rt_light_on introuvable)"
+  note "temoin blob a zero (u_lighting_on introuvable)"
   PENALTY=$((PENALTY + 1000))
 fi
 

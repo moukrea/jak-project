@@ -840,7 +840,6 @@ void render_game_frame(int game_width,
       REFSET_SETTING(recharged_textures);
       REFSET_SETTING(recharged_managed_assets);
       REFSET_SETTING(recharged_enhanced_models);
-      REFSET_SETTING(recharged_rt_light_enable);
       REFSET_SETTING(recharged_ao_mode);
 #undef REFSET_SETTING
       real("settings.target_fps", settings.target_fps);

@@ -1,5 +1,5 @@
 // lighting-local-lights (SPEC-refonte-lumiere §4.9) : les lumieres locales (lampes, torches, lave).
-// Lu UNIQUEMENT sous `u_rt_light_on != 0 && u_ll_on != 0` (shade_body) : master OFF et
+// Lu UNIQUEMENT sous `u_lighting_on != 0 && u_ll_on != 0` (shade_body) : master OFF et
 // recharged_lighting OFF ne l'evaluent jamais, l'origine reste bit-identique.
 //
 // La grille est remplie sur le FIL DE RENDU (ClusterGrid.cpp), une fois par image : grille alignee

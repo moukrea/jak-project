@@ -182,12 +182,13 @@ struct GfxGlobalSettings {
   //                             d'origine qu'un JOUEUR veut, sans payer le reste.
   //   un sous-drapeau OFF    => cette couche seule.
   // Defaut ON. Pourquoi ce drapeau existe (owner 2026-09-06) : il avait eteint « Realtime
-  // Lighting » et voyait toujours les blancs brules. C'est mecanique — `recharged_rt_light_enable`
-  // ne voulait pas dire « notre eclairage », il voulait dire « prendre le composite A/B plutot
-  // que C/E » : l'eteindre ACTIVAIT le composite C de `shade.glsl`. Il n'existait aucun
-  // interrupteur pour l'eclairage lui-meme.
-  // AUCUN consommateur d'eclairage ne lit ce drapeau ni son sous-drapeau directement : ils
-  // passent tous par Gfx::lighting_active(), qui compose les TROIS niveaux en un seul endroit.
+  // Lighting » et voyait toujours les blancs brules. C'est mecanique — l'ancien sous-drapeau
+  // rt-light (RETIRE par lighting-rt-light-toggle-removed) ne voulait pas dire « notre
+  // eclairage », il voulait dire « prendre le composite A/B plutot que C/E » : l'eteindre
+  // ACTIVAIT le composite C de `shade.glsl`. Il n'existait aucun interrupteur pour l'eclairage
+  // lui-meme.
+  // AUCUN consommateur d'eclairage ne lit ce drapeau directement : ils passent tous par
+  // Gfx::lighting_active(), qui compose les DEUX niveaux restants en un seul endroit.
   bool recharged_lighting = true;
 
   // water-ocean-mesh (SPEC-refonte-eau §1.2 regle 1, §7) : LE MAITRE DE LA REFONTE EAU, a cote
@@ -328,10 +329,6 @@ struct GfxGlobalSettings {
   // lighting-legacy-purge (2026-09-11) : MODERN MATERIALS est SUPPRIME. La rangee livrait OFF,
   // donc la pile moderne n'a jamais touche un pixel : son absence EST la valeur livree. Ses
   // morceaux de GLSL partent avec elle.
-  // Grecharged-realtime-lighting (2026-07-19 REWRITE): SUN-ONLY realtime lighting, a clean
-  // rewrite. recharged_rt_light_enable = master (the tfrag3 sun-only path is taken only when this
-  // is on). Set from GOAL via pc-set-rt-light!. Default OFF => stock.
-  bool recharged_rt_light_enable = false;
   // lighting-legacy-purge (2026-09-11) : la QUALITE / la DISTANCE / la FORCE de l'ombre portee,
   // l'interrupteur d'ambiante, sa FORCE, son MODELE et son CONTRASTE sont RETIRES. Les cinq
   // premiers sont figes dans RechargedFixed (kRtShadowRes/Dist/Strength, kRtAmbientStrength,

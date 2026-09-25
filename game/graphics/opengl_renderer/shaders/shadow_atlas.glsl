@@ -45,7 +45,7 @@ const vec2 RT_POISSON16[16] = vec2[](
 // DOMINANT et fond en douceur cascade->cascade et cascade->bord ; `rt_sec_vis` fait la meme
 // chose pour la tuile UNIQUE du second astre (pas de cascade, juste un bord qui fond).
 float rt_tile_vis(int t, vec3 P_rel, vec3 sN, float sndl, float dist) {
-  float noff = u_shadow_texel[t] * (u_rt_light_on != 0 ? mix(1.5, 5.0, 1.0 - sndl)
+  float noff = u_shadow_texel[t] * (u_lighting_on != 0 ? mix(1.5, 5.0, 1.0 - sndl)
                                                        : mix(0.75, 2.0, 1.0 - sndl));
   vec3 sworld = P_rel + u_pbr_shadow_cam_delta + sN * noff;
   vec4 sp = u_shadow_tile_mvp[t] * vec4(sworld, 1.0);
@@ -53,7 +53,7 @@ float rt_tile_vis(int t, vec3 P_rel, vec3 sN, float sndl, float dist) {
   if (suv.x < 0.002 || suv.x > 0.998 || suv.y < 0.002 || suv.y > 0.998 || suv.z >= 1.0) {
     return -1.0;
   }
-  float bias = (u_rt_light_on != 0 ? 0.0010 : 0.0012) + u_pbr_shadow_bias;
+  float bias = (u_lighting_on != 0 ? 0.0010 : 0.0012) + u_pbr_shadow_bias;
   float ref = suv.z - bias;
   float pen = max(1.5 * u_shadow_texel[t], 0.02 + 0.015 * dist);  // penombre, en METRES
   // lighting-regimes (SPEC §4.11) : le regime elargit la penombre des cascades de la cle (dome
@@ -135,13 +135,13 @@ vec4 rt_shadow_proof_color(vec3 P_rel, vec3 sN, float sndl, float a) {
   }
   bool hit = false, actor_occ = false, full_occ = false;
   if (cc >= 0) {
-    float noff = u_shadow_texel[cc] * (u_rt_light_on != 0 ? mix(1.5, 5.0, 1.0 - sndl)
+    float noff = u_shadow_texel[cc] * (u_lighting_on != 0 ? mix(1.5, 5.0, 1.0 - sndl)
                                                           : mix(0.75, 2.0, 1.0 - sndl));
     vec3 sworld = P_rel + u_pbr_shadow_cam_delta + sN * noff;
     vec4 sp = u_shadow_tile_mvp[cc] * vec4(sworld, 1.0);
     vec3 suv = sp.xyz / sp.w * 0.5 + 0.5;
     if (suv.x >= 0.0 && suv.x <= 1.0 && suv.y >= 0.0 && suv.y <= 1.0 && suv.z < 1.0) {
-      float bias = (u_rt_light_on != 0 ? 0.0010 : 0.0012) + u_pbr_shadow_bias;
+      float bias = (u_lighting_on != 0 ? 0.0010 : 0.0012) + u_pbr_shadow_bias;
       float ref = suv.z - bias;
       vec2 org = vec2(float(cc & 1), float(cc >> 1)) * 0.5;
       float actor = texture(tex_SHADOW_ACTOR, org + clamp(suv.xy, 0.0, 1.0) * 0.5).r;

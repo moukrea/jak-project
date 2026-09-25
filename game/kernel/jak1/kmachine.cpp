@@ -1089,7 +1089,7 @@ constexpr int kLegacyGoalCount = (int)(sizeof(kLegacyGoalSymbols) / sizeof(char*
 // repondre. La marche les trouve par le MEME code que les autres ; s'ils manquent, c'est la
 // marche qui est cassee, pas l'ancien monde qui a disparu.
 constexpr const char* kLegacyGoalControl[] = {
-    "pc-set-rt-light!",
+    "pc-set-recharged-lighting!",
     "pc-set-recharged-master!",
     "*recharged-lighting-label*",
     "*ambient-occlusion-label*",
@@ -2308,9 +2308,9 @@ void pc_set_recharged_master(u32 on) {
 // (-> *pc-settings* recharged-lighting?). This is THE root of the lighting overhaul, and it is
 // NOT the project master: OFF restores Naughty Dog's lighting and keeps every other Recharged
 // layer (HD models, grass, textures, HUD) untouched. Every lighting gate composes it through the
-// single Gfx::lighting_active() helper, which ANDs it with recharged_master_active(). Replaces
-// pc-set-rt-light!'s role as "the lighting switch" — that one only ever picked the A/B composite,
-// which is exactly what misled the owner on 2026-09-06 (HDR kept running with it OFF).
+// single Gfx::lighting_active() helper, which ANDs it with recharged_master_active().
+// lighting-rt-light-toggle-removed : the old rt-light sub-flag, which only ever picked the A/B
+// composite and misled the owner on 2026-09-06 (HDR kept running with it OFF), is retired.
 // Logs on CHANGE only (pushed every frame by update-to-os), so a device log proves the link.
 void pc_set_recharged_lighting(u32 on) {
   bool v = (on != 0);
@@ -2320,6 +2320,22 @@ void pc_set_recharged_lighting(u32 on) {
     lg::info("[recharged-lighting] toggle -> {}", v ? "ON" : "OFF");
   }
   recharged_gating::set(recharged_gating::kLighting, v);
+  // lighting-rt-light-toggle-removed : ce NETTOYAGE SAIN du sentinel de la garde anti-boucle
+  // vivait dans `pc_set_rt_light`, retire par cet item. Sans lui la garde ne s'effacerait plus
+  // jamais et un bootage rugueux la ferait mordre a chaque lancement suivant — un changement de
+  // comportement que cet item n'a pas le droit de faire. Il est donc DEPLACE ici : meme pousse
+  // par image depuis `update-to-os` (hud-classes-pc.gc), meme condition, meme effet.
+  static bool did_clear = false;
+  if (!did_clear && s_recharged_boot_t >= 0.0) {
+    double now =
+        std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
+    if (now - s_recharged_boot_t > kRechargedGuardHealthySecs) {
+      std::error_code ec;
+      fs::remove(recharged_boot_guard_path(), ec);
+      did_clear = true;
+      lg::info("[recharged] crash-loop guard: healthy boot, sentinel cleared");
+    }
+  }
 }
 
 // water-ocean-mesh (SPEC-refonte-eau §1.2 regle 1, §7) : le maitre de la refonte EAU, pousse par
@@ -5027,27 +5043,7 @@ void pc_set_mood_regime(u32 lg0, u32 t0, u32 lg1, u32 t1, u32 parms) {
   autoport_proof::publish("regime_fallback_frames", s_fallback);
 }
 
-// Grecharged-realtime-lighting (2026-07-19 REWRITE): SUN-ONLY realtime lighting toggles,
-// pushed from GOAL each frame. rt-light! = master.
-void pc_set_rt_light(u32 sym) {
-  recharged_gating::set(recharged_gating::kRtLight, (sym != 0));
-  // lighting-legacy-purge (2026-09-11) : le NETTOYAGE SAIN du sentinel de la garde anti-boucle
-  // vivait dans `pc_set_pbr_displacement`, supprime par cet item. Sans lui la garde ne s'effacerait
-  // plus jamais et un bootage rugueux la ferait mordre a chaque lancement suivant — un changement
-  // de comportement que cet item n'a pas le droit de faire. Il est donc DEPLACE ici : meme pousse
-  // par image depuis `update-to-os` (hud-classes-pc.gc:1823), meme condition, meme effet.
-  static bool did_clear = false;
-  if (!did_clear && s_recharged_boot_t >= 0.0) {
-    double now =
-        std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
-    if (now - s_recharged_boot_t > kRechargedGuardHealthySecs) {
-      std::error_code ec;
-      fs::remove(recharged_boot_guard_path(), ec);
-      did_clear = true;
-      lg::info("[recharged] crash-loop guard: healthy boot, sentinel cleared");
-    }
-  }
-}
+// lighting-rt-light-toggle-removed : `pc_set_rt_light` est SUPPRIME (avec `recharged_gating::kRtLight`).
 // lighting-legacy-purge (2026-09-11) : `pc_set_rt_ambient`, `pc_set_rt_ambient_strength`,
 // `pc_set_pbr_texture_relief` et `pc_set_pbr_specular_intensity` sont SUPPRIMES. L'ambiante est
 // desormais inconditionnelle sous l'eclairage ; sa force, le RELIEF et la SPECULAIRE sont figes
@@ -5163,7 +5159,6 @@ void InitMachine_PCPort() {
   make_function_symbol_from_c("pc-set-pbr-lights!", (void*)pc_set_pbr_lights);
   make_function_symbol_from_c("pc-set-mood-regime!", (void*)pc_set_mood_regime);
   // Grecharged-realtime-lighting: SUN-ONLY realtime lighting master
-  make_function_symbol_from_c("pc-set-rt-light!", (void*)pc_set_rt_light);
   // lighting-legacy-purge (2026-09-11) : les ponts de l'ombre portee (res/dist/force), de
   // l'ambiante (interrupteur/force/modele/contraste), du RELIEF, de la SPECULAIRE, du
   // DISPLACEMENT et de PBR ISOLATE sont SUPPRIMES. Leurs valeurs livrees vivent dans

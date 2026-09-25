@@ -4315,8 +4315,7 @@ void Merc2::switch_to_merc2(SharedRenderState* render_state) {
   // c'est donc le programme COURANT que glUniform* vise ici.
   m_shadow_recv_on = pbr_shadow_bind_merc_receiver(
       render_state->shaders[ShaderId::MERC2].id(),
-      recharged_gating::on(recharged_gating::kLighting) ||
-          recharged_gating::on(recharged_gating::kRtLight));
+      recharged_gating::on(recharged_gating::kLighting));
 #endif
 }
 

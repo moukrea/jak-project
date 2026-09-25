@@ -1064,8 +1064,7 @@ void Loader::loader_thread() {
       // Gated on the PBR / realtime-lighting features that actually consume the reconstructed normal: a
       // STOCK player (recharged master off) pays zero added load cost and stays byte-identical. Runs on
       // this loader thread (not the GL/main thread) behind the load screen, so no ANR.
-      if (recharged_gating::on(recharged_gating::kLighting) ||
-          recharged_gating::on(recharged_gating::kRtLight)) {
+      if (recharged_gating::on(recharged_gating::kLighting)) {
         auto p = scoped_prof("global-weld");
         tfrag3::reconstruct_level_global_weld(*result);
       }
@@ -1081,8 +1080,7 @@ void Loader::loader_thread() {
       // per-vertex seam weights that stop the tessellator from tearing at boundaries that cannot
       // displace identically. Its per-level audit numbers are appended to files/mesh_audit.txt so
       // the coverage claim is checkable off-device on a phone whose logcat is obscured.
-      if (recharged_gating::on(recharged_gating::kLighting) ||
-          recharged_gating::on(recharged_gating::kRtLight)) {
+      if (recharged_gating::on(recharged_gating::kLighting)) {
         const auto cfg = tfrag3::mesh_consolidate_config_from_env();
         const bool do_shrub = (cfg.bits & tfrag3::kMeshBitNoShrub) == 0;
         // Le jeu ne lit NI le cadre tangent par sommet NI `seam_w` : mesure, pas suppose — aucun

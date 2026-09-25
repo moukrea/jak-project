@@ -222,10 +222,11 @@
 ;; mood-lights-table (0 = absente), puis (sun-fade, ciel 0/1, current-interp). Le C++ retrouve chaque
 ;; lumiere de creneau dans sa table et en lit le REGIME.
 (define-extern pc-set-mood-regime! (function pointer pointer pointer pointer vector none))
-;; Grecharged-realtime-lighting / lighting-legacy-purge : ne reste que le pont du MAITRE de la
-;; refonte lumiere (RECHARGED LIGHTING). Les ponts ambiants/ombres/relief de l'ancien monde
-;; sont retires avec leurs reglages.
-(define-extern pc-set-rt-light! (function int none)))
+;; lighting-rt-light-toggle-removed / lighting-legacy-purge : ne reste que le pont du MAITRE de
+;; la refonte lumiere (RECHARGED LIGHTING, `pc-set-recharged-lighting!` ci-dessus). Le pont
+;; rt-light (et les ponts ambiants/ombres/relief de l'ancien monde) sont retires avec leurs
+;; reglages.
+)
 ;; Grecharged-ambient-occlusion: pushes (mode quality strength) to the C++ renderer (registered in kmachine.cpp).
 ;; mode 0=off/1=ssao/2=hbao/3=gtao, quality 0=low/1=medium/2=high, strength 0=weaker/1=default/2=stronger.
 (define-extern pc-set-ambient-occlusion! (function int int int none))

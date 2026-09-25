@@ -1627,27 +1627,26 @@ std::string image_path(const Step& step) {
 }
 
 void apply_step_config(const Step& s) {
-  // Le master et la lumiere temps reel se pilotent par les surcharges d'environnement qui
-  // EXISTENT (gfx.h:554 `OG_RECHARGED`, background_common.cpp:2635 `OG_RT_LIGHT`). Ecrire
-  // directement dans `g_global_settings` ne tiendrait pas : GOAL repousse `recharged-master?`
-  // a chaque image (hud-classes-pc.gc:1747). Les deux variables sont posees a leur longueur
-  // definitive des l'initialisation, donc chaque bascule n'est qu'un `strcpy` en place.
+  // Le master et la refonte lumiere se pilotent par les surcharges d'environnement qui
+  // EXISTENT (gfx.h:554 `OG_RECHARGED`). Ecrire directement dans `g_global_settings` ne
+  // tiendrait pas : GOAL repousse `recharged-master?` a chaque image (hud-classes-pc.gc:1747).
+  // Les deux variables sont posees a leur longueur definitive des l'initialisation, donc chaque
+  // bascule n'est qu'un `strcpy` en place.
   // lighting-hdr : `OG_LIGHTING` epingle le maitre de la refonte lumiere (gfx.h
   // `recharged_lighting_active`). C'est LUI qui separe RECHARGED d'ORIGINE-LUMIERE ; le master
-  // les separe toutes les deux d'ORIGINE-TOTAL. `OG_RT_LIGHT` ne choisissait qu'un composite.
+  // les separe toutes les deux d'ORIGINE-TOTAL. lighting-rt-light-toggle-removed : le sous-drapeau
+  // rt-light et sa surcharge `OG_RT_LIGHT` sont retires, seuls `OG_RECHARGED` et `OG_LIGHTING`
+  // composent le chemin d'eclairage.
   if (s.phase == 1) {
     put_env("OG_RECHARGED", "0");  // ORIGINE-TOTAL : le jeu de Naughty Dog entier
     put_env("OG_LIGHTING", "0");
-    put_env("OG_RT_LIGHT", "0");
   } else if (s.phase == 2) {
     put_env("OG_RECHARGED", "1");  // RECHARGED : master ON + refonte lumiere ON
     put_env("OG_LIGHTING", "1");
-    put_env("OG_RT_LIGHT", "1");
   } else {
     // ORIGINE-LUMIERE : tout le Recharged SAUF l'eclairage. La config que l'owner joue.
     put_env("OG_RECHARGED", "1");
     put_env("OG_LIGHTING", "0");
-    put_env("OG_RT_LIGHT", "0");
   }
   // LE VANTAGE. `level_warp_run` (kmachine.cpp) relit `OG_LEVEL_WARP` a chaque armement, donc
   // poser la variable ICI suffit a diriger le teleport suivant vers un autre point de reprise.
@@ -2460,14 +2459,6 @@ static constexpr const char* kRetiredQualificationKeys[] = {
 // effective gates and clamped settings, never the phase's requested environment values.
 QualificationJson qualification_effective_options() {
   const auto& gs = Gfx::g_global_settings;
-  int rt = recharged_gating::on(recharged_gating::kRtLight) ? 1 : 0;
-#ifdef __ANDROID__
-  char value[PROP_VALUE_MAX] = {0};
-  if (__system_property_get("debug.opengoal.rt.light", value) > 0 && value[0])
-    rt = std::atoi(value);
-#else
-  if (const char* value = std::getenv("OG_RT_LIGHT")) rt = std::atoi(value);
-#endif
   // lighting-legacy-purge (2026-09-11) : la PRE-SUBDIVISION est supprimee (elle n'etait
   // atteignable que sous le mode TESSELLATION jamais livre).
   // dead-cover-and-legends (2026-09-12) : ses deux cles `subdivision` et `subdivision_rounds` sont
@@ -2487,7 +2478,10 @@ QualificationJson qualification_effective_options() {
   const bool grass_overhang = recharged_gating::on(recharged_gating::kGrassOverhang);
 #endif
   return {{"master", Gfx::recharged_master_active()},
-      {"lighting", Gfx::recharged_lighting_active()}, {"rt_light", Gfx::lighting_active(rt != 0)},
+      {"lighting", Gfx::recharged_lighting_active()},
+      // cle de schema CONSERVEE pour les captures figees (refset_qualification.h:296 la relit) ;
+      // elle vaut desormais le maitre, rt-light est retire (lighting-rt-light-toggle-removed).
+      {"rt_light", Gfx::recharged_lighting_active()},
       {"hdr", hdr::chain_active() && hdr::format_is_float(hdr::scene_color_format())},
       {"others", {
           {"textures", recharged_gating::on(recharged_gating::kTextures)},
@@ -3173,7 +3167,6 @@ bool enabled() {
                            autoport_proof::feature_is("lighting-hdr"))
                               ? "1"
                               : "0");
-  put_env("OG_RT_LIGHT", "0");
   put_env("OG_LIGHTING", "0");
   init_candidate_provenance();
   qualification_init();

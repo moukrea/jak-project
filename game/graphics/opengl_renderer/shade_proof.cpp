@@ -26,7 +26,7 @@ constexpr const char* kEnd = "@shade-model-end";
 // plus. Cette table doit rester IDENTIQUE a `kGateNames` de `lighting_census.cpp` — la derive
 // entre les deux est comptee par `lib/census/census-false-reds.sh`.
 constexpr int kGateTokenCount = 2;
-const char* const kGateTokens[kGateTokenCount] = {"u_rt_light_on", "u_pbr_shadow_on"};
+const char* const kGateTokens[kGateTokenCount] = {"u_lighting_on", "u_pbr_shadow_on"};
 
 struct ProgInfo {
   uint64_t model_fp = 0;   // empreinte des regions marquees ; 0 = aucune region

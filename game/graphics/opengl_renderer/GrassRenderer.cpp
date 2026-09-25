@@ -3336,8 +3336,7 @@ void GrassRenderer::render(SharedRenderState* rs, ScopedProfilerNode& prof) {
   // saute quand l'atlas la porte) SANS que l'herbe la remplace, et le sol reste sombre a cote
   // d'un carre d'herbe eclaire au plein. Hors regime, `u_pbr_shadow_on` est explicitement remis
   // a 0 : jamais de valeur perimee d'une image ou le regime etait actif.
-  if ((recharged_gating::on(recharged_gating::kLighting) ||
-       recharged_gating::on(recharged_gating::kRtLight)) &&
+  if (recharged_gating::on(recharged_gating::kLighting) &&
       pbr_shadow_state().valid) {
     pbr_shadow_bind_receiver(id, rs->camera_pos.data());
     glUniform2f(grass_uloc(id, "u_grass_shadow_w"), pbr_shadow_read_key_weight(),

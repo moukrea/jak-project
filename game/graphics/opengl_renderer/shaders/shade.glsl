@@ -41,7 +41,7 @@
 // Ce qui suit vivait dans le fichier d'uniformes supprime et est recopie ici mot pour mot.
 // POURQUOI CES NOMS GARDENT UN PREFIXE « pbr » : ce sont LES OMBRES PORTEES. Le prefixe est un
 // accident d'histoire, pas une appartenance — leur unique consommateur est le bras
-// `u_rt_light_on != 0` ci-dessous, c'est-a-dire le chemin UNIQUE de la refonte, et leur item de
+// `u_lighting_on != 0` ci-dessous, c'est-a-dire le chemin UNIQUE de la refonte, et leur item de
 // suite est `lighting-shadows`. Les renommer est un geste a part, qui touche aussi le C++.
 // Visualisation de mise au point, sans effet sur le rendu livre (0 = rendu normal). Les modes
 // qui peignaient les canaux de la pile de matiere sont partis avec elle ; restent les vues du
@@ -51,13 +51,15 @@ uniform int u_pbr_debug;
 
 // Grecharged-realtime-lighting (2026-07-19 REWRITE): a clean SUN-ONLY path that
 // REPLACES the round-1..5 accretion (ambient / multi-light / moon / baked-GI /
-// baked-weight) when it is ON. u_rt_light_on = master (1 => this path taken,
-// every round-1..5 branch below skipped). baked vertex lighting is hardwired OFF in
+// baked-weight) when it is ON. u_lighting_on = le maitre ECLAIRAGE RECHARGE
+// (Gfx::recharged_lighting_active()), l'ancien sous-drapeau rt-light etant retire
+// (SPEC annexe D.4 : « un booleen dans le shader »). 1 => this path taken,
+// every round-1..5 branch below skipped. baked vertex lighting is hardwired OFF in
 // this path (realtime ON => baked off; realtime OFF takes the stock legacy baked path).
 // u_rt_sun_dir = surface->sun, world space, == the vector that places
 // the VISIBLE sun sprite (sky-sun dome dir). u_rt_sun_color carries the sun tint
 // AND intensity. ONE light, NO ambient — the opposite side is genuinely dark.
-uniform int u_rt_light_on;
+uniform int u_lighting_on;
 uniform vec3 u_rt_sun_dir;
 uniform vec3 u_rt_sun_color;
 // ITEM B (owner insight): GREEN-STAR / MOON directional NIGHT key light. u_rt_moon_dir = surface->moon
@@ -70,7 +72,7 @@ uniform vec3 u_rt_moon_color;
 // lighting-regimes (SPEC §4.10, annexe D.4) : l'ambiante directionnelle est l'ENVIRONNEMENT MESURE.
 // u_env_sh[9] = coefficients SH L2 de la forme du ciel reellement dessine (SkyCapture.cpp),
 // renormalises sur l'amb-color du creneau et deja convolues par le cosinus (A_l/pi) cote C++.
-// Lus UNIQUEMENT sous u_rt_light_on => OFF == stock.
+// Lus UNIQUEMENT sous u_lighting_on => OFF == stock.
 // lighting-legacy-purge (2026-09-11) : u_rt_ambient_model RETIRE, valeur livree figee a 1 (SH).
 // lighting-legacy-purge (2026-09-11) : u_rt_ambient_contrast RETIRE, il etait declare et jamais lu.
 // Grecharged-directional-ambient ROOT-CAUSE FIX: debug/A-B toggle. 0 (default) = SMOOTH per-vertex
@@ -170,7 +172,7 @@ struct Surface {
 // lighting-shadows essai 6 : `rt_tile_vis`/`rt_key_vis`/`rt_sec_vis`/`rt_shadow_proof_color`
 // et les uniformes de l'atlas ont DEMENAGE dans shadow_atlas.glsl (deplacement verbatim), pour
 // que merc2.frag les reutilise mot pour mot — merc n'a pas de Surface ni de shade_body. Ce
-// morceau exige EN PORTEE, chez chaque hote qui l'inclut : `u_rt_light_on`, `u_rt_regime`
+// morceau exige EN PORTEE, chez chaque hote qui l'inclut : `u_lighting_on`, `u_rt_regime`
 // (declares ci-dessus).
 #include "shadow_atlas.glsl"
 // lighting-local-lights (SPEC §4.9) : lampes, torches, lave. Voir local_lights.glsl.
@@ -205,9 +207,9 @@ vec4 shade_body(in Surface s, float sao, float occ_force) {
   vec3 N = s.N;
   // lighting-local-lights (SPEC §4.9) : les lumieres locales ECLAIRENT la texture (albedo), elles
   // s'ajoutent au cuit au lieu de le multiplier — une lanterne eclaire aussi la ou ND avait mis du
-  // noir. Evaluees HORS de la branche `u_rt_light_on` : « Lumieres locales » est un reglage a
+  // noir. Evaluees HORS de la branche `u_lighting_on` : « Lumieres locales » est un reglage a
   // part sous l'eclairage recharge (SPEC §7.3), et le sous-drapeau rt-light (SPEC : retire) vaut 0
-  // sur l'appareil — mesure du 25/09 : 22 016 poussees de `u_rt_light_on`, aucune non nulle, et
+  // sur l'appareil — mesure du 25/09 : 22 016 poussees de `u_lighting_on`, aucune non nulle, et
   // 0 pixel eclaire sous 16 lampes rangees. `u_ll_on` ne vaut 1 que sous l'eclairage recharge.
   vec3 ll_add = vec3(0.0);
   if (u_ll_on != 0) {
@@ -224,7 +226,7 @@ vec4 shade_body(in Surface s, float sao, float occ_force) {
     // point: sun-side lit / opposite side genuinely dark, pinned to world
     // geometry under any camera orbit.
     // ===================================================================
-    if (u_rt_light_on != 0) {
+    if (u_lighting_on != 0) {
       // The sun: surface->sun, world space, == the vector that places the
       // visible sun sprite (sky-sun dome dir when above the horizon).
       vec3 L = rt_safe_dir(u_rt_sun_dir);

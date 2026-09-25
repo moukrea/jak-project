@@ -8702,15 +8702,11 @@
     (set! (-> *mood-regime-scratch* x) (-> *time-of-day-context* sun-fade))
     (set! (-> *mood-regime-scratch* y) (if (-> *time-of-day-context* sky) 1.0 0.0))
     (set! (-> *mood-regime-scratch* z) (-> *time-of-day-context* current-interp))
+    ;; lighting-rt-light-toggle-removed : le maitre `pc-set-recharged-lighting!` est pousse
+    ;; a chaque image en tete d'update-to-os ; `pc-set-rt-light!` est retire.
     (pc-set-mood-regime! (pc-mood-lg-of 0) (pc-mood-table-of 0)
                          (pc-mood-lg-of 1) (pc-mood-table-of 1)
-                         *mood-regime-scratch*)
-    ;; Glighting-hdr: recharged-lighting? is the sole lighting master, including the RT
-    ;; composite. Push it and the baked sub-option every frame. The sun direction already
-    ;; reaches the renderer via pc-set-pbr-sky-sun! above (the visible-sun dome vector).
-    ;; lighting-legacy-purge : les poussees par image de l'ambiante, des ombres, du relief et
-    ;; des carrousels de debug sont RETIREES avec leurs reglages. Ne reste que le maitre.
-    (pc-set-rt-light! (if (-> obj recharged-lighting?) 1 0)))
+                         *mood-regime-scratch*))
   (pc-set-foliage-wind! (if (-> obj recharged-foliage-wind?) 1 0))
   ;; Grecharged-title-logo-fullres: draw the title-screen JAK AND DAXTER logo (and the ND boot logo)
   ;; at NATIVE resolution while the 3D world stays at RENDER SCALE. 0 = stock pipeline.

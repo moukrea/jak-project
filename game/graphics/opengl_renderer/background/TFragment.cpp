@@ -757,8 +757,7 @@ void TFragment::render_tree(int geom,
   // Round-4 mandate B receiver bind: bind the shadow matrix + sampler on the TFRAG3
   // program for this tree's draws. Runs regardless of whether the depth pass ran this
   // frame (last frame's map, or the cleared-to-1.0 map, is acceptable).
-  if ((recharged_gating::on(recharged_gating::kLighting) ||
-       recharged_gating::on(recharged_gating::kRtLight)) &&
+  if (recharged_gating::on(recharged_gating::kLighting) &&
       pbr_shadow_state().valid) {
     pbr_shadow_bind_receiver(render_state->shaders[tfrag_shader_id].id(),
                              settings.camera.trans.data());

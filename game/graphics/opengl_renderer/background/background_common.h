@@ -317,7 +317,7 @@ struct PbrMercRegimeCache {
   float regime[4] = {1.f, 1.f, 1.f, 0.f};
 };
 PbrMercRegimeCache& pbr_merc_regime_cache();
-// Pousse u_rt_light_on / u_rt_regime / u_rt_sun_dir / u_rt_moon_dir sur `program` (COURANT),
+// Pousse u_lighting_on / u_rt_regime / u_rt_sun_dir / u_rt_moon_dir sur `program` (COURANT),
 // depuis l'instantane ci-dessus.
 void pbr_push_merc_regime_uniforms(GLuint program);
 // lighting-shadows essai 6 (SPEC §4.8) : reception de l'atlas d'ombre par MERC (ropebridge et

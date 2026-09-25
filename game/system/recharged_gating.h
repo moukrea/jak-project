@@ -112,7 +112,6 @@ enum Opt : int {
   kShadowDist,
   kShadowStrength,
   kShadowSecond,
-  kRtLight,
   kHdr,
   kHdrKnee,
   kHdrCurve,

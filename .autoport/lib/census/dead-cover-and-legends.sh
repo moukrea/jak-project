@@ -466,8 +466,10 @@ if world['nfiles'] == 0 or not world['shader_files'] or not world['declared'] or
 # `lib/census/lighting-legacy-purge.sh` liste parmi les 36 uniformes que cet item-la doit
 # SUPPRIMER : le jour de la purge, `census_corpus_control` serait tombe a 2/3 et la porte de CE
 # recensement serait devenue rouge pour toujours, sans que personne ne l'ait decide.
-# `u_rt_light_on` est declare par `shade.glsl`, qu'aucune liste de suppression ne vise.
-CTL_UNIFORM = 'u_rt_light_on'       # uniforme bien vivant, declare et pousse
+# `u_lighting_on` est declare par `shade.glsl`, qu'aucune liste de suppression ne vise. Il a
+# SUCCEDE a `u_rt_light_on` (lighting-rt-light-toggle-removed, 25/09 : le sous-drapeau rt-light
+# est retire, le booleen du shader porte desormais le maitre, SPEC annexe D.4).
+CTL_UNIFORM = 'u_lighting_on'       # uniforme bien vivant, declare et pousse
 CTL_SHADER = 'tfrag3.frag'          # fichier de shader bien present
 CTL_ENUM = 'TFRAG3'                 # programme bien present dans ShaderId
 ctl = (1 if CTL_UNIFORM in world['declared'] else 0) \

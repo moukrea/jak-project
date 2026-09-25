@@ -1067,7 +1067,7 @@ def run_terms(base, paths, census_dir=CENSUS_DIR, backlog_path=BACKLOG, prefix=N
     t4 = len(overlap)
     return dict(t1=t1, t2=t2, t3=t3, t4=t4, tables=tables, calls=calls, flags=flags, chain=chain,
                 free=free, held=held, lost=lost, wits=wits, rm=rm, overlap=overlap,
-                defs=defs, shaders=len(_files), corpus_control=code_hits('u_rt_light_on'))
+                defs=defs, shaders=len(_files), corpus_control=code_hits('u_lighting_on'))
 
 # ════════════════════════════ LES CONTROLES SEMES, SUR DES ARBRES JETABLES ═════════════════════
 # Un detecteur branche sur rien rendrait le meme zero que quatre populations propres. On rejoue
@@ -1108,7 +1108,7 @@ void note_world_draw(Kind k) {
 SEED_SHADE = '''%s
 const char* const kZzTokens[2] = {"ZZ_LIVE", "ZZ_DEAD"};
 '''
-SEED_SHADER = ('uniform int u_rt_light_on;\nuniform int u_zz_safe;\nuniform int u_zz_safe2;\n'
+SEED_SHADER = ('uniform int u_lighting_on;\nuniform int u_zz_safe;\nuniform int u_zz_safe2;\n'
                'uniform int u_zz_safe3;\nvoid main(){ float k = ZZ_LIVE; }\n')
 SEED_DOOMED_SHADER = 'uniform int u_zz_doomed;\nuniform int u_zz_byfile;\n'
 SEED_CACHE = 'OG_FEAT_ZZ_ON:BOOL=ON\nOG_FEAT_ZZ_OFF:BOOL=OFF\n'

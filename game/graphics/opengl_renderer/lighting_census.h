@@ -5,9 +5,9 @@
 // POURQUOI. SPEC-refonte-lumiere.md §2.3 : le chemin qui ombre un fragment du decor depend de
 // booleens d'uniforme, et il y a donc des composites exclusifs :
 //
-//     B · PBR fusionne  : u_rt_light_on != 0 && u_pbr_mode != 0
-//     A · modulation    : u_rt_light_on != 0 && u_pbr_mode == 0
-//     C · PBR autonome  : hote legacy && u_rt_light_on == 0 && u_pbr_mode != 0
+//     B · PBR fusionne  : u_lighting_on != 0 && u_pbr_mode != 0
+//     A · modulation    : u_lighting_on != 0 && u_pbr_mode == 0
+//     C · PBR autonome  : hote legacy && u_lighting_on == 0 && u_pbr_mode != 0
 //     E · relight legacy: sinon, hote legacy && u_pbr_shadow_on != 0
 //
 // Le composite D (« sondes ») a ete RETIRE le 2026-09-12 (census-false-reds) : sa porte n'est
@@ -25,7 +25,7 @@
 // (`glUniform1i`), c'est-a-dire exactement ce que l'objet programme contient quand le draw
 // part. Les sites de poussee de `game/graphics/` :
 //   u_pbr_shadow_on   background_common.cpp  (first_tfrag_draw_setup, pbr_shadow_bind_receiver)
-//   u_rt_light_on     background_common.cpp  (first_tfrag_draw_setup)
+//   u_lighting_on     background_common.cpp  (first_tfrag_draw_setup)
 // `u_pbr_mode` A QUITTE CETTE LISTE (lighting-legacy-purge, 2026-09-12) : la pile de matiere qui
 // la poussait — `PbrDrawBinder::set` / `::finish` — a QUITTE L'ARBRE, et plus aucun shader ne la
 // declare. Ses deux denominateurs etant tombes a zero, la porte n'aurait plus pu etre en
@@ -74,7 +74,7 @@ enum class Kind : int {
 bool active();
 
 // ── enregistrement des portes, AU SITE DE POUSSEE ───────────────────────────────────────────
-void gate_rt_light(int v);
+void gate_lighting(int v);
 void gate_shadow(int v);
 
 // Programme courant et bypass, enregistres par first_tfrag_draw_setup.

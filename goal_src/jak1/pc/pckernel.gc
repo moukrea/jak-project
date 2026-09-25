@@ -21,10 +21,6 @@
 (defmethod initialize ((obj pc-settings-jak1))
   "initial initialize method to be run after allocating"
   ((method-of-type pc-settings initialize) obj)
-  ;; Glighting-hdr: the parent has completed reset and settings-file reading. Apply the
-  ;; sole lighting master to RT even when the file or key is absent, or reading failed.
-  (#when FLAG_PBR
-    (pc-set-rt-light! (if (-> obj recharged-lighting?) 1 0)))
   (set! (-> *setting-control* default sfx-volume) (-> obj memcard-volume-sfx))
   (set! (-> *setting-control* default music-volume) (-> obj memcard-volume-music))
   (set! (-> *setting-control* default dialog-volume) (-> obj memcard-volume-dialog))
@@ -466,9 +462,7 @@
     ;; defaut #t (ON) reste, et il sera persiste au premier commit-to-file.
     (("recharged-lighting?")
      (set! (-> obj recharged-lighting?) (file-stream-read-symbol file))
-     (pc-set-recharged-lighting! (if (-> obj recharged-lighting?) 1 0))
-     (#when FLAG_PBR
-       (pc-set-rt-light! (if (-> obj recharged-lighting?) 1 0))))
+     (pc-set-recharged-lighting! (if (-> obj recharged-lighting?) 1 0)))
     ;; water-ocean-mesh / SPEC-refonte-eau 1.2 regle 1 : maitre de la refonte EAU.
     (("recharged-water?")
      (set! (-> obj recharged-water?) (file-stream-read-symbol file))

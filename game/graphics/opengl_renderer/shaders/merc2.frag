@@ -31,7 +31,7 @@ uniform int u_pbr_debug;
 // DIRECTIONNELLE (vtx_color_dir) est ombree — l'ambiante ne l'est jamais. La composition complete
 // des acteurs par shade() (lighting-actors, SPEC 4.13) n'est pas ce chunk : c'est une visibilite
 // PARTAGEE avec le decor (meme atlas, meme force).
-uniform int u_rt_light_on;
+uniform int u_lighting_on;
 uniform vec4 u_rt_regime;
 uniform vec3 u_rt_sun_dir;
 uniform vec3 u_rt_moon_dir;

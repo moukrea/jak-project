@@ -127,7 +127,6 @@ const Row kOptions[kOptCount] = {
     {"shadow-strength", kLighting, Kind::kParamI, NOB, &GS::recharged_shadow_strength, NOF, 80,
      true},
     {"shadow-second", kLighting, Kind::kToggle, &GS::recharged_shadow_second, NOI, NOF, 1, true},
-    {"rt-light", kLighting, Kind::kToggle, PB(recharged_rt_light_enable), NOI, NOF, 0, false},
     {"hdr", kLighting, Kind::kToggle, &GS::recharged_hdr, NOI, NOF, 0, false},
     {"hdr-knee", kHdr, Kind::kParamF, NOB, NOI, &GS::recharged_hdr_knee, 0.96, false},
     {"hdr-curve", kHdr, Kind::kParamI, NOB, &GS::recharged_hdr_curve, NOF, 0, false},

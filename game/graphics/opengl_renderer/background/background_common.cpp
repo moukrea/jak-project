@@ -1326,8 +1326,7 @@ void pbr_shadow_first_camera(SharedRenderState* rs, const GoalBackgroundCameraDa
   auto& st = pbr_shadow_state();
   const u64 frame_idx = rs->frame_idx;
 
-  if (!(recharged_gating::on(recharged_gating::kLighting) ||
-        recharged_gating::on(recharged_gating::kRtLight)) ||
+  if (!recharged_gating::on(recharged_gating::kLighting) ||
       !pbr_shadowmap_enabled_for_frame(frame_idx)) {
     st.read_tile_on[0] = st.read_tile_on[1] = st.read_tile_on[2] = st.read_tile_on[3] = false;
     st.have_mvp = false;
@@ -1812,7 +1811,7 @@ PbrMercRegimeCache& pbr_merc_regime_cache() {
 
 void pbr_push_merc_regime_uniforms(GLuint program) {
   auto& mc = pbr_merc_regime_cache();
-  GLint light_on_loc = glu::loc(program, "u_rt_light_on");
+  GLint light_on_loc = glu::loc(program, "u_lighting_on");
   GLint regime_loc = glu::loc(program, "u_rt_regime");
   GLint sun_loc = glu::loc(program, "u_rt_sun_dir");
   GLint moon_loc = glu::loc(program, "u_rt_moon_dir");
@@ -2202,15 +2201,14 @@ void pbr_push_debug_tag(GLuint program) {
 // LE DEFAUT MESURE. `first_tfrag_draw_setup` poussait ses 70 uniformes de la famille ECLAIRAGE
 // SANS AUCUNE CONDITION, y compris quand l'ECLAIRAGE RECHARGE est ETEINT. Dans cet etat les
 // quatre portes que les shaders consultent valent toutes zero et rien ne peut les relever :
-//   u_rt_light_on   `Gfx::lighting_active(...)` le met a 0 ; `rt-light` a le meme parent.
-//   u_pbr_shadow_on le receveur n'est meme pas APPELE : ses trois appelants le gardent derriere
-//                   `recharged_gating::on(kLighting) || on(kRtLight)` (TFragment.cpp, Tie3.cpp,
-//                   Shrub.cpp).
+//   u_lighting_on (ex u_lighting_on) vaut `Gfx::recharged_lighting_active()` ; les trois
+//                   appelants du receveur `u_pbr_shadow_on` sont gardes par
+//                   `recharged_gating::on(kLighting)` (TFragment.cpp, Tie3.cpp, Shrub.cpp).
 // Aucune des valeurs poussees n'est donc lue par un chemin actif du shader, et le processeur
 // payait 54 recherches de nom + 54 appels de pilote PAR HOTE ET PAR IMAGE pour rien.
 //
 // CE QUI CONTINUE D'ETRE POUSSE, ETEINT (`lgt_keep_1i`) — et pourquoi :
-//   * les PORTES elles-memes (u_pbr_shadow_on, u_rt_light_on) : ne PAS les pousser
+//   * les PORTES elles-memes (u_pbr_shadow_on, u_lighting_on) : ne PAS les pousser
 //     laisserait le programme sur la valeur ALLUMEE de l'image precedente et rallumerait
 //     l'eclairage. Un uniforme est un etat de programme. (Les portes et les unites de texture de
 //     la pile de MATERIAUX ont disparu avec elle — lighting-legacy-purge.)
@@ -2339,15 +2337,15 @@ inline void lgt_keep_3f(GLuint id, const char* n, GLfloat a, GLfloat b, GLfloat 
 //   `u_rt_sun_dir` (poussee CONSERVEE) — `light_dir[0..2]` part a (0,1,0), sa valeur
 //       d'initialisation. Les trois shaders qui le `normalize()` HORS GARDE (etie_base.frag:84,
 //       tie_wind.frag:83, shrub.frag:77) ne rangent le resultat que dans `s.shadow_ndl`, lu sous
-//       `u_pbr_shadow_on != 0` — porte tenue a 0 ; shade.glsl:269 le lit sous `u_rt_light_on != 0`,
+//       `u_pbr_shadow_on != 0` — porte tenue a 0 ; shade.glsl:269 le lit sous `u_lighting_on != 0`,
 //       a 0 lui aussi. La valeur n'atteint donc aucune image : seule sa NON-DEGENERESCENCE compte
 //       (un `normalize(vec3(0))` rendrait NaN sur Adreno), et (0,1,0) est unitaire. C'est un
 //       re-hebergement exact, pas une approximation.
-//   `u_rt_light_on` (poussee CONSERVEE) — reste 0 SANS calcul : `Gfx::lighting_active(x)` vaut
-//       `x && recharged_lighting_active()` (gfx.h:589-591), donc eteint le resultat est 0 quelle
-//       que soit l'entree. Les deux lectures d'environnement et le `recharged_gating::on()` qui le
-//       precedent ne peuvent pas le relever. `lighting_census::gate_rt_light()` recoit la meme
-//       constante, au meme endroit qu'avant.
+//   `u_lighting_on` (poussee CONSERVEE) — reste 0 SANS calcul : depuis
+//       lighting-rt-light-toggle-removed, la valeur est `Gfx::recharged_lighting_active() ? 1 : 0`
+//       seul (le sous-drapeau rt-light et ses surcharges d'environnement sont retires). Eteint,
+//       le resultat est 0 quelle que soit toute entree passee. `lighting_census::gate_lighting()`
+//       recoit la meme constante, au meme endroit qu'avant.
 //   l'enregistrement de la porte de sondes — remonte HORS du bloc d'ambiante : c'etait une
 //       constante, elle n'a jamais eu besoin du calcul qui l'entourait. SUPPRIME depuis
 //       (census-false-reds, 2026-09-12) : plus aucun shader ne declare cet uniforme.
@@ -2370,7 +2368,7 @@ enum Block : int {
   // ── famille BLOQUEE : sortie consommee UNIQUEMENT par des poussees sautables ────────────────
   kSunDir = 0,      // normalisation du vecteur soleil d'ombre (repli du groupe de lumieres)
   kLightGroup,      // les 3 lumieres directes (dir + couleur) + l'override du soleil visible
-  kRtGate,          // composition de `u_rt_light_on` et lecture de l'intensite
+  kRtGate,          // composition de `u_lighting_on` et lecture de l'intensite
   kSunColor,        // teinte soleil normalisee puis melangee vers le blanc
   kSunElev,         // elevation du soleil jaune (smoothstep sur la sinusoide d'elevation)
   kGreenSun,        // direction et poids d'elevation du soleil VERT
@@ -2772,7 +2770,7 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // lighting-off-math-still-runs : les initialiseurs comptent. `light_dir[0..2]` = (0,1,0) est la
   // valeur que la poussee CONSERVEE `u_rt_sun_dir` emporte quand le bloc est saute : unitaire,
   // donc jamais NaN sous les trois `normalize()` hors garde des shaders monde, et jamais lue
-  // puisque `u_rt_light_on` et `u_pbr_shadow_on` valent 0.
+  // puisque `u_lighting_on` et `u_pbr_shadow_on` valent 0.
   float light_dir[9] = {0.f, 1.f, 0.f, 0.f, 1.f, 0.f, 0.f, 1.f, 0.f};
   if (lgtmath::block(lgtmath::kLightGroup)) {
   if (gs.recharged_pbr_lg_valid) {
@@ -2840,12 +2838,11 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // the depth-pass MVP all agree on where the sun is. u_rt_sun_color carries tint AND intensity.
   // SPEC §6.2 : sous l'eclairage recharge (recharged_gating::on compose les trois niveaux).
   // lighting-off-math-still-runs : 0 est le RESULTAT du regime eteint, pas un repli prudent.
-  // `Gfx::lighting_active(x)` vaut `x && recharged_lighting_active()` (gfx.h:589-591) : eteint,
-  // la recomposition finale ci-dessous rend 0 quelle que soit l'entree, donc ni la porte
-  // `recharged_gating::on()` ni les deux surcharges d'environnement ne peuvent le relever. La
-  // poussee CONSERVEE `u_rt_light_on` et `lighting_census::gate_rt_light()` recoivent donc la
+  // La recomposition finale ci-dessous rend 0 des que le maitre est eteint, donc ni la porte
+  // `recharged_gating::on()` ni les surcharges d'environnement ne peuvent le relever. La
+  // poussee CONSERVEE `u_lighting_on` et `lighting_census::gate_lighting()` recoivent donc la
   // meme valeur qu'avant, sans la calculer.
-  int rt_light_on = 0;
+  int lighting_on = 0;
   // ITEM A (owner playtest #2): I tried raising the sun intensity 1.5->1.75 to widen the sun-lit vs
   // ambient-only separation, but a device A/B measured NO contrast change (P90/std identical) — at the
   // owner vantage the sun-lit term is already tone-mapped/vantage-limited, so intensity does not move
@@ -2853,30 +2850,24 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // the validated look. Still per-frame overridable via debug.opengoal.rt.intensity.
   float rt_intensity = 1.5f;
   if (lgtmath::block(lgtmath::kRtGate)) {
-  rt_light_on = recharged_gating::on(recharged_gating::kRtLight) ? 1 : 0;
 #ifdef __ANDROID__
   {
     char rv[PROP_VALUE_MAX];
-    if (prop_cache::property_get("debug.opengoal.rt.light", rv) > 0 && rv[0]) {
-      rt_light_on = atoi(rv);
-    }
     if (prop_cache::property_get("debug.opengoal.rt.intensity", rv) > 0 && rv[0]) {
       rt_intensity = atof(rv);
     }
   }
 #else
-  if (const char* e = prop_cache::env_get("OG_RT_LIGHT")) {
-    rt_light_on = atoi(e);
-  }
   if (const char* e = prop_cache::env_get("OG_RT_INTENSITY")) {
     rt_intensity = atof(e);
   }
 #endif
-  // lighting-hdr : l'override epingle LE SOUS-DRAPEAU, jamais la composition. Sans cette
-  // ligne, poser la propriete rallumerait l'eclairage temps reel alors que l'ECLAIRAGE RECHARGE est
-  // eteint — la classe de defaut exacte que l'owner a signalee le 2026-09-06, et celle
-  // qui vient d'etre corrigee dans hdr.cpp. On recompose donc APRES l'override.
-  rt_light_on = Gfx::lighting_active(rt_light_on != 0) ? 1 : 0;
+  // lighting-rt-light-toggle-removed (SPEC-refonte-lumiere §6.2, annexe D.4) : le sous-drapeau
+  // rt-light est RETIRE, la porte du chemin d'eclairage est le maitre seul ; aucune entree
+  // propre a une plateforme (propriete, variable) ne la compose, donc telephone et PC prennent
+  // le meme composite (mesure 25/09 : 0 poussee non nulle sur 22 016 au telephone contre
+  // 42 160/42 160 au bureau).
+  lighting_on = Gfx::recharged_lighting_active() ? 1 : 0;
   }  // lighting-off-math-still-runs : fin du bloc `kRtGate`
   // lighting-legacy-purge (2026-09-11) : la FORCE de l'ombre portee n'est plus un reglage. Le
   // residuel que le shader lisait (1 - force = 0,2 a la valeur livree) y est desormais ecrit en
@@ -2897,8 +2888,8 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
                           gs.recharged_pbr_green_sun[2]};
     prepass::census_note_light_inputs(in, 15);
   }
-  lgt_keep_1i(id, "u_rt_light_on", rt_light_on);
-  lighting_census::gate_rt_light(rt_light_on);
+  lgt_keep_1i(id, "u_lighting_on", lighting_on);
+  lighting_census::gate_lighting(lighting_on);
   lgt_keep_3f(id, "u_rt_sun_dir", light_dir[0], light_dir[1], light_dir[2]);
   // Sun color: normalize the mood sun tint to unit max, blend 50% toward white so it
   // reads as a natural sun (not an oversaturated hue), then scale by intensity.
@@ -2994,7 +2985,7 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // yellow sun, just weaker + green. This also makes the sun<->green handoff fully SYMMETRIC (both
   // are smooth elevation-weighted directional lights), so the crossover stays continuous — the
   // owner-accepted à-coups fix is preserved (both weights are smoothsteps of a continuous orbit).
-  // Golden rule + OFF==stock unchanged: the whole term is under u_rt_light_on and vanishes to 0 when
+  // Golden rule + OFF==stock unchanged: the whole term is under u_lighting_on and vanishes to 0 when
   // the green sun is below the horizon (green_elev -> 0). (Old code synthesised an opposite-of-sun,
   // night-only vector with weight 1-sun_elev — the exact thing the owner flagged as wrong.)
   float moon_dir[3] = {0.0f, 1.0f, 0.0f};  // safe default (up) until the first green-sun push arrives
@@ -3085,7 +3076,7 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   // dawn/dusk fade, imperceptible. GOLDEN RULE + daylight intact: at full day rt_sun_elev==1 / conf==1 /
   // moon_scale==0 STEADILY, so the EMA converges to those constants and the sunlit term is byte-identical
   // (no daylight regression, sunlit A/B unchanged). Runs unconditionally; OFF==stock preserved by the
-  // shader u_rt_light_on gate. A/B-defeatable (raw = the pre-fix step) via debug.opengoal.rt.handoffsmooth
+  // shader u_lighting_on gate. A/B-defeatable (raw = the pre-fix step) via debug.opengoal.rt.handoffsmooth
   // ("0"/invalid => alpha 1 => no smoothing).
   // lighting-off-math-still-runs : la lecture de l'alpha, les deux poids d'orientation et l'EMA
   // elle-meme forment UN bloc (`kHandoffEma`) : l'alpha n'alimente que l'EMA, et l'EMA n'alimente
@@ -3237,12 +3228,12 @@ void first_tfrag_draw_setup(const GoalBackgroundCameraData& settings,
   lgt_3f(id, "u_rt_moon_dir", moon_dir[0], moon_dir[1], moon_dir[2]);
   // lighting-shadows essai 6 : merc2 n'est pas un des quatre hotes de `first_tfrag_draw_setup` —
   // ropebridge (village1) est dessine par Merc2, pas par le decor. Il a besoin de la MEME source
-  // de valeurs (u_rt_light_on, u_rt_regime, u_rt_sun_dir, u_rt_moon_dir) sans rejouer tout ce
+  // de valeurs (u_lighting_on, u_rt_regime, u_rt_sun_dir, u_rt_moon_dir) sans rejouer tout ce
   // calcul : instantane pris ICI, au point ou ces quatre grandeurs sont toutes connues pour
   // l'image courante ; `pbr_push_merc_regime_uniforms` (Merc2.cpp) le repousse tel quel.
   {
     auto& mc = pbr_merc_regime_cache();
-    mc.light_on = rt_light_on;
+    mc.light_on = lighting_on;
     mc.sun_dir[0] = light_dir[0]; mc.sun_dir[1] = light_dir[1]; mc.sun_dir[2] = light_dir[2];
     mc.moon_dir[0] = moon_dir[0]; mc.moon_dir[1] = moon_dir[1]; mc.moon_dir[2] = moon_dir[2];
     if (rgm.armed) {

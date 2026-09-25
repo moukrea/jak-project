@@ -23089,6 +23089,10 @@ items:
   device: false
   owner_test: false
   max_retries: 5
+  proof_env:
+  - OG_RECHARGED=1
+  - OG_LIGHTING=1
+  - OG_RT_LIGHT=0
   gate:
     key: rt_light_toggle_defects
     op: ==

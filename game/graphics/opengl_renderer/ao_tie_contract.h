@@ -96,7 +96,7 @@ class Campaign {
         {"want.levels", "OG_WANT_LEVELS", "village1,beach"},
         {"want.display", "OG_WANT_DISPLAY", "beach,display"},
         {"fixed_tick", "OG_FIXED_TICK", "1"}, {"recharged", "OG_RECHARGED", "1"},
-        {"lighting", "OG_LIGHTING", "1"}, {"rt.light", "OG_RT_LIGHT", "1"},
+        {"lighting", "OG_LIGHTING", "1"},
         {"ao.force_mode", "AO_FORCE_MODE", "3"},
         {"foliage.force", "FOLIAGE_WIND_FORCE", "1"},
         {"padreplay", "OG_PAD_REPLAY_REPLAY", nullptr}};

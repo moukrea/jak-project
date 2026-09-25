@@ -1014,8 +1014,7 @@ void Shrub::render_tree(int idx,
     // prepasse d'AO (memes plages alpha-testees que l'AO). Shrub reste receveur seulement.
     // Shrub RECEIVER bind (defect B): sample the sun map so shrubs receive cast shadows.
     // SHRUB is the active program here, so pbr_shadow_bind_receiver's glUniform calls land on it.
-    if ((recharged_gating::on(recharged_gating::kLighting) ||
-         recharged_gating::on(recharged_gating::kRtLight)) &&
+    if (recharged_gating::on(recharged_gating::kLighting) &&
         pbr_shadow_state().valid) {
       pbr_shadow_bind_receiver(render_state->shaders[ShaderId::SHRUB].id(),
                                settings.camera.trans.data());

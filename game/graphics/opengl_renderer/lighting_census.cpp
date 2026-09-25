@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "game/graphics/pipelines/opengl.h"
+#include "game/graphics/gfx.h"
 #include "game/graphics/gl_query_census.h"
 #include "game/graphics/refset.h"
 #include "game/graphics/opengl_renderer/shade_proof.h"
@@ -28,6 +29,11 @@ namespace {
 
 constexpr const char* kItemId = "lighting-census";
 AUTOPORT_FEATURE_SITE(kItemId);
+// lighting-rt-light-toggle-removed : les deux compteurs du composite maitre (et les cles de
+// porte existantes) doivent aussi publier quand CET item est arme, sans rien retirer a
+// `kItemId`.
+constexpr const char* kRtRemovedItemId = "lighting-rt-light-toggle-removed";
+AUTOPORT_FEATURE_SITE(kRtRemovedItemId);
 
 // Les chemins du §2.3. IL N'EN RESTE QU'UN.
 //
@@ -57,9 +63,14 @@ enum Path { kA = 0, kUnaccounted, kPathCount };
 // appelant — ses deux denominateurs etaient tombes a zero, donc `light_census_rb_bad_u_pbr_mode`
 // etait un zero de construction. Cette table doit rester IDENTIQUE a `kGateTokens` de
 // `shade_proof.cpp` ; la derive est comptee par `lib/census/census-false-reds.sh`.
-enum Gate { kGateRtLight = 0, kGateShadow, kGateCount };
-const char* const kGateNames[kGateCount] = {"u_rt_light_on", "u_pbr_shadow_on"};
+enum Gate { kGateLighting = 0, kGateShadow, kGateCount };
+const char* const kGateNames[kGateCount] = {"u_lighting_on", "u_pbr_shadow_on"};
 int s_gate[kGateCount] = {};
+// lighting-rt-light-toggle-removed : le composite du maitre seul, mesure au SITE de poussee de
+// `u_lighting_on` (gate_lighting) plutot que deduit — pas d'ombre CPU d'une valeur qu'on croit
+// avoir composee.
+uint64_t s_gate_lighting_master_on = 0;
+uint64_t s_gate_lighting_master_mismatch = 0;
 uint64_t s_gate_writes[kGateCount] = {};
 uint64_t s_gate_nonzero[kGateCount] = {};
 uint64_t s_gate_progs[kGateCount] = {};
@@ -101,7 +112,7 @@ std::unordered_map<unsigned, std::array<int, kGateCount>> s_locs;
 //
 // LE ZERO DOIT ETRE FALSIFIABLE. Un tableau de dix noms qui rend zero, c'est aussi ce que
 // rendrait une sonde branchee sur rien. On sonde donc, DANS LE MEME APPEL et sur le MEME
-// programme, deux noms qui doivent SURVIVRE a la purge (`u_pbr_mode`, `u_rt_light_on` : les
+// programme, deux noms qui doivent SURVIVRE a la purge (`u_pbr_mode`, `u_lighting_on` : les
 // deux portes du chemin unique de la refonte). `lighting_legacy_uniform_control` compte les
 // programmes ou au moins l'un des deux repond. Un controle a zero rend la porte MUETTE, pas
 // verte.
@@ -173,10 +184,10 @@ static_assert(kLegacyUniformCount <= 64,
 // que personne ne l'ait decide, et le zero de `lighting_legacy_uniform_sites` serait devenu moins
 // falsifiable. Un temoin de survie ne peut pas etre une chose qu'un item ouvert doit detruire.
 // `u_pbr_shadow_on` ne convient pas non plus : il est declare par `pbr_uniforms.glsl`, que la
-// meme liste veut voir QUITTER l'arbre. `u_rt_light_on` vit dans `shade.glsl`, qu'aucune liste ne
+// meme liste veut voir QUITTER l'arbre. `u_lighting_on` vit dans `shade.glsl`, qu'aucune liste ne
 // vise, et les quatre programmes du monde qui incluent `shade.glsl` le declarent — le compte
 // mesure a l'essai 8 (4 programmes sur 5 sondes) est donc inchange.
-const char* const kLegacyControlNames[] = {"u_rt_light_on"};
+const char* const kLegacyControlNames[] = {"u_lighting_on"};
 constexpr int kLegacyControlCount = (int)(sizeof(kLegacyControlNames) / sizeof(char*));
 
 // Un bit par nom de `kLegacyUniformNames`, cumule sur toute la course : un nom trouve une seule
@@ -548,6 +559,9 @@ void publish_locked() {
       dead_gates++;
     }
   }
+  autoport_proof::publish("light_census_gate_master_on_u_lighting_on", s_gate_lighting_master_on);
+  autoport_proof::publish("light_census_gate_master_mismatch_u_lighting_on",
+                          s_gate_lighting_master_mismatch);
   autoport_proof::publish("light_census_gates_audited", (uint64_t)kGateCount);
   autoport_proof::publish("light_census_rb_programs", (uint64_t)s_locs.size());
   autoport_proof::publish("light_census_gate_writes_no_tex", s_gate_no_tex_writes);
@@ -835,7 +849,10 @@ void roi_after(const RoiSnapshot& before,
 bool active() {
   static int s_cached = -1;
   if (s_cached < 0) {
-    s_cached = autoport_proof::armed_for(kItemId) ? 1 : 0;
+    s_cached = (autoport_proof::armed_for(kItemId) ||
+                autoport_proof::armed_for(kRtRemovedItemId))
+                   ? 1
+                   : 0;
   }
   return s_cached == 1;
 }
@@ -852,8 +869,19 @@ void record_gate(int g, int v) {
 }
 }  // namespace
 
-void gate_rt_light(int v) {
-  record_gate(kGateRtLight, v);
+void gate_lighting(int v) {
+  const bool master_on = Gfx::recharged_lighting_active();
+  if (master_on) {
+    s_gate_lighting_master_on++;
+  }
+  if (v != (master_on ? 1 : 0)) {
+    s_gate_lighting_master_mismatch++;
+  }
+  // La prise de l'item : la porte vient de pousser le composite eclaire, compose du maitre seul.
+  if (v != 0) {
+    autoport_proof::note_hit_for(kRtRemovedItemId);
+  }
+  record_gate(kGateLighting, v);
 }
 void gate_shadow(int v) {
   record_gate(kGateShadow, v);
@@ -912,7 +940,7 @@ void note_world_draw(Kind k) {
     // ETIE envmap ne porte pas shade() ; les hotes le contournent aussi sans textures.
     s_un_stock++;
     path = kUnaccounted;
-  } else if (s_gate[kGateRtLight] != 0) {
+  } else if (s_gate[kGateLighting] != 0) {
     path = kA;
   } else {
     // Aucune branche applicable a cet hote : le draw garde le rendu d'ORIGINE.
@@ -948,7 +976,7 @@ void note_world_draw(Kind k) {
         }
         it = s_locs.emplace((unsigned)prog, locs).first;
       }
-      const int shadow[kGateCount] = {s_gate[kGateRtLight], s_gate[kGateShadow]};
+      const int shadow[kGateCount] = {s_gate[kGateLighting], s_gate[kGateShadow]};
       for (int i = 0; i < kGateCount; i++) {
         if (it->second[i] < 0) {
           s_rb_noloc++;

@@ -7294,7 +7294,7 @@
        ;; lighting-legacy-purge (2026-09-11) : le champ legacy `realtime-lighting?` est SUPPRIME de
        ;; pc-settings. Sa CLE `settings.ini` garde une clause de lecture qui la CONSOMME sans rien
        ;; stocker (pckernel.gc) : sans elle, tout le reste du fichier repartirait au defaut.
-       ;; `pc-set-rt-light!` suit desormais le maitre unique `recharged-lighting?`.
+       ;; l'ancien sous-drapeau rt-light (retire) suivait le maitre unique `recharged-lighting?`.
        ;; lighting-legacy-purge (2026-09-11) : MARQUEUR STATIQUE. `rch-hdr-row-parent` reperait le
        ;; parent de HDR OUTPUT par l'`option-type` de SHADOW QUALITY, unique et present DANS LE
        ;; TABLEAU STATIQUE. Cette rangee est retiree, et le seul appel de `rch-hdr-row-parent` qui

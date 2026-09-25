@@ -150,7 +150,7 @@ CORPUS_FILES=$(find "$SHADER_DIR" -type f \( -name '*.glsl' -o -name '*.frag' -o
 pub census_corpus_files "$CORPUS_FILES"
 # LE TEMOIN DU CORPUS. Une porte VIVANTE doit y repondre : a zero, le corpus n'est pas lu et
 # « aucune occurrence » ne prouverait rien.
-CORPUS_CTL=$(tok_hits "$SHADER_DIR" "u_rt_light_on")
+CORPUS_CTL=$(tok_hits "$SHADER_DIR" "u_lighting_on")
 pub census_corpus_control "$CORPUS_CTL"
 if [ "$CORPUS_FILES" -eq 0 ] || [ "$CORPUS_CTL" -eq 0 ]; then
   note "corpus de shaders muet (fichiers=$CORPUS_FILES temoin=$CORPUS_CTL)"
