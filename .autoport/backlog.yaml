@@ -22467,6 +22467,10 @@ items:
     op: ==
     value: 0
   prompt: prompts/item-lighting-flipped-faces-everywhere.md
+  proof_env:
+  - OG_FLIP_TOUR=1
+  - OG_TOD_HOUR=12
+  proof_timeout: 900
   known_cause: 'Demande de l''owner le 25/09 (ticket dedie). lighting-regimes a corrige a village3 un
     sol NOIR : des faces dont la normale pointait a l''envers (enroulement des strips tfrag = pile ou
     face, voir memoire feedback_tfrag_strip_winding_is_not_an_orientation). Correctif : dans shade() de
@@ -22493,7 +22497,7 @@ items:
     de collision ou de la geometrie), ce qui rend le cout d''execution nul et corrige aussi tout autre
     lecteur de ces normales. Mesurer le cout du retournement au runtime sur le telephone (regimes alternes
     dans UNE course, memoire feedback_gain_measured_by_alternating_regimes_inside_one_run) et publier
-    l''ecart ; si la correction au chargement couvre tout, retirer le retournement du shader.
+    l''ecart ; le retournement du shader est de toute facon retire (voir 6).
 
     6. OU CORRIGER (owner 25/09, precise) : les assets extraits de l''ISO restent des ORIGINAUX NON MODIFIES
     (leur zip a eux). La correction produit des fichiers de niveau corriges qui vont dans le ZIP D''ASSETS
@@ -22501,7 +22505,9 @@ items:
     sur jak-builds pour tester). Donc : un outil de notre chaine d''assets qui lit l''original extrait,
     oriente les normales fautives, et ecrit la version corrigee dans le pack recharge ; le jeu la prefere
     quand elle est presente, sinon il garde l''original. NE PAS modifier l''extracteur ni les originaux.
-    Cout nul au jeu. Le retournement dans le shader ne reste qu''en repli quand le pack recharge est absent.'
+    Cout nul au jeu. PAS DE REPLI (owner 25/09 : « Pas de repli, l''asset est là où pas là. Si pas là,
+    tant pis on fait pas ton repli shader. ») : une fois les niveaux corriges dans le pack recharge, RETIRER
+    le retournement de normale de shade() ; sans pack recharge, le jeu montre l''original tel quel.'
   owner_feedback:
   - date: '2026-09-25'
     text: Top donc comme j'ai dit dans l'autre commentaire pour le soucis des faces qui était mal orientés
@@ -22537,6 +22543,12 @@ items:
       comment: f26e7c4b-d4bf-46c8-81c5-00cc8ffbaa93
       ticket: a6c7bbd7-f461-4af9-8e7c-d653a2ed6979
       at: '2026-09-25T00:01:48.462Z'
+  - date: '2026-09-25'
+    text: Pas de repli, l'asset est là où pas là. Si pas là, tant pis on fait pas ton repli shader.
+    via:
+      comment: e3f2abf6-90a2-4795-a83a-f1c538ef458c
+      ticket: a6c7bbd7-f461-4af9-8e7c-d653a2ed6979
+      at: '2026-09-25T00:32:05.545Z'
 - id: acquis-lighting-regimes
   feature: 'La lumiere principale par creneau (validee) ne peut plus regresser : un acquis la protege'
   status: open
