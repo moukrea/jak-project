@@ -1,4 +1,5 @@
 #include "game/graphics/opengl_renderer/soft_draw_census.h"
+#include "game/graphics/opengl_renderer/flip_census.h"
 #include "CommonOceanRenderer.h"
 
 #include "common/log/log.h"
@@ -377,7 +378,9 @@ void CommonOceanRenderer::flush_near(SharedRenderState* render_state, ScopedProf
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, m_next_free_index[bucket] * sizeof(u32),
                  m_indices[bucket].data(), GL_STREAM_DRAW);
     if (!m_suppress_draw) {  // water-ocean-mesh : consommer sans dessiner
+      flip_census::before_draw(flip_census::OCEAN, render_state->shaders[ShaderId::OCEAN_COMMON].id(), render_state->frame_idx, "");
       glDrawElements(GL_TRIANGLE_STRIP, m_next_free_index[bucket], GL_UNSIGNED_INT, nullptr);
+      flip_census::after_draw();
       soft_draw_census::record("ocean", m_indices[bucket].data(), m_indices[bucket].size(), 0, m_next_free_index[bucket], GL_TRIANGLE_STRIP);
       prof.add_draw_call();
       prof.add_tri(m_next_free_index[bucket]);
@@ -586,7 +589,9 @@ void CommonOceanRenderer::flush_mid(SharedRenderState* render_state, ScopedProfi
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, m_next_free_index[bucket] * sizeof(u32),
                  m_indices[bucket].data(), GL_STREAM_DRAW);
     if (!m_suppress_draw) {  // water-ocean-mesh : consommer sans dessiner
+      flip_census::before_draw(flip_census::OCEAN, render_state->shaders[ShaderId::OCEAN_COMMON].id(), render_state->frame_idx, "");
       glDrawElements(GL_TRIANGLE_STRIP, m_next_free_index[bucket], GL_UNSIGNED_INT, nullptr);
+      flip_census::after_draw();
       soft_draw_census::record("ocean", m_indices[bucket].data(), m_indices[bucket].size(), 0, m_next_free_index[bucket], GL_TRIANGLE_STRIP);
       prof.add_draw_call();
       prof.add_tri(m_next_free_index[bucket]);

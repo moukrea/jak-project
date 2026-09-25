@@ -493,6 +493,8 @@ vec4 shade_body(in Surface s, float sao, float occ_force) {
 uniform int u_hut_capture;
 layout(location = 2) out vec4 hut_color_sample; // actual delta RGB, sampled AO
 layout(location = 3) out vec4 hut_color_normal; // actual shade normal, valid
+#endif
+#if defined(OG_HUT_COLOR) || defined(OG_FLIP_PROBE)
 // lighting-regimes essai 3 : la sonde SOL (floor_probe.cpp). Sur l'image sondee seulement, un
 // fragment de decor tourne vers le haut (normale de FACE, gN.y > 0,7) ecrit :
 //   x = luma(sortie) / luma(base) : le rapport eclairage recharge ON / OFF de CE fragment (OFF =
@@ -500,6 +502,8 @@ layout(location = 3) out vec4 hut_color_normal; // actual shade normal, valid
 //   y = luma(sortie a l'ombre) / luma(sortie au soleil), le meme fragment evalue deux fois ;
 //   z = luma(base) ;  w = 1 + 2*(normale d'ombrage opposee a la face) + 4*(eclaire par la cle).
 // Un fragment de decor qui n'est PAS un sol ecrit w = 0,5 : il masque le sol qu'il recouvre.
+// lighting-flipped-faces-everywhere : sous OG_FLIP_PROBE, la meme sortie (location 4) porte le
+// recensement des faces a l'envers (voir shade()).
 uniform int u_floor_probe;
 layout(location = 4) out vec4 floor_probe_out;
 #endif
@@ -521,6 +525,29 @@ vec4 shade(in Surface s) {
     float l_lt = rt_luma(shade_body(s, sao, 1.0).rgb);
     floor_probe_out = vec4(l_on / max(l_off, 1e-4), l_sh / max(l_lt, 1e-4), l_off,
                            1.0 + 2.0 * p_flip + 4.0 * p_lit);
+  }
+#endif
+#ifdef OG_FLIP_PROBE
+  // lighting-flipped-faces-everywhere : recensement des faces a l'envers. Le JUMEAU est le meme
+  // fragment ombre avec la normale SOURCE de sens oppose (enroulement inverse). Un ombrage qui ne
+  // depend pas de l'enroulement rend x == y au bit pres.
+  floor_probe_out = vec4(0.0);
+  if (u_floor_probe >= 2) {
+    float fc_flip = dot(s.N, s.gN) < 0.0 ? 1.0 : 0.0;
+    Surface t = s;
+    t.N = -s.N;
+    // TIE, TIE au vent et shrub portent l'offset d'ombre sur la normale d'ombrage (shadow_N = N) :
+    // elle s'inverse avec l'enroulement. tfrag3 le porte sur une normale d'ecran : elle ne bouge pas.
+    if (s.shadow_N == s.N) {
+      t.shadow_N = -s.shadow_N;
+      t.shadow_ndl = max(dot(t.shadow_N, normalize(u_rt_sun_dir)), 0.0);
+    }
+    float fc_ref = rt_luma(s.base.rgb);
+    float fc_on = rt_luma(c.rgb);
+    float fc_tw = rt_luma(shade_body(t, sao, -1.0).rgb);
+    float fc_rt = (u_rt_light_on != 0) ? 1.0 : 0.0;
+    floor_probe_out = vec4(fc_on / max(fc_ref, 1e-4), fc_tw / max(fc_ref, 1e-4), fc_ref,
+                           1.0 + fc_flip + 2.0 * fc_rt + 4.0 * float(u_floor_probe));
   }
 #endif
   // lighting-shadows (A7) : sonde de preuve — l'image de PREUVE (`u_shadow_proof`) sort un

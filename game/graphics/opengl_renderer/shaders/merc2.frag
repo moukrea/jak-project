@@ -1,6 +1,15 @@
 #version 410 core
 
+#ifdef OG_FLIP_PROBE
+layout(location = 0) out vec4 color;
+in vec3 vtx_probe_pos;
+in vec3 vtx_probe_nrm;
+in vec4 vtx_probe_twin;
+uniform int u_floor_probe;
+layout(location = 4) out vec4 floor_probe_out;
+#else
 out vec4 color;
+#endif
 in vec4 vtx_color;
 in vec2 vtx_st;
 in float fog;
@@ -23,7 +32,17 @@ uniform int gfx_hack_no_tex;
 // glGetUniformLocation returns -1 and glUniform1i(-1, ...) is a documented no-op.
 uniform int u_pbr_debug;
 
+float rt_luma_merc(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }
+
 void main() {
+#ifdef OG_FLIP_PROBE
+  floor_probe_out = vec4(0.0);
+  vec3 gN = cross(dFdx(vtx_probe_pos), dFdy(vtx_probe_pos));
+  float gNl = length(gN);
+  gN = gNl > 1e-12 ? gN * (1.0 / gNl) : vec3(0.0, 0.0, 1.0);
+  if (dot(gN, -vtx_probe_pos) < 0.0) gN = -gN;
+  float fc_flip = dot(normalize(vtx_probe_nrm), gN) < 0.0 ? 1.0 : 0.0;
+#endif
   if (gfx_hack_no_tex == 0) {
     vec4 T0 = texture(tex_T0, vtx_st);
     // all merc is tcc=rgba and modulate
@@ -53,6 +72,25 @@ void main() {
   if (ignore_alpha == 0 && color.w < 0.128) {
     discard;
   }
+
+#ifdef OG_FLIP_PROBE
+  // lighting-flipped-faces-everywhere : merc n'a pas de terme d'eclairage rechargE separe (pas
+  // d'OFF distinct dans la meme image) ; la REFERENCE est donc le jumeau.
+  if (u_floor_probe >= 2) {
+    vec3 T = (gfx_hack_no_tex == 0) ? texture(tex_T0, vtx_st).rgb : vec3(0.5);
+    float fc_on;
+    float fc_tw;
+    if (decal_enable != 0) {
+      fc_on = rt_luma_merc(T);
+      fc_tw = rt_luma_merc(T);
+    } else {
+      fc_on = rt_luma_merc(vtx_color.rgb * T * 2.0);
+      fc_tw = rt_luma_merc(vtx_probe_twin.rgb * T * 2.0);
+    }
+    floor_probe_out = vec4(fc_on / max(fc_tw, 1e-4), 1.0, fc_tw,
+                           1.0 + fc_flip + 4.0 * float(u_floor_probe));
+  }
+#endif
 
    color.xyz = mix(color.xyz, fog_color.rgb, clamp(fog_color.a * fog, 0.0, 1.0));
   // ===== ROUND 22 COVERAGE TAG (see tfrag3.frag for the rationale) =====

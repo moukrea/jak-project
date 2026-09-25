@@ -34,6 +34,7 @@
 #include "game/graphics/render_pace.h"
 #include "game/graphics/gfx.h"
 #include "game/graphics/opengl_renderer/background/background_common.h"
+#include "game/graphics/opengl_renderer/flip_census.h"
 #include "game/graphics/opengl_renderer/hud_box_probe.h"
 #include "game/graphics/refset.h"
 #include "game/graphics/refset_state.h"
@@ -863,6 +864,8 @@ void pc_wind_note_rate(u32 ratio_bits, u32 steps) {
 static void refset_rewarp_maybe();
 // perf-stock-baseline : defini plus bas, apres `level_warp_run` dont il reutilise le tremplin.
 static void perf_baseline_warp_maybe();
+// lighting-flipped-faces-everywhere : meme tremplin, defini plus bas.
+static void flip_census_warp_maybe();
 
 // lighting-hdr essai 4 — LE PLAN DU JEU DE REFERENCES SE CADENCE SUR LA FRAME DE LOGIQUE.
 // `pc_autoport_frame` tourne une fois par image RENDUE. Le piege est deja nomme plus bas pour
@@ -1490,6 +1493,7 @@ void pc_autoport_frame() {
   // sur le fil GOAL, qu'elle devient un `(start 'play ...)`. Hors campagne, rien n'est en
   // attente et l'appel sort a sa premiere ligne.
   perf_baseline_warp_maybe();
+  flip_census_warp_maybe();
 }
 
 // ── recharged-gating-real : le grisage du menu vient du C++ ──────────────────────────────────
@@ -6663,6 +6667,21 @@ static void perf_baseline_warp_maybe() {
   Ptr<Function> f = make_function_from_c((void*)level_warp_run, false);
   ListenerFunction->value = f.offset;
   printf("PERF-BASELINE warp armed name=%s pos=%s\n", nm, ps);
+  fflush(stdout);
+}
+
+// lighting-flipped-faces-everywhere : meme tremplin, une demande de warp par etape de la
+// tournee de recensement (`flip_census`), posee par le fil GL et consommee ici.
+static void flip_census_warp_maybe() {
+  char nm[128] = {0};
+  if (!flip_census::take_warp_request(nm, sizeof(nm))) {
+    return;
+  }
+  std::strncpy(s_level_warp_name, nm, sizeof(s_level_warp_name) - 1);
+  s_level_warp_name[sizeof(s_level_warp_name) - 1] = 0;
+  Ptr<Function> f = make_function_from_c((void*)level_warp_run, false);
+  ListenerFunction->value = f.offset;
+  printf("FLIP-CENSUS warp armed name=%s\n", nm);
   fflush(stdout);
 }
 

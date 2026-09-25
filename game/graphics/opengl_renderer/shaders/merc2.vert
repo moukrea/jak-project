@@ -29,6 +29,12 @@ out vec2 vtx_st;
 
 out float fog;
 
+#ifdef OG_FLIP_PROBE
+out vec3 vtx_probe_pos;
+out vec3 vtx_probe_nrm;
+out vec4 vtx_probe_twin;
+#endif
+
 struct MercMatrixData {
   mat4 X;
   mat3 R;
@@ -100,4 +106,20 @@ void main() {
 
   vtx_color = rgba * light_color;
   vtx_st = st_in;
+
+#ifdef OG_FLIP_PROBE
+  // lighting-flipped-faces-everywhere : recensement des faces a l'envers pour merc. Le JUMEAU
+  // est le meme sommet eclaire avec la normale SOURCE de sens oppose.
+  vtx_probe_pos = vtx_pos.xyz / vtx_pos.w;
+  vtx_probe_nrm = rotated_nrm;
+  vec3 light_intensity_twin = light_dir0_fade.xyz * (-rotated_nrm.x)
+                            + light_dir1_fade_en.xyz * (-rotated_nrm.y)
+                            + light_dir2 * (-rotated_nrm.z);
+  light_intensity_twin = max(light_intensity_twin, vec3(0, 0, 0));
+  vec4 light_color_twin = light_ambient
+                        + light_intensity_twin.x * light_col0
+                        + light_intensity_twin.y * light_col1
+                        + light_intensity_twin.z * light_col2;
+  vtx_probe_twin = rgba * light_color_twin;
+#endif
 }

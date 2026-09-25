@@ -6,6 +6,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include "game/graphics/opengl_renderer/flip_census.h"
 #include "game/system/autoport_proof.h"
 #include "common/log/log.h"
 #include "third-party/glad/include/glad/glad.h"
@@ -285,6 +286,7 @@ void attach_for_frame() {
 
 void before_tfrag_draw(unsigned program, uint64_t frame_idx, const std::string& level_name) {
 #ifndef __ANDROID__
+  if (flip_census::active()) return;
   if (!autoport_proof::armed_for(kItem)) return;
   const bool new_frame = !g_last_frame_valid || frame_idx != g_last_frame_idx;
   if (new_frame) {

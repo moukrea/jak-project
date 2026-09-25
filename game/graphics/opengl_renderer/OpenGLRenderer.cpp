@@ -1,4 +1,5 @@
 #include "game/graphics/opengl_renderer/GrassOccluders.h"
+#include "game/graphics/opengl_renderer/flip_census.h"
 #include "game/system/recharged_gating.h"
 #include "OpenGLRenderer.h"
 
@@ -2115,6 +2116,7 @@ void OpenGLRenderer::dispatch_buckets(DmaFollower dma,
 
   m_render_state.version = m_version;
   m_render_state.frame_idx++;
+  flip_census::frame_tick(m_render_state.frame_idx);
   if (m_version == GameVersion::Jak1) {
     grass_occ::begin_contact_frame();
   }

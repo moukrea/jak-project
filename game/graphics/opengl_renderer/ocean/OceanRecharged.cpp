@@ -1,4 +1,5 @@
 #include "game/graphics/opengl_renderer/soft_draw_census.h"
+#include "game/graphics/opengl_renderer/flip_census.h"
 #include "OceanRecharged.h"
 #include "game/system/recharged_gating.h"
 
@@ -2200,8 +2201,10 @@ void OceanRecharged::draw(SharedRenderState* render_state, ScopedProfilerNode& p
     glUniform2f(glGetUniformLocation(id, "u_ring_center"), m_rings[r].center[0],
                 m_rings[r].center[1]);
     glUniform1f(glGetUniformLocation(id, "u_ring_step"), m_rings[r].step);
+    flip_census::before_draw(flip_census::OCEAN, id, render_state->frame_idx, "");
     glDrawElements(GL_TRIANGLES, m_rings[r].index_count, GL_UNSIGNED_INT,
                    (void*)(intptr_t)(m_rings[r].index_offset * sizeof(u32)));
+    flip_census::after_draw();
     soft_draw_census::record("ocean", m_soft_indices.data(), m_soft_indices.size(), m_rings[r].index_offset, m_rings[r].index_count, GL_TRIANGLES);
     prof.add_draw_call();
     prof.add_tri(m_rings[r].index_count / 3);

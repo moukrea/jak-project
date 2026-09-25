@@ -36,7 +36,7 @@
    "url": "https://linear.app/moukrea/document/e1fe9500339a"
   }
  },
- "_gen": 458,
+ "_gen": 468,
  "_ids": {
   "labels": {
    "ok": "000e105b-24ba-4fa3-a579-bc3bf0869242",
@@ -178,6 +178,14 @@
   "last_verdict_announced": "validator-003.txt",
   "pulled_at": "2026-09-17T05:37:22.000Z",
   "url": "https://linear.app/moukrea/issue/JAK-159/la-mesure-de-stabilite-de-lao-echantillonne-le-meme-instant-de-scene-a"
+ },
+ "arm64-integer-division-matches-x86": {
+  "hash": "b67d1f0ea341f44e7b736ec5ad5319bc07c756a2",
+  "identifier": "JAK-281",
+  "issue_id": "ef62f448-d6bd-44f0-9d48-e69689320e4a",
+  "last_state": "Todo",
+  "pulled_at": "2026-09-24T23:49:36.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-281/sur-le-telephone-la-division-entiere-donne-exactement-le-meme-resultat"
  },
  "build-and-harness-leftovers": {
   "hash": "d22bb7c293d9b65f1432e73036e05ff228f748bd",
@@ -971,13 +979,13 @@
   "url": "https://linear.app/moukrea/issue/JAK-229/la-synchro-linear-ne-cree-jamais-deux-tickets-pour-un-meme-chantier-et"
  },
  "harness-linear-watch-comment-matches-its-period": {
-  "hash": "6bf6c0911872360de8c8a944519e08d8c7a90ab8",
+  "hash": "a7138fb6abca82fbe49826d7e1350adc4fd8cad9",
   "identifier": "JAK-201",
   "issue_id": "950f1254-febe-46ed-ba63-a740fb5ed2de",
-  "last_state": "In Progress",
+  "last_state": "Done",
   "last_verdict_announced": "validator-003.txt",
   "pulled_at": "2026-09-22T22:24:54.000Z",
-  "state_at": "2026-09-24T23:33:37.673Z",
+  "state_at": "2026-09-24T23:49:22.679Z",
   "url": "https://linear.app/moukrea/issue/JAK-201/le-commentaire-de-linear-watchsh-dit-la-vraie-frequence-de-la-veille"
  },
  "harness-main-agent-context-volume": {
@@ -1588,11 +1596,12 @@
   "url": "https://linear.app/moukrea/issue/JAK-46/fiabiliser-les-comparaisons-onoff-pour-corriger-les-blancs-hdr"
  },
  "lighting-flipped-faces-everywhere": {
-  "hash": "ce0337a0760d326a98935099e9b8088d484c7c43",
+  "hash": "66367787126a0930b46bba51bb1e25a6d8007c26",
   "identifier": "JAK-279",
   "issue_id": "a6c7bbd7-f461-4af9-8e7c-d653a2ed6979",
-  "last_state": "Todo",
-  "pulled_at": "2026-09-24T23:45:11.000Z",
+  "last_state": "In Progress",
+  "pulled_at": "2026-09-25T00:01:48.462Z",
+  "state_at": "2026-09-24T23:49:24.893Z",
   "url": "https://linear.app/moukrea/issue/JAK-279/aucune-surface-a-lenvers-ne-tombe-au-noir-dans-aucun-niveau-ni-aucune"
  },
  "lighting-interiors": {
@@ -1823,25 +1832,25 @@
   "url": "https://linear.app/moukrea/issue/JAK-15/le-gain-de-cadence-par-regroupement-des-appels-de-dessin"
  },
  "perf-codegen-arm64-regs": {
-  "hash": "427442a25c442c8f977fa320ed0aa067279e3a00",
+  "hash": "fb71db7e114b8a5dc81e46936a6bc896453c7c32",
   "identifier": "JAK-78",
   "issue_id": "9177393e-d4ef-429d-a2ee-28a13f78153d",
-  "last_state": "Backlog",
+  "last_state": "Todo",
   "pulled_at": "2026-09-17T05:36:59.000Z",
   "relations": [
    "perf-codegen-arm64-scalar"
   ],
+  "state_at": "2026-09-24T23:56:21.092Z",
   "url": "https://linear.app/moukrea/issue/JAK-78/le-compilateur-goal-utilise-les-31-registres-de-larm64"
  },
  "perf-codegen-arm64-scalar": {
-  "build_announced": "16773c2c135b",
-  "hash": "be6515eb04423ad44f01382ec1674d20205ebae1",
+  "hash": "71855b34b4814a221e5f4b3ee17e860bc0d4c269",
   "identifier": "JAK-77",
   "issue_id": "1a43f366-ec9e-40f1-bcb2-4e1698505d53",
-  "last_state": "In Review",
+  "last_state": "Done",
   "last_verdict_announced": "validator-001.txt",
-  "pulled_at": "2026-09-24T23:48:22.886Z",
-  "state_at": "2026-09-24T23:33:36.610Z",
+  "pulled_at": "2026-09-24T23:55:25.128Z",
+  "state_at": "2026-09-24T23:56:20.028Z",
   "url": "https://linear.app/moukrea/issue/JAK-77/float-vers-int-division-et-swizzle-en-une-ou-deux-instructions"
  },
  "perf-dma-chain-copies": {

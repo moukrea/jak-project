@@ -54,7 +54,13 @@ uniform int u_pbr_debug;
 // vaut exactement 1,0 — le pixel est celui du build precedent, au bit.
 uniform float u_shade_face;
 
+#ifdef OG_FLIP_PROBE
+layout(location = 0) out vec4 color;
+uniform int u_floor_probe;
+layout(location = 4) out vec4 floor_probe_out;
+#else
 out vec4 color;
+#endif
 
 // lighting-shadows : une tuile de l'atlas, 4-tap PCF (l'herbe n'a pas besoin des 16 du sol — un
 // brin est deja un petit texel a l'ecran, la penombre ne se voit pas). Rend -1 hors cadre.
@@ -139,6 +145,9 @@ float grass_shadow_factor() {
 }
 
 void main() {
+#ifdef OG_FLIP_PROBE
+  floor_probe_out = vec4(0.0);
+#endif
   float a = v_alpha;
 
   // ROUND 23 coverage census: grass is its OWN world geometry, not a re-shade of an already
@@ -201,6 +210,17 @@ void main() {
 #include "grass_shade_face.glsl"
       gs_face_mul = mix(1.0, gs_face_mul, clamp(u_shade_face, 0.0, 1.0));
       gs_shaded = clamp(gs_shaded * gs_face_mul, vec3(0.0), vec3(1.5));
+#ifdef OG_FLIP_PROBE
+      if (u_floor_probe >= 2) {
+        // lighting-flipped-faces-everywhere : le JUMEAU est la face opposee du MEME brin.
+        float fc_flip = gl_FrontFacing ? 0.0 : 1.0;
+        float mul_t = 1.0 + GRASS_FACE_AMP * (-gs_side) * gs_face_dot;
+        float fc_on = dot(gs_shaded, vec3(0.299, 0.587, 0.114));
+        float fc_tw = fc_on * mul_t / max(gs_face_mul, 1e-4);
+        floor_probe_out = vec4(fc_on / max(fc_tw, 1e-4), 1.0, fc_tw,
+                               1.0 + fc_flip + 4.0 * float(u_floor_probe));
+      }
+#endif
     }
     color = vec4(gs_shaded * grass_shadow_factor(), a);
   }

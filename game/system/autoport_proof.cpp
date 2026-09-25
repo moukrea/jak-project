@@ -260,7 +260,7 @@ void emit_locked() {
                      id == "grass-path-transitions" || id == "hud-3d-pickups" ||
                      id == "hud-eco-gauge" || id == "hud-heart" ||
                      id == "recharged-hud-toggle" || id == "grass-wind" ||
-                     id == "lighting-shadows")
+                     id == "lighting-shadows" || id == "lighting-flipped-faces-everywhere")
                         ? site_hits_ref()[id]
                         : g_hits;
     if (id == "water-ocean-mesh") {
