@@ -36,7 +36,7 @@
    "url": "https://linear.app/moukrea/document/e1fe9500339a"
   }
  },
- "_gen": 488,
+ "_gen": 493,
  "_ids": {
   "labels": {
    "ok": "000e105b-24ba-4fa3-a579-bc3bf0869242",
@@ -180,13 +180,13 @@
   "url": "https://linear.app/moukrea/issue/JAK-159/la-mesure-de-stabilite-de-lao-echantillonne-le-meme-instant-de-scene-a"
  },
  "arm64-integer-division-matches-x86": {
-  "hash": "e8ed8c0d27411737ee4d2137ddb67f455dae3c08",
+  "hash": "e2f336ac4abcacdebd97284b156dd538f8cbef8c",
   "identifier": "JAK-281",
   "issue_id": "ef62f448-d6bd-44f0-9d48-e69689320e4a",
-  "last_state": "Todo",
-  "last_verdict_announced": "validator-001.txt",
+  "last_state": "In Progress",
+  "last_verdict_announced": "validator-002.txt",
   "pulled_at": "2026-09-24T23:49:36.000Z",
-  "state_at": "2026-09-25T03:27:58.419Z",
+  "state_at": "2026-09-25T05:11:15.146Z",
   "url": "https://linear.app/moukrea/issue/JAK-281/sur-le-telephone-la-division-entiere-donne-exactement-le-meme-resultat"
  },
  "build-and-harness-leftovers": {
@@ -1606,13 +1606,13 @@
   "url": "https://linear.app/moukrea/issue/JAK-46/fiabiliser-les-comparaisons-onoff-pour-corriger-les-blancs-hdr"
  },
  "lighting-flipped-faces-everywhere": {
-  "hash": "b79220a8db965bd2702cb527062cd8f19446d846",
+  "hash": "c1cc094f4eec5b14c1b2daef99d59dc10a41c463",
   "identifier": "JAK-279",
   "issue_id": "a6c7bbd7-f461-4af9-8e7c-d653a2ed6979",
-  "last_state": "In Progress",
-  "last_verdict_announced": "validator-004.txt",
+  "last_state": "À arbitrer",
+  "last_verdict_announced": "validator-005.txt",
   "pulled_at": "2026-09-25T00:32:05.545Z",
-  "state_at": "2026-09-25T04:53:41.442Z",
+  "state_at": "2026-09-25T05:11:14.651Z",
   "url": "https://linear.app/moukrea/issue/JAK-279/aucune-surface-a-lenvers-ne-tombe-au-noir-dans-aucun-niveau-ni-aucune"
  },
  "lighting-interiors": {
