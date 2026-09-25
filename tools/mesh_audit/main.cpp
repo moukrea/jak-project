@@ -479,6 +479,7 @@ inline u32 negate_packed_normal(u32 p) {
 }
 
 struct OrientFix {
+  u64 comps_sky_flipped = 0, comps_sky_closed = 0;
   u64 comps_flipped = 0, verts_flipped_comp = 0, verts_flipped_vertex = 0, verts_reset = 0,
       verts_zeroed = 0, rounds = 0;
 };
@@ -488,7 +489,8 @@ void orient_tree_by_collision(std::vector<V>& verts,
                               const std::vector<u32>& idx,
                               bool use_strips,
                               const CollTriGrid& grid,
-                              OrientFix& fx) {
+                              OrientFix& fx,
+                              bool sky_sheets) {
   const u32 n = (u32)verts.size();
   if (n == 0) {
     return;
@@ -499,6 +501,7 @@ void orient_tree_by_collision(std::vector<V>& verts,
     float area;
   };
   std::vector<Tri> judged;
+  std::vector<Tri> all;  // tous les triangles non degeneres (cn inutilise)
   std::vector<u32> parent(n);
   for (u32 i = 0; i < n; i++) {
     parent[i] = i;
@@ -524,6 +527,7 @@ void orient_tree_by_collision(std::vector<V>& verts,
     }
     parent[find(i0)] = find(i1);
     parent[find(i1)] = find(i2);
+    all.push_back({{i0, i1, i2}, math::Vector3f(0.f, 0.f, 0.f), 0.5f * gl});
     math::Vector3f cn;
     if (grid.authority((pa + pb + pc) * (1.f / 3.f), g * (1.f / gl), &cn)) {
       judged.push_back({{i0, i1, i2}, cn, 0.5f * gl});
@@ -555,9 +559,6 @@ void orient_tree_by_collision(std::vector<V>& verts,
       }
     }
   }
-  if (judged.empty()) {
-    return;
-  }
   auto nrm = [&](u32 i) { return tfrag3::unpack_gl_normal_2_10_10_10(verts[i].nor); };
   // 1. composantes
   std::unordered_map<u32, double> cvote;
@@ -573,6 +574,35 @@ void orient_tree_by_collision(std::vector<V>& verts,
     if (v < 0.0) {
       cflip[root] = true;
       fx.comps_flipped++;
+    }
+  }
+  // 1b. composantes SANS autorite de collision (buissons, cartes de feuillage, toits, decor hors
+  //     d'atteinte). Une nappe OUVERTE (flux vertical net franchement signe) est tournee vers le
+  //     ciel : sa normale stockee n'est alors jamais plus sombre que son jumeau sous le soleil, et
+  //     c'est ce que la garde flipped-faces juge (face vue de dos ET moins de la moitie du jumeau).
+  //     Un volume FERME (flux net ~0 : tonneau, caisse) garde l'orientation de la consolidation
+  //     (vers l'exterieur). Decor tfrag seulement (voir orient_level_by_collision).
+  std::unordered_map<u32, std::pair<double, double>> sky;  // racine -> (flux y, somme |y|)
+  for (const auto& t : all) {
+    const u32 root = find(t.i[0]);
+    if (!sky_sheets || cvote.count(root)) {
+      continue;
+    }
+    const math::Vector3f ns = nrm(t.i[0]) + nrm(t.i[1]) + nrm(t.i[2]);
+    const float l = ns.length();
+    if (!(l > 1e-3f)) {
+      continue;
+    }
+    auto& acc = sky[root];
+    acc.first += t.area * ns.y() / l;
+    acc.second += t.area * std::abs(ns.y() / l);
+  }
+  for (const auto& [root, acc] : sky) {
+    if (acc.first < -0.5 * acc.second) {
+      cflip[root] = true;
+      fx.comps_sky_flipped++;
+    } else if (std::abs(acc.first) <= 0.5 * acc.second) {
+      fx.comps_sky_closed++;
     }
   }
   if (!cflip.empty()) {
@@ -609,9 +639,10 @@ void orient_tree_by_collision(std::vector<V>& verts,
       incident[i].push_back(k);
     }
   }
-  // Un sommet remis a zero peut laisser un voisin a l'envers : on repasse jusqu'a stabilite (un
-  // sommet nul ne se rallume jamais, donc la boucle termine).
-  for (int round = 0; round < 16; round++) {
+  // Un sommet remis a zero ou a sa moyenne peut laisser un voisin a l'envers : on repasse jusqu'a
+  // stabilite. Chaque passe fige au moins un sommet de plus (moyenne fixe ou zero, jamais
+  // rallume), donc la boucle termine en au plus n passes ; 16 tronquait la propagation (sunken).
+  for (u32 round = 0; round < n; round++) {
   std::vector<u32> residual;
   for (u32 k = 0; k < (u32)judged.size(); k++) {
     const auto& t = judged[k];
@@ -631,15 +662,25 @@ void orient_tree_by_collision(std::vector<V>& verts,
       }
       const float ml = m.length();
       if (!(ml > 1e-6f)) {
+        // les normales de collision de ses triangles s'annulent (deux faces d'un pli a plat) :
+        // aucune normale ne les satisfait, meme traitement qu'en 4. Sans cela le sommet garde sa
+        // normale et son triangle reste a l'envers pour toujours (sunken : 6 triangles).
+        if ((verts[i].nor & 0x3fffffffu) != 0) {
+          verts[i].nor &= 0xc0000000u;
+          fx.verts_zeroed++;
+        }
         continue;
       }
       m = m * (1.f / ml);
+      // juge la normale telle qu'elle sera STOCKEE (10 bits signes) : un produit scalaire a peine
+      // positif en flottant peut changer de signe a la quantification.
+      const u32 packed = tfrag3::pack_gl_normal_2_10_10_10(m) | (verts[i].nor & 0xc0000000u);
+      const math::Vector3f mq = tfrag3::unpack_gl_normal_2_10_10_10(packed);
       bool ok = true;
       for (u32 j : incident[i]) {
-        ok = ok && m.dot(judged[j].cn) > 0.f;
+        ok = ok && mq.dot(judged[j].cn) > 0.f;
       }
       if (ok) {
-        const u32 packed = tfrag3::pack_gl_normal_2_10_10_10(m) | (verts[i].nor & 0xc0000000u);
         if (packed != verts[i].nor) {
           verts[i].nor = packed;
           fx.verts_reset++;
@@ -662,19 +703,23 @@ bool orient_level_by_collision(tfrag3::Level& lev, tfrag3::MeshBakeData* bake, O
   grid.build(lev.collision);
   for (auto& geom : lev.tfrag_trees) {
     for (auto& t : geom) {
-      orient_tree_by_collision(t.unpacked.vertices, t.unpacked.indices, t.use_strips, grid, fx);
+      orient_tree_by_collision(t.unpacked.vertices, t.unpacked.indices, t.use_strips, grid, fx,
+                               /*sky_sheets=*/true);
     }
   }
+  // TIE et shrub : la regle du ciel MESUREE pire sur village1 (pixels vus de dos TIE 109 224 ->
+  // 187 485 ppm, shrub 403 467 -> 640 696) ; l'orientation de la consolidation y reste.
   for (auto& geom : lev.tie_trees) {
     for (auto& t : geom) {
-      orient_tree_by_collision(t.unpacked.vertices, t.unpacked.indices, t.use_strips, grid, fx);
+      orient_tree_by_collision(t.unpacked.vertices, t.unpacked.indices, t.use_strips, grid, fx,
+                               /*sky_sheets=*/false);
     }
   }
   for (auto& t : lev.shrub_trees) {
-    orient_tree_by_collision(t.unpacked.vertices, t.indices, true, grid, fx);
+    orient_tree_by_collision(t.unpacked.vertices, t.indices, true, grid, fx, /*sky_sheets=*/false);
   }
-  if (!bake) {
-    return true;
+  if (!bake || bake->num_verts == 0) {
+    return true;  // aucun sommet consolide (title : arbres de collision seuls) : rien a ecrire
   }
   std::vector<u32> nor;
   nor.reserve(bake->nor.size());
@@ -707,7 +752,7 @@ bool orient_level_by_collision(tfrag3::Level& lev, tfrag3::MeshBakeData* bake, O
 }
 
 int run_check_orient(const std::vector<fs::path>& fr3_files, const std::string& check_dir) {
-  u64 levels = 0, applied = 0, missing = 0, refused = 0;
+  u64 levels = 0, applied = 0, missing = 0, refused = 0, no_decor = 0;
   OrientCount tot, tot_before;
   for (const auto& fr3_path : fr3_files) {
     const std::string level_name = fr3_path.stem().string();
@@ -720,7 +765,11 @@ int run_check_orient(const std::vector<fs::path>& fr3_files, const std::string& 
     check_orient_level(lev, grid, before);
     const fs::path side = fs::path(check_dir) / tfrag3::mesh_consolidate_bake_name(level_name);
     std::string state = "applied";
-    if (!fs::exists(side)) {
+    const u64 decor_tris = before[0].tris + before[1].tris + before[2].tris;
+    if (!fs::exists(side) && decor_tris == 0) {
+      state = "no-decor";  // rien a orienter : le cuiseur n'ecrit pas de compagnon
+      no_decor++;
+    } else if (!fs::exists(side)) {
       state = "missing";
       missing++;
     } else if (!tfrag3::mesh_consolidate_apply_bake(lev, side.string(), /*do_shrub=*/true)) {
@@ -744,6 +793,7 @@ int run_check_orient(const std::vector<fs::path>& fr3_files, const std::string& 
     tot_before.tris += lb.tris;
     tot_before.judged += lb.judged;
     tot_before.reversed += lb.reversed;
+    tot_before.no_normal += lb.no_normal;
     tot.tris += la.tris;
     tot.no_normal += la.no_normal;
     tot.judged += la.judged;
@@ -758,9 +808,11 @@ int run_check_orient(const std::vector<fs::path>& fr3_files, const std::string& 
   }
   fmt::print(
       "CHECK-ORIENT-TOTAL levels={} sidecars_applied={} levels_missing={} levels_refused={} "
-      "tris={} judged={} unjudged={} no_normal={} judged_before={} reversed_before={} reversed={}\n",
-      levels, applied, missing, refused, tot.tris, tot.judged, tot.tris - tot.judged - tot.no_normal,
-      tot.no_normal, tot_before.judged, tot_before.reversed, tot.reversed);
+      "levels_no_decor={} "
+      "tris={} judged={} unjudged={} no_normal={} no_normal_before={} judged_before={} "
+      "reversed_before={} reversed={}\n",
+      levels, applied, missing, refused, no_decor, tot.tris, tot.judged, tot.tris - tot.judged - tot.no_normal,
+      tot.no_normal, tot_before.no_normal, tot_before.judged, tot_before.reversed, tot.reversed);
   return 0;
 }
 
@@ -981,14 +1033,24 @@ int main(int argc, char** argv) {
           if (!orient_level_by_collision(lev, &bake, fx)) {
             throw std::runtime_error("orient_level_by_collision: gather order mismatch");
           }
-          fmt::print("ORIENT-BAKE level={} comps_flipped={} verts_flipped_comp={} "
+          fmt::print("ORIENT-BAKE level={} comps_flipped={} comps_sky_flipped={} "
+                     "comps_sky_closed={} verts_flipped_comp={} "
                      "verts_flipped_vertex={} verts_reset={} verts_zeroed={} rounds={}\n",
-                     level_name, fx.comps_flipped, fx.verts_flipped_comp,
+                     level_name, fx.comps_flipped, fx.comps_sky_flipped, fx.comps_sky_closed,
+                     fx.verts_flipped_comp,
                      fx.verts_flipped_vertex, fx.verts_reset, fx.verts_zeroed, fx.rounds);
           const std::string bake_path =
               (fs::path(fr3_dir) / tfrag3::mesh_consolidate_bake_name(level_name)).string();
           u64 bake_bytes = 0;
-          bool bake_ok = tfrag3::mesh_consolidate_bake_write(level_name, bake, bake_path);
+          // Aucun sommet de decor (GAME, title) : rien a orienter, et apply_bake refuse un
+          // compagnon a zero sommet. On n'en ecrit pas, et on retire celui d'une cuisson passee.
+          const bool no_decor = bake.num_verts == 0;
+          if (no_decor) {
+            std::error_code ec;
+            fs::remove(bake_path, ec);
+          }
+          bool bake_ok =
+              !no_decor && tfrag3::mesh_consolidate_bake_write(level_name, bake, bake_path);
           if (bake_ok) {
             std::error_code ec;
             const auto sz = fs::file_size(bake_path, ec);
@@ -1002,11 +1064,13 @@ int main(int argc, char** argv) {
             bakes_written++;
             bake_total_bytes += bake_bytes;
             bake_note += fmt::format(" bake={}", bake_bytes);
+          } else if (no_decor) {
+            bake_note += " bake=none(no-decor)";
           } else {
             bake_note += " bake=FAILED";
           }
 
-          if (verify_bake) {
+          if (verify_bake && !no_decor) {
             // THE ROUND-TRIP PROOF: a completely fresh copy of the same fr3, moved forward ONLY by
             // the sidecar, must equal the level the live pass just produced, field for field.
             u64 bad = 0;

@@ -12,7 +12,9 @@
 #   flipped_asset_defects = flipped_asset_reversed      triangles du decor dont la normale
 #                                                       stockee s'oppose a la collision coplanaire,
 #                                                       relus APRES application du compagnon DU PACK
-#                         + flipped_asset_levels_missing  niveaux sans compagnon dans le pack
+#                         + flipped_asset_levels_missing  niveaux AVEC du decor sans compagnon dans
+#                                                         le pack (un niveau sans decor, GAME/title,
+#                                                         n'a rien a orienter : publie a part)
 #                         + flipped_asset_levels_refused  compagnon present mais refuse au chargement
 #                         + flipped_shader_flips          retournements de normale d'asset restant
 #                                                         dans les shaders
@@ -74,9 +76,9 @@ TOT=$(grep -a '^CHECK-ORIENT-TOTAL ' "$T/check.txt" | tail -1)
 [ -n "$TOT" ] || die "pas de ligne CHECK-ORIENT-TOTAL : $(tail -3 "$T/check.txt")"
 v(){ printf '%s' "$TOT" | grep -oE "(^| )$1=[0-9]+" | cut -d= -f2; }
 LEVELS=$(v levels); APPLIED=$(v sidecars_applied); MISSING=$(v levels_missing)
-REFUSED=$(v levels_refused); TRIS=$(v tris); JUDGED=$(v judged); UNJ=$(v unjudged)
+REFUSED=$(v levels_refused); NODECOR=$(v levels_no_decor); TRIS=$(v tris); JUDGED=$(v judged); UNJ=$(v unjudged)
 NONORM=$(v no_normal); REV=$(v reversed); REVB=$(v reversed_before); JUDB=$(v judged_before)
-for x in LEVELS APPLIED MISSING REFUSED TRIS JUDGED REV REVB; do
+for x in LEVELS APPLIED MISSING REFUSED NODECOR TRIS JUDGED REV REVB; do
   [ -n "${!x}" ] || die "champ $x absent de : $TOT"
 done
 BADLEV=$(grep -a '^CHECK-ORIENT level=' "$T/check.txt" \
@@ -105,6 +107,7 @@ flipped_asset_levels_checked=$LEVELS
 flipped_asset_levels_applied=$APPLIED
 flipped_asset_levels_missing=$MISSING
 flipped_asset_levels_refused=$REFUSED
+flipped_asset_levels_no_decor=$NODECOR
 flipped_asset_tris_read=$TRIS
 flipped_asset_tris_judged=$JUDGED
 flipped_asset_tris_unjudged=$UNJ
