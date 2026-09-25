@@ -907,14 +907,15 @@ float pbr_shadow_actor_dist_m() {
 }
 
 // lighting-shadows essai 10 : derniere image dont l'atlas LU portait des acteurs. La frontiere
-// atlas/aplat ne retombe plus a 0 sur UNE image d'atlas sans acteur (retour owner n°3 : l'aplat PS2
-// transpire le temps d'une image) ; il faut 120 images sans acteur (ecran titre, chargement).
+// atlas/aplat ne retombe plus JAMAIS a 0 une fois qu'un acteur a ete projete (retour owner n°3 :
+// l'aplat PS2 transpire le temps d'une image). Mesure au bureau : Jak hors champ 120 images (sequence
+// scriptee), la frontiere tombait a 0, et a son retour l'aplat etait dessine 1 a 3 images avant que
+// l'atlas le reprenne. Seul l'ecran titre, AVANT tout acteur projete, garde l'aplat.
 static u64 g_actor_read_frame = ~0ull;
 
 bool pbr_shadow_read_has_actors() {
   auto& st = pbr_shadow_state();
-  return st.valid && g_actor_read_frame != ~0ull && st.frame >= g_actor_read_frame &&
-         st.frame - g_actor_read_frame <= 120;
+  return st.valid && g_actor_read_frame != ~0ull;
 }
 
 u64 pbr_shadow_write_frame() {
