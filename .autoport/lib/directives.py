@@ -11,6 +11,9 @@ physics into every phase, cutscenes and fonts included, for ~1 % of on-topic tex
                       ACTUALLY inlined for that item. One version per item, so a
                       scope change kills only the attempts it concerns.
   block(item_id)   -> that text, plus the line the report must echo back.
+  dir_verdict(item_id)  -> (ok, why, cause) : cherche la ligne dans report.txt, report.md,
+                      handoff.md puis tout .md/.txt du dossier ; cause FORM (aucune ligne,
+                      non compte) ou STALE (version perimee, refus de fond).
   report_verdict(item_id, path) -> (ok, why) : la porte de fermeture refuse un rapport
                       sans ligne `DIRECTIVES v...` ou qui en porte une perimee (hors
                       `accepted_for`). `.directives_issued` nomme l'item depuis le 25/09.
@@ -164,6 +167,12 @@ def accepted_for(item_id, item=None):
 REPORT_VERSION_RX = re.compile(r"DIRECTIVES (v[0-9a-f]{10})\b")
 
 
+def _attendu(item_id, item=None):
+    """Ce que la porte attend, SANS la forme `DIRECTIVES v…` : ce texte part dans le handoff,
+    que la porte relit — il ne doit jamais s'y faire passer pour la ligne du worker."""
+    return f"attendu la ligne `DIRECTIVES <version>` avec <version> = {version(item_id, item)}"
+
+
 def report_verdict(item_id, report_path, item=None):
     """(ok, raison). Stricte : UNE version perimee dans le texte suffit a refuser."""
     p = Path(report_path)
@@ -173,7 +182,7 @@ def report_verdict(item_id, report_path, item=None):
     found = sorted(set(REPORT_VERSION_RX.findall(txt)))
     if not found:
         return False, (f"le rapport ne porte aucune ligne `DIRECTIVES v...` ({p}) ; "
-                       f"attendu `DIRECTIVES {version(item_id, item)}`")
+                       f"{_attendu(item_id, item)}")
     ok = accepted_for(item_id, item)
     stale = [v for v in found if v not in ok]
     if stale:
@@ -181,6 +190,70 @@ def report_verdict(item_id, report_path, item=None):
                        f"serie courante {serial()}, version courante de {item_id} : "
                        f"{version(item_id, item)}")
     return True, f"DIRECTIVES {', '.join(found)} acceptée (série {serial()})"
+
+
+# harness-directives-gate-reads-any-report-name (25/09). La porte ne lisait que `report.txt` ;
+# aucun prompt ne nommait ce fichier, et l'essai 8 de lighting-shadows, porte VERTE, a ete
+# refuse et COMPTE parce que son rapport s'appelait `report.md`. La ligne est maintenant
+# cherchee dans le dossier du rapport, sous ces noms d'abord, puis dans tout autre .md/.txt
+# de premier niveau qui n'est ni une preuve ni les signalements.
+REPORT_NAMES = ("report.txt", "report.md", "handoff.md")
+_NOT_A_REPORT = re.compile(r"^(proof.*\.txt|FINDINGS\.txt)$", re.I)
+# Cause d'un refus : FORM = aucune ligne lisible (rien n'est dit du perimetre) ; STALE = une
+# version perimee est ecrite (l'essai a travaille sur un perimetre abandonne). Seul STALE est
+# un refus de fond ; l'orchestrateur ne compte pas un refus FORM (voir `form_refusal_uncounted`).
+FORM, STALE = "form", "stale"
+
+
+def report_candidates(report_dir):
+    d = Path(report_dir)
+    others = sorted(x for x in (d.glob("*") if d.is_dir() else [])
+                    if x.is_file() and x.suffix.lower() in (".txt", ".md")
+                    and x.name not in REPORT_NAMES and not _NOT_A_REPORT.match(x.name))
+    return [d / n for n in REPORT_NAMES] + others
+
+
+def expected_report(item_id):
+    """Le fichier que le prompt nomme au lancement, et que la porte lit en premier."""
+    return AUTOPORT / "reports" / item_id / REPORT_NAMES[0]
+
+
+def find_report(item_id, report_dir=None, since=None):
+    """(chemin du premier rapport portant `DIRECTIVES v...` ou None, noms lus, vieux ?).
+
+    `since` (epoch, debut de l'essai) : les fichiers ecrits PENDANT l'essai sont lus d'abord,
+    les restes d'un essai anterieur ensuite — un vieux rapport ne masque jamais le neuf."""
+    d = Path(report_dir) if report_dir else AUTOPORT / "reports" / item_id
+    fresh, old = [], []
+    for c in report_candidates(d):
+        if c.is_file():
+            (old if since is not None and c.stat().st_mtime < float(since) else fresh).append(c)
+    read = []
+    for c in fresh + old:
+        read.append(c.name + (" (anterieur a l'essai)" if c in old else ""))
+        if REPORT_VERSION_RX.search(c.read_text(encoding="utf-8", errors="replace")):
+            return c, read, c in old
+    return None, read, False
+
+
+def dir_verdict(item_id, report_dir=None, item=None, since=None):
+    """(ok, raison, cause) sur le dossier du rapport. cause : "" si ok, sinon FORM ou STALE.
+
+    STALE n'est rendu que pour un fichier ecrit PENDANT l'essai : une version perimee laissee
+    par un essai anterieur ne dit rien de celui-ci, qui n'a rien ecrit — c'est FORM."""
+    d = Path(report_dir) if report_dir else AUTOPORT / "reports" / item_id
+    p, read, is_old = find_report(item_id, d, since)
+    attendu = f"{_attendu(item_id, item)} dans {d / REPORT_NAMES[0]}"
+    if p is None:
+        return False, (f"aucun rapport ne porte `DIRECTIVES v...` dans {d} "
+                       f"(lus : {', '.join(read) or 'aucun'}) ; {attendu}"), FORM
+    ok, why = report_verdict(item_id, p, item=item)
+    if ok:
+        return True, f"{p.name} : {why}", ""
+    if is_old:
+        return False, (f"{p.name} est anterieur a l'essai et porte une version perimee "
+                       f"({why}) ; cet essai n'a ecrit aucune ligne ; {attendu}"), FORM
+    return False, f"{p.name} : {why}", STALE
 
 
 def _record(ver, item_id=None):
@@ -204,7 +277,9 @@ def block(item_id=None, record=True, item=None):
         "## DIRECTIVES — autorité supérieure à tout ce qui suit",
         "",
         f"Version courante : **DIRECTIVES {ver}**. Écris cette ligne, littéralement,",
-        f"dans ton rapport (`DIRECTIVES {ver}`). La porte de fermeture recalcule la version",
+        f"dans ton rapport (`DIRECTIVES {ver}`)"
+        + (f", le fichier `.autoport/reports/{item_id}/{REPORT_NAMES[0]}`" if item_id else "")
+        + ". La porte de fermeture recalcule la version",
         "et refuse un rapport qui n'en porte aucune ou en porte une périmée : c'est ce qui",
         "empêche de travailler des heures sur un périmètre abandonné.",
         "",
@@ -236,8 +311,11 @@ if __name__ == "__main__":
     if cmd == "accepted":
         print(" ".join(sorted(issued_for_current_serial())))
     elif cmd == "report":
-        rp = sys.argv[3] if len(sys.argv) > 3 else str(AUTOPORT / "reports" / (item or "") / "report.txt")
-        _ok, _why = report_verdict(item, rp, item=_item(item))
+        if len(sys.argv) > 3 and Path(sys.argv[3]).is_file():
+            _ok, _why = report_verdict(item, sys.argv[3], item=_item(item))
+        else:
+            _ok, _why, _ = dir_verdict(item, sys.argv[3] if len(sys.argv) > 3 else None,
+                                       item=_item(item))
         print(_why)
         sys.exit(0 if _ok else 1)
     elif cmd == "size":

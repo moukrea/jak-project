@@ -143,6 +143,12 @@ def probe_stale(pub, report_verdict=None):
     tree = ast.parse(ORCH_PY.read_text(encoding="utf-8"))
     cg = _func(tree, "close_gate")
     calls = _calls_attr(cg, "report_verdict") if cg else 0
+    # 25/09 (harness-directives-gate-reads-any-report-name) : close_gate appelle
+    # `directives_gate`, qui juge le DOSSIER du rapport par `dir_verdict` -> `report_verdict`.
+    dg = _func(tree, "directives_gate")
+    if cg and dg and any(isinstance(n, ast.Call) and getattr(n.func, "id", "") == "directives_gate"
+                         for n in ast.walk(cg)):
+        calls += _calls_attr(dg, "dir_verdict")
     if pub is not None:
         pub["directives_stale_positive_refused"] = f"{refused}/{len(positives)}"
         pub["directives_stale_negative_accepted"] = f"{accepted}/{len(negatives)}"

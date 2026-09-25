@@ -468,7 +468,8 @@ def format_duration(seconds: float) -> str:
 
 STATE_KEYS = ("version", "retries", "fingerprints", "attempt_seq",
               "rate_interrupts", "aborted", "commit_paths", "foreign_cause",
-              "proof_impossible", "proof_writer", "paced", "last_update")
+              "proof_impossible", "proof_writer", "paced", "directives_form",
+              "last_update")
 
 
 class StateConflict(Exception):
@@ -521,6 +522,10 @@ def load_state() -> dict:
         # FREIN-D-USAGE/ : le temps que le crochet de rythme de l'owner a tenu nos workers en
         # pause, et les essais qu'il a interrompus. Compte a part de `retries`, comme `aborted`.
         "paced": dict(raw.get("paced") or {}),
+        # Les essais VERTS refuses par la porte DIRECTIVES pour la seule FORME du rapport :
+        # comptes a part de `retries`, plus les refus d'avant le 25/09 dont le budget a ete
+        # rendu (`refunded`, cle `<item>#<essai>`). Voir `requalify_form_attempt`.
+        "directives_form": dict(raw.get("directives_form") or {}),
         "last_update": raw.get("last_update", ""),
     }
 
@@ -1193,6 +1198,98 @@ def requalify_impossible_attempt(state: dict, item_id: str,
                       f"l'item est BLOQUÉ tant que la machine ne peut pas mesurer. Aucun "
                       f"essai n'a été débité pour autant.")
     return ("requalifie", dit)
+
+
+# ============================================================
+# L'ESSAI VERT REFUSÉ POUR LA SEULE FORME DU RAPPORT — NOMMÉ, REJOUÉ, JAMAIS COMPTÉ
+# ============================================================
+# harness-directives-gate-reads-any-report-name (25/09). La porte DIRECTIVES ne lisait que
+# `reports/<id>/report.txt`, qu'aucun prompt ne nommait : l'essai 8 de lighting-shadows, porte
+# VERTE, rapport sous `report.md`, a été refusé ET compté. La porte lit maintenant tout le
+# dossier (`lib/directives.py::dir_verdict`) et le prompt nomme le fichier ; ce qui reste de
+# refus sans ligne lisible est de FORME (`directives.FORM`) : l'essai est rejoué sans être
+# débité. Une version PÉRIMÉE (`directives.STALE`) reste un refus de fond, compté.
+MAX_FORM_IN_A_ROW = 2
+
+
+def _form_record(state: dict, item_id: str) -> dict:
+    """`total` depuis toujours, `streak` depuis le dernier essai COMPTÉ."""
+    book = state.setdefault("directives_form", {})
+    rec = book.get(item_id)
+    if not isinstance(rec, dict):
+        rec = {}
+    rec = {"total": int(rec.get("total", 0) or 0),
+           "streak": int(rec.get("streak", 0) or 0),
+           "since": rec.get("since", ""),
+           "last": rec.get("last", ""),
+           "reason": rec.get("reason", "")}
+    book[item_id] = rec
+    return rec
+
+
+def requalify_form_attempt(state: dict, item_id: str, reason: str) -> tuple[str, str]:
+    """L'essai était vert ; seul le rapport était illisible pour la porte. Jamais débité.
+
+    Rend `("requalifie"|"bloque", ce qu'il faut dire)`. Dans les DEUX cas `retries` revient
+    comme avant l'essai. Au-delà de MAX_FORM_IN_A_ROW d'affilée l'item est BLOQUÉ : un worker
+    qui, prévenu, n'écrit toujours pas la ligne ne se corrige pas en rejouant sans fin."""
+    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    rec = _form_record(state, item_id)
+    rec["total"] += 1
+    rec["streak"] += 1
+    rec["last"] = now
+    rec["since"] = rec["since"] or now
+    rec["reason"] = reason[:300]
+    avant = int(state.setdefault("retries", {}).get(item_id, 0) or 0)
+    state["retries"][item_id] = max(0, avant - 1)
+    dit = (f"essai CLASSÉ À PART, NON COMPTÉ : porte DIRECTIVES refusée pour la FORME du "
+           f"rapport, pas pour son fond. retries {avant} → {state['retries'][item_id]}. "
+           f"{rec['streak']}e d'affilée sur cet item, {rec['total']} en tout. L'essai est "
+           f"REJOUÉ : écris la ligne `DIRECTIVES v…` de ton prompt dans "
+           f"`.autoport/reports/{item_id}/report.txt`.")
+    if rec["streak"] > MAX_FORM_IN_A_ROW:
+        return ("bloque",
+                dit + f" Au-delà de {MAX_FORM_IN_A_ROW} d'affilée on n'essaie plus : l'item est "
+                      f"BLOQUÉ, le superviseur doit lire pourquoi la ligne manque. Aucun essai "
+                      f"n'a été débité pour autant.")
+    return ("requalifie", dit)
+
+
+def _form_reset(state: dict, item_id: str) -> None:
+    """Un essai JUGÉ remet la série de requalifications de forme à zéro."""
+    rec = _form_record(state, item_id)
+    if rec["streak"]:
+        rec["streak"] = 0
+        save_state(state)
+
+
+def refund_past_form_refusals(state: dict) -> list[str]:
+    """Rend le budget des essais VERTS refusés AVANT ce correctif parce que le rapport portait
+    la ligne sous un autre nom que `report.txt` (recensés par `lib/directives_form.py` dans
+    `logs/<id>/validator-NNN.txt`). Idempotent : la clé `<item>#<essai>` est inscrite dans
+    `state["directives_form"]["refunded"]` et jamais rendue deux fois. Rend ce qui a été dit."""
+    try:
+        _lib = str(AUTOPORT_DIR / "lib")
+        if _lib not in sys.path:
+            sys.path.insert(0, _lib)
+        import directives_form as _df
+        past = _df.past_refusals(AUTOPORT_DIR)
+    except Exception as e:  # noqa: BLE001 — un recensement illisible est DIT, jamais avalé
+        return [f"recensement des refus de forme illisible : {e}"]
+    book = state.setdefault("directives_form", {})
+    done = book.setdefault("refunded", {})
+    said = []
+    for r in past:
+        if not r["misnamed"] or r["key"] in done:
+            continue
+        avant = int(state.setdefault("retries", {}).get(r["item"], 0) or 0)
+        state["retries"][r["item"]] = max(0, avant - 1)
+        done[r["key"]] = {"at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                          "retries_before": avant, "retries_after": state["retries"][r["item"]],
+                          "found": r["found"]}
+        said.append(f"{r['key']} : rapport sous {r['found']}, retries {avant} → "
+                    f"{state['retries'][r['item']]}")
+    return said
 
 
 # JOURNAL/preuve-impossible — LE JOURNAL DE VALIDATION NE COMMENCE PLUS PAR UN DIAGNOSTIC QUE
@@ -2261,6 +2358,26 @@ def owner_said_yes(item: dict) -> bool:
     return (OWNER_OK_DIR / str(item.get("id", ""))).exists()
 
 
+def directives_gate(iid: str, item: dict, since: float = 0.0,
+                    report_dir: Path | None = None) -> tuple[str, str]:
+    """GATE DIRECTIVES, seule. `("pass"|"form"|"fail", raison)`. Un juge illisible refuse."""
+    try:
+        _lib = str(AUTOPORT_DIR / "lib")
+        if _lib not in sys.path:
+            sys.path.insert(0, _lib)
+        import directives as _dv
+        _dok, _dwhy, _dcause = _dv.dir_verdict(
+            iid, report_dir or AUTOPORT_DIR / "reports" / iid, item=item,
+            since=(since or None))
+    except Exception as e:  # noqa: BLE001
+        return ("fail", f"CLOSE-GATE/directives: juge illisible : {e}")
+    if _dok:
+        return ("pass", _dwhy)
+    if _dcause == _dv.FORM:
+        return ("form", f"CLOSE-GATE/directives-forme: {_dwhy}")
+    return ("fail", f"CLOSE-GATE/directives: {_dwhy}")
+
+
 def close_gate(item: dict, pre_dirty_engine=(), validator_ok: bool = True,
                since: float = 0.0) -> tuple[str, str]:
     """La porte de fermeture. Returns (status, reason):
@@ -2268,6 +2385,7 @@ def close_gate(item: dict, pre_dirty_engine=(), validator_ok: bool = True,
       ("fail", reason)        -> a FIXABLE gate failed; retry + feed reason back
       ("foreign", reason)     -> CAUSE EXTÉRIEURE : rien de jugeable, l'essai ne compte pas
       ("impossible", reason)  -> AUCUNE PREUVE N'ÉTAIT POSSIBLE : nommée, datée, non comptée
+      ("form", reason)        -> essai vert, rapport sans ligne DIRECTIVES lisible : non compté
       ("awaiting-owner", "")  -> gates clear, the owner still has to look
 
     `pre_dirty_engine` : les chemins moteur que l'essai a trouvés SALES en arrivant.
@@ -2480,18 +2598,12 @@ def close_gate(item: dict, pre_dirty_engine=(), validator_ok: bool = True,
     # ICI, pour cet item, contre les versions emises sous la serie COURANTE (`accepted_for`) : un
     # rapport sans ligne `DIRECTIVES v…`, ou qui en porte une d'une serie abandonnee, ne ferme
     # rien. Un juge illisible refuse aussi — jamais un passage silencieux.
-    try:
-        _lib = str(AUTOPORT_DIR / "lib")
-        if _lib not in sys.path:
-            sys.path.insert(0, _lib)
-        import directives as _dv
-        _dok, _dwhy = _dv.report_verdict(iid, AUTOPORT_DIR / "reports" / iid / "report.txt",
-                                         item=item)
-    except Exception as e:  # noqa: BLE001
-        _dok, _dwhy = False, f"juge illisible : {e}"
-    if not _dok:
+    # 25/09 (harness-directives-gate-reads-any-report-name) : le DOSSIER du rapport est lu, pas
+    # le seul `report.txt` ; un refus de pure FORME rend `form`, jamais compté.
+    _dstatus, _dwhy = directives_gate(iid, item, since)
+    if _dstatus != "pass":
         log(f"close-gate directives : {_dwhy}", "red")
-        return ("fail", f"CLOSE-GATE/directives: {_dwhy}")
+        return (_dstatus, _dwhy)
 
     _fg = AUTOPORT_DIR / "lib" / "findings_gate.sh"
     if _fg.exists():
@@ -2765,7 +2877,8 @@ def _progress_fingerprint(item_id: str) -> str:
         tree = ""
     stamps = []
     rep = REPORTS_DIR / item_id
-    for pat in ("report.txt", "proof*.txt", "handoff.md", "notes/**/*", "device/*"):
+    for pat in ("report.txt", "report.md", "proof*.txt", "handoff.md", "notes/**/*",
+                "device/*"):
         for d in rep.glob(pat):
             try:
                 st = d.stat()
@@ -3806,9 +3919,31 @@ def run_attempt(item: dict, state: dict) -> Outcome:
             _checkpoint(f"essai {seq} classé à part — arbre sale hérité (non compté ; "
                         f"item BLOQUÉ, le superviseur doit trancher)")
             return Outcome("blocked", gate_reason + "\n\n" + dit)
+        # UN RAPPORT ILLISIBLE POUR LA PORTE NE BRÛLE PLUS UN ESSAI VERT. Rejoué, jamais débité ;
+        # la raison est posée EN TÊTE du handoff pour que l'essai suivant sache quoi écrire où.
+        if gate_status == "form":
+            verdict, dit = requalify_form_attempt(state, iid, gate_reason)
+            save_state(state)
+            with validator_log.open("a") as f:
+                f.write("\n\n" + gate_reason + "\n\n" + dit + "\n")
+            hp = handoff_path(iid)
+            hp.parent.mkdir(parents=True, exist_ok=True)
+            hp.write_text("## Porte de fermeture (ecrit par l'orchestrateur)\n" + gate_reason
+                          + "\n" + dit + "\n\n"
+                          + (hp.read_text(errors="replace") if hp.exists() else ""))
+            if verdict == "requalifie":
+                log(dit, "yellow")
+                _checkpoint(f"essai {seq} classé à part — rapport DIRECTIVES illisible "
+                            f"(non compté)")
+                return Outcome("form", gate_reason + "\n\n" + dit)
+            log(dit, "red")
+            _checkpoint(f"essai {seq} classé à part — rapport DIRECTIVES illisible (non compté ; "
+                        f"item BLOQUÉ, le superviseur doit trancher)")
+            return Outcome("blocked", gate_reason + "\n\n" + dit)
         if gate_status in ("pass", "awaiting-owner"):
             _foreign_reset(state, iid)
             _impossible_reset(state, iid)
+            _form_reset(state, iid)
             if _checkpoint(item.get("feature", iid)
                            + ("" if gate_status == "pass"
                               else " (porte passée — EN ATTENTE DU TEST DE L'OWNER)")):
@@ -3821,6 +3956,7 @@ def run_attempt(item: dict, state: dict) -> Outcome:
     # L'essai est COMPTÉ : les séries de requalifications s'arrêtent ici.
     _foreign_reset(state, iid)
     _impossible_reset(state, iid)
+    _form_reset(state, iid)
 
     failure_text = validator_log.read_text(errors="replace")
     fp, key_lines = fingerprint_failure(failure_text, REPO_ROOT)
@@ -4189,6 +4325,13 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     state = load_state()
+    # Budget des essais verts refusés AVANT le 25/09 pour le seul nom du rapport : rendu une
+    # fois, ici, par l'écrivain de state.json (une écriture externe serait écrasée).
+    _rendus = refund_past_form_refusals(state)
+    if _rendus:
+        save_state(state)
+        for _r in _rendus:
+            log(f"· budget rendu (refus DIRECTIVES de forme) : {_r}", "yellow")
     bk = load_backlog()
     release_stale_in_progress(bk)
 
@@ -4321,6 +4464,14 @@ def main(argv: list[str] | None = None) -> int:
                 f"empreinté. Le travail est commité.\n{out.reason}", "yellow")
             no_start_streak = 0
             nap(60)
+
+        elif out.kind == "form":
+            # Essai VERT refusé pour la seule forme du rapport : rejoué, jamais débité.
+            _write_status(bk, iid, "open")
+            log(f"⏹ {iid} : essai CLASSÉ À PART — rapport DIRECTIVES illisible, non compté, "
+                f"non empreinté. Il est rejoué.\n{out.reason}", "yellow")
+            no_start_streak = 0
+            nap(10)
 
         elif out.kind == "aborted":
             # Le lanceur a coupe les taches de fond du worker : l'essai n'a pas eu lieu.

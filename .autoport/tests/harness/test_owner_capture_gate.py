@@ -24,6 +24,7 @@ def gate(orch, sandbox, monkeypatch):
     # ici, comme la suite, elle est tenue ouverte.
     import directives as _dv
     monkeypatch.setattr(_dv, "report_verdict", lambda *a, **k: (True, "banc"))
+    monkeypatch.setattr(_dv, "dir_verdict", lambda *a, **k: (True, "banc", ""))
     ap = orch.AUTOPORT_DIR
     since = time.time() - 60
 

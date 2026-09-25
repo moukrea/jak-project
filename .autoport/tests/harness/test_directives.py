@@ -176,3 +176,73 @@ def test_report_verdict_refuse_un_rapport_sans_ligne():
         rp.write_text("Verdict sans contrat.\n", encoding="utf-8")
         ok, why = directives.report_verdict("x-item", rp, item=item)
         assert not ok and "aucune ligne" in why
+
+
+# harness-directives-gate-reads-any-report-name (25/09) : la porte lit le DOSSIER du rapport.
+def test_dir_verdict_lit_report_md_quand_report_txt_manque():
+    item = {"id": "x-item", "owner_test": False}
+    with fake_tree() as ap:
+        d = ap / "reports" / "x-item"
+        d.mkdir(parents=True)
+        (d / "report.md").write_text(f"DIRECTIVES {directives.version('x-item', item)}\n",
+                                     encoding="utf-8")
+        ok, why, cause = directives.dir_verdict("x-item", d, item=item)
+        assert ok and cause == "" and why.startswith("report.md"), why
+
+
+def test_dir_verdict_sans_ligne_nulle_part_est_un_refus_de_forme():
+    item = {"id": "x-item", "owner_test": False}
+    with fake_tree() as ap:
+        d = ap / "reports" / "x-item"
+        d.mkdir(parents=True)
+        (d / "report.md").write_text("rien\n", encoding="utf-8")
+        (d / "proof.txt").write_text("k=DIRECTIVES v0123456789\n", encoding="utf-8")
+        ok, why, cause = directives.dir_verdict("x-item", d, item=item)
+        assert not ok and cause == directives.FORM and "report.txt" in why
+
+
+def test_dir_verdict_version_perimee_ecrite_pendant_l_essai_reste_un_refus_de_fond():
+    item = {"id": "x-item", "owner_test": False}
+    with fake_tree() as ap:
+        d = ap / "reports" / "x-item"
+        d.mkdir(parents=True)
+        (d / "report.txt").write_text("DIRECTIVES v6666666666\n", encoding="utf-8")
+        (d / "report.md").write_text(f"DIRECTIVES {directives.version('x-item', item)}\n",
+                                     encoding="utf-8")
+        ok, _why, cause = directives.dir_verdict("x-item", d, item=item)
+        assert not ok and cause == directives.STALE
+
+
+def test_dir_verdict_prefere_le_rapport_de_l_essai_a_un_reste_perime():
+    import os
+    item = {"id": "x-item", "owner_test": False}
+    with fake_tree() as ap:
+        d = ap / "reports" / "x-item"
+        d.mkdir(parents=True)
+        old = d / "report.txt"
+        old.write_text("DIRECTIVES v6666666666\n", encoding="utf-8")
+        os.utime(old, (1000, 1000))
+        (d / "handoff.md").write_text(f"DIRECTIVES {directives.version('x-item', item)}\n",
+                                      encoding="utf-8")
+        ok, why, _ = directives.dir_verdict("x-item", d, item=item, since=2000)
+        assert ok and why.startswith("handoff.md"), why
+        (d / "handoff.md").unlink()
+        ok, _why, cause = directives.dir_verdict("x-item", d, item=item, since=2000)
+        assert not ok and cause == directives.FORM
+
+
+def test_block_nomme_le_fichier_du_rapport():
+    with fake_tree():
+        b = directives.block("x-item", record=False, item={"id": "x-item"})
+        assert ".autoport/reports/x-item/report.txt" in b
+
+
+def test_le_motif_de_refus_ne_se_fait_pas_passer_pour_la_ligne():
+    item = {"id": "x-item", "owner_test": False}
+    with fake_tree() as ap:
+        d = ap / "reports" / "x-item"
+        d.mkdir(parents=True)
+        _ok, why, _ = directives.dir_verdict("x-item", d, item=item)
+        (d / "handoff.md").write_text("## Porte\n" + why + "\n", encoding="utf-8")
+        ok, _why, cause = directives.dir_verdict("x-item", d, item=item)
+        assert not ok and cause == directives.FORM

@@ -35,6 +35,7 @@ def acquis_bench(request, orch, sandbox, monkeypatch):
     # ici, comme la suite, elle est tenue ouverte.
     import directives as _dv
     monkeypatch.setattr(_dv, "report_verdict", lambda *a, **k: (True, "banc"))
+    monkeypatch.setattr(_dv, "dir_verdict", lambda *a, **k: (True, "banc", ""))
     acquis = sandbox / ".autoport" / "acquis"
     acquis.mkdir()
     journal = sandbox / "acquis.jsonl"
