@@ -19767,7 +19767,7 @@ items:
     journal: validator-003.txt
 - id: harness-codex-supervisor-launched-by-hand-is-seen
   feature: Un superviseur Codex lance a la main est vu vivant par le harnais
-  status: blocked
+  status: open
   priority: 990
   code_scope: harnais
   device: false
@@ -19808,9 +19808,6 @@ items:
     a 0). Publier le denominateur.'
   notes: '23/09 : owner -> tout en bas de la pile ; c''est Codex qui le traitera lui-meme quand il voudra.'
   no_code: true
-  block_reason: 'consigne PERIMEE : item-harness-codex-supervisor-launched-by-hand-is-seen.md est notre
-    fabrication, mais l''item a bouge depuis. Refabrique-la avant de relancer — sinon le worker travaille
-    sur un cahier des charges depasse.'
 - id: harness-supervisor-seen-stamp-per-reader
   feature: 'Deux superviseurs en meme temps sont comptes separement : la mort de l''un ne se cache plus
     derriere l''autre'
@@ -22973,7 +22970,7 @@ items:
 - id: harness-api-auth-outage-pauses-not-blocks
   feature: Une panne d'authentification de l'API met l'orchestrateur en pause au lieu de bloquer toute
     la file
-  status: open
+  status: in-progress
   priority: 17
   code_scope: harnais
   device: false
@@ -23001,3 +22998,4 @@ items:
 
     CONTROLE POSITIF (API simulee qui rend 401 puis 200) + CONTROLE NEGATIF (un vrai echec de modele reste
     compte).'
+  no_code: true
