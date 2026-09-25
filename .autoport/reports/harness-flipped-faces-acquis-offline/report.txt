@@ -1,0 +1,29 @@
+# harness-flipped-faces-acquis-offline — essai 2
+
+DIRECTIVES v51350647cd
+
+Verdict : le garde-fou des faces a l'envers relit le pack HORS LIGNE et il est vert sur l'etat livre ; le moteur ne porte plus flip_census ni floor_probe ; flipped_acquis_leftovers=0.
+
+## Ce qui a change (commit 342ba2ffb0, essai 1 ; essai 2 = preuve refaite + ce rapport)
+- acquis/flipped-faces.sh (neuf) : relance le recensement hors ligne lib/census/lighting-flipped-faces-everywhere.sh (pack livre + mesh_audit --check-orient + texte des shaders). Aucune course du jeu. Cache sur l'empreinte du CONTENU (outil, pack, .fr3, shaders).
+- acquis/_lib.sh : acq_data_fp (sha256 de out/jak1/iso, out/jak1/fr3, custom_assets/jak1) entre dans la signature du cache de acq_x86_log.
+- Moteur : flip_census.{cpp,h} + floor_probe.{cpp,h} supprimes, retires de game/CMakeLists.txt ET android/CMakeLists.txt ; 12 sites d'appel et les blocs shader associes retires. Builds x86 et build-android rc=0 (essai 1).
+- Essai 1 refuse uniquement pour report.txt absent (rapport ecrit en report.md).
+
+## Preuve (proof.txt, essai 2)
+    proof_attempt_id=harness-flipped-faces-acquis-offline@2#1790331232
+    crash=0
+    frames=5631
+    flipped_acquis_real_verdict=tenu
+    flipped_acquis_negctl_verdict=tenu
+    flipped_acquis_posctl_asset_verdict=plus_tenu
+    flipped_acquis_posctl_shader_verdict=plus_tenu
+    flipped_engine_leftover_lines=0
+    flipped_acquis_leftovers=0
+Controle positif asset : pack sans village3.meshweld (missing=1). Controle positif shader : shaders d'avant (9 retournements). Cache : 1, 1 puis 2 lancements apres changement d'octets des donnees.
+
+## Pour l'owner
+Rien a regarder dans le jeu : chantier de harnais (owner_test: false).
+
+## Non prouve
+- non prouve : compilation sous GLES sur telephone des shaders dont les blocs floor_probe ont ete retires (arm64 lie, aucun APK lance) — inscrit dans FINDINGS.
