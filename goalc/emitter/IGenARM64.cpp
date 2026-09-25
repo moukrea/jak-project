@@ -35,7 +35,9 @@ using namespace emitter::ARM64;
 static constexpr uint32_t kArm64Nop = 0xd503201fu;
 static constexpr uint32_t kArm64Ret = 0xd65f03c0u;
 static inline uint32_t arm64_reg5(Register r) {
-  return static_cast<uint32_t>(r.id()) & 0x1f;
+  // perf-codegen-arm64-regs: routes ids 32..41/51..63 (X19-X28/V3-V15) to
+  // their real hw register number; ids 0..31 keep the old `& 0x1f` result.
+  return emitter::arm64_hw_reg(r.id());
 }
 
 // Forward declarations for static helpers defined later in this file (the
@@ -1141,7 +1143,7 @@ static inline uint32_t a6_enc_add_x16_xn_xm(Register addr, Register off) {
   // 16+ would silently alias X16..X31 — X16 is THIS helper's scratch, so a
   // 16+ id here means a live value is about to be clobbered (the
   // hud-classes-pc sink-group corruption shape). Fail the compile loudly.
-  ASSERT_MSG(addr.id() <= 15 && off.id() <= 15,
+  ASSERT_MSG(addr.id() >= 0 && !arm64_fp_bank(addr.id()) && off.id() >= 0 && !arm64_fp_bank(off.id()),
              "a6_enc_add_x16_xn_xm: non-GPR-bank register id in GOAL memory access");
   return 0x8B000000u | (arm64_reg5(off) << 16) | (arm64_reg5(addr) << 5) |
          kA6OffRegScratchRegId;
@@ -1262,7 +1264,7 @@ InstructionARM64 store_goal_vf(Register addr, Register value, Register off, s64 
 InstructionARM64 store_goal_gpr(Register addr, Register value, Register off, int offset, int size) {
   // A33: the stored value must live in the GPR bank (id <= 15); ids 16+
   // would encode X16..X31 (emitter scratch / platform / pp / st / offset).
-  ASSERT_MSG(value.id() <= 15, "store_goal_gpr: value register is not GPR-bank");
+  ASSERT_MSG(value.id() >= 0 && !arm64_fp_bank(value.id()), "store_goal_gpr: value register is not GPR-bank");
   uint32_t scaled_base;
   uint32_t unscaled_base;
   int scale;
@@ -1303,7 +1305,7 @@ InstructionARM64 load_goal_gpr(Register dst,
                                int size,
                                bool sign_extend) {
   // A33: see store_goal_gpr — GPR-bank ids only for the destination.
-  ASSERT_MSG(dst.id() <= 15, "load_goal_gpr: dst register is not GPR-bank");
+  ASSERT_MSG(dst.id() >= 0 && !arm64_fp_bank(dst.id()), "load_goal_gpr: dst register is not GPR-bank");
   uint32_t scaled_base;
   uint32_t unscaled_base;
   int scale;
@@ -1479,7 +1481,7 @@ InstructionARM64 store128_gpr64_simd128(Register gpr_addr, Register simd_reg) {
   ASSERT(
       simd_reg.is_128bit_simd(instr_set));  // TODO ARM64 - this assertion isn't as useful for ARM
                                             // since Q registers are not unique in terms of their id
-  return InstructionARM64(Base(0b0011110110, 10), Rn(gpr_addr.id()), Rt(simd_reg.id()), Imm12(0));
+  return InstructionARM64(Base(0b0011110110, 10), Rn(arm64_reg5(gpr_addr)), Rt(arm64_reg5(simd_reg)), Imm12(0));
 }
 
 InstructionARM64 store128_gpr64_simd128_s32(Register gpr_addr, Register xmm_value, s64 offset) {
@@ -1497,7 +1499,7 @@ InstructionARM64 load128_simd128_gpr64(Register simd_dest, Register gpr_addr) {
   ASSERT(simd_dest.is_128bit_simd(
       instr_set));  // TODO ARM64 - this assertion isn't as useful for ARM
                     // since Q registers are not unique in terms of their id
-  return InstructionARM64(Base(0b0011110111, 10), Rn(gpr_addr.id()), Rt(simd_dest.id()), Imm12(0));
+  return InstructionARM64(Base(0b0011110111, 10), Rn(arm64_reg5(gpr_addr)), Rt(arm64_reg5(simd_dest)), Imm12(0));
 }
 
 InstructionARM64 load128_simd128_gpr64_s32(Register simd_dest, Register gpr_addr, s64 offset) {
@@ -1705,7 +1707,7 @@ InstructionARM64 push_gpr64(Register reg) {
   // higher in the stack.  Here we are concerned with just satisfying the need to push a GPR
   ASSERT(reg.is_gpr(instr_set));
   return InstructionARM64(Base(0b1111100000000000000011, 22), Imm9(-16), Rn(ARM64_REG::SP),
-                          Rt(reg.id()));
+                          Rt(arm64_reg5(reg)));
 }
 
 InstructionARM64 pop_gpr64(Register reg) {
@@ -1713,7 +1715,7 @@ InstructionARM64 pop_gpr64(Register reg) {
   // - https://www.scs.stanford.edu/~zyedidia/arm64/ldr_imm_gen.html
   ASSERT(reg.is_gpr(instr_set));
   return InstructionARM64(Base(0b1111100001000000000001, 22), Imm9(16), Rn(ARM64_REG::SP),
-                          Rt(reg.id()));
+                          Rt(arm64_reg5(reg)));
 }
 
 // The following A6/A19 notes describe the historical full save set, still
@@ -1982,7 +1984,7 @@ InstructionARM64 sub_gpr64_imm8s(Register reg, int64_t imm) {
   // https://www.scs.stanford.edu/~zyedidia/arm64/sub_addsub_imm.html
   // - SUB <Xd>, <Xn>, #imm12 {, LSL #12}
   // - using a shift of 0 here (last bit in the base)
-  return InstructionARM64(Base(0b1101000100, 10), Imm12(imm), Rn(reg.id()), Rd(reg.id()));
+  return InstructionARM64(Base(0b1101000100, 10), Imm12(imm), Rn(arm64_reg5(reg)), Rd(arm64_reg5(reg)));
 }
 
 // NOTE: ARM can actually handle 12-bit immediate values, so if it's actually worth it, we
@@ -1996,7 +1998,7 @@ InstructionARM64 add_gpr64_imm8s(Register reg, int64_t imm) {
   }
   // https://www.scs.stanford.edu/~zyedidia/arm64/add_addsub_imm.html
   // ADD <Xd|SP>, <Xn|SP>, #<imm>{, <shift>}
-  return InstructionARM64(Base(0b1001000100, 10), Imm12(imm), Rn(reg.id()), Rd(reg.id()));
+  return InstructionARM64(Base(0b1001000100, 10), Imm12(imm), Rn(arm64_reg5(reg)), Rd(arm64_reg5(reg)));
 }
 
 // Helper: ADD/SUB Xd, Xn, #imm12 — base 0x91000000 (add) / 0xD1000000 (sub).
@@ -2300,6 +2302,12 @@ InstructionARM64 float_to_int32(Register dst, Register src) {
 // .autoport/lib/census/perf-codegen-arm64-scalar.sh). Called from IR.cpp,
 // forward-declared there: IGenARM64.h stays untouched.
 
+// perf-codegen-arm64-regs: an allocatable GPR is X0-X15 or X19-X28 — never the
+// X16/X17 scratch these sequences use, nor X18 (Android platform register).
+static inline bool arm64_alloc_gpr_hw(uint32_t r) {
+  return r < 16 || (r >= 19 && r <= 28);
+}
+
 // float -> int32 with x86 cvttss2si + movsx parity. 5 words (was 9: FCVTZS W,
 // two constants, CMP/CSEL on INT_MAX, FCMP/CSEL on NaN, SXTW).
 //   FCVTZS Xd, Sn          64-bit truncation, exact for every float in (-2^63, 2^63)
@@ -2313,7 +2321,7 @@ InstructionARM64 float_to_int32(Register dst, Register src) {
 InstructionARM64 float_to_int32_x86(Register dst, Register src) {
   const uint32_t d = arm64_reg5(dst);
   const uint32_t n = arm64_reg5(src);
-  ASSERT(d < 16);
+  ASSERT(arm64_alloc_gpr_hw(d));
   return InstructionARM64::multi({
       0x9E380000u | (n << 5) | d,          // FCVTZS Xd, Sn
       0xEB20C01Fu | (d << 16) | (d << 5),  // SUBS XZR, Xd, Wd, SXTW
@@ -2339,7 +2347,7 @@ InstructionARM64 float_to_int32_x86(Register dst, Register src) {
 InstructionARM64 int_div_w(Register dst, Register arg, bool is_signed, bool is_mod) {
   const uint32_t d = arm64_reg5(dst);
   const uint32_t m = arm64_reg5(arg);
-  ASSERT(d < 16 && m < 16);
+  ASSERT(arm64_alloc_gpr_hw(d) && arm64_alloc_gpr_hw(m));
   const uint32_t div = is_signed ? 0x1AC00C00u : 0x1AC00800u;
   const uint32_t cbnz = 0x35000040u | m;  // CBNZ Warg, .+8
   const uint32_t udf = 0x0000BEEFu;

@@ -122,7 +122,9 @@ int get_stack_offset(const RegVal* rv, const AllocationResult& allocs) {
 // of silently truncating its address.
 static InstructionARM64 arm64_add_xd_sp_imm12(Register dst, uint32_t imm12) {
   ASSERT(imm12 <= 0xfff);
-  uint32_t rd = static_cast<uint32_t>(dst.id()) & 0x1fu;
+  // perf-codegen-arm64-regs: dst may now be one of the extended ids
+  // (X19-X28), which `& 0x1f` alone would mis-encode.
+  uint32_t rd = emitter::arm64_hw_reg(dst.id());
   uint32_t enc = 0x91000000u | ((imm12 & 0xfffu) << 10) | (31u << 5) | rd;
   return InstructionARM64(enc);
 }
@@ -296,8 +298,11 @@ void emit_arm64_reg_to_reg_mov(emitter::ObjectGenerator* gen,
   // instruction family. A leftover mis-classed pair (e.g. an INT_128
   // vreg constrained to a GPR id by an un-migrated path) degrades to the
   // gpr-gpr mover — today's behaviour — instead of corrupting a V reg.
-  const bool src_fp_bank = static_cast<int>(src.id()) >= 16;
-  const bool dst_fp_bank = static_cast<int>(dst.id()) >= 16;
+  // perf-codegen-arm64-regs: bank test widened via arm64_fp_bank so the
+  // extended temps (X19-X28 = GPR bank, V3-V15 = FP bank) classify
+  // correctly; unchanged for every id < 32.
+  const bool src_fp_bank = emitter::arm64_fp_bank(src.id());
+  const bool dst_fp_bank = emitter::arm64_fp_bank(dst.id());
 
   if (src_fp_bank && dst_fp_bank) {
     gen->add_instr(emitter::IGen::ARM64::mov_vf_vf(dst, src), irec);
@@ -528,10 +533,22 @@ void IR_LoadSymbolPointer::do_codegen_arm64(emitter::ObjectGenerator* gen,
                                             const AllocationResult& allocs,
                                             emitter::IR_Record irec) {
   auto dest_reg = get_reg(m_dest, allocs, irec);
-  if (m_name == "#f") {
+  if (m_name == "#f" && emitter::arm64_fp_bank(dest_reg.id())) {
+    // perf-codegen-arm64-regs: #f into a vector-bank variable, like x86's
+    // movq xmm, r14. The GPR move used to be emitted on the V id, which
+    // encodes as X(16+k): the value never reached the V register, and the
+    // write landed in X19-X28, which now hold GOAL temporaries.
+    const emitter::Register x16_scratch(16);  // physical X16 through the GPR encoders
+    gen->add_instr(emitter::IGen::ARM64::mov_gpr64_gpr64(x16_scratch, gRegInfo.get_st_reg()),
+                   irec);
+    gen->add_instr(emitter::IGen::ARM64::movq_xmm64_gpr64(dest_reg, x16_scratch), irec);
+  } else if (m_name == "#f") {
     // false-symbol lives at the symbol-table base: move st_reg → dst.
     gen->add_instr(emitter::IGen::ARM64::mov_gpr64_gpr64(dest_reg, gRegInfo.get_st_reg()), irec);
   } else if (m_name == "#t" || m_name == "_empty_") {
+    // x86 has no vector-bank form here either (lea into an xmm asserts there).
+    ASSERT_MSG(!emitter::arm64_fp_bank(dest_reg.id()),
+               "IR_LoadSymbolPointer: symbol pointer into a vector-bank register");
     int off = (m_name == "#t") ? true_symbol_offset(gen->version())
                                : empty_pair_offset_from_s7(gen->version());
     gen->add_instr(emitter::IGen::ARM64::lea_reg_plus_off(dest_reg, gRegInfo.get_st_reg(), off),
@@ -542,6 +559,8 @@ void IR_LoadSymbolPointer::do_codegen_arm64(emitter::ObjectGenerator* gen,
     // ObjectGenerator's symbol-ptr fix-up table; the arm64-aware linker
     // (ObjectGenerator::handle_temp_instr_sym_links + the runtime patcher)
     // decodes each instruction word and writes the appropriate immediate.
+    ASSERT_MSG(!emitter::arm64_fp_bank(dest_reg.id()),
+               "IR_LoadSymbolPointer: symbol pointer into a vector-bank register");
     auto adrp_instr = gen->add_instr(emitter::IGen::ARM64::adrp_placeholder(dest_reg), irec);
     auto add_instr =
         gen->add_instr(emitter::IGen::ARM64::lea_reg_plus_off32(dest_reg, dest_reg, 0), irec);
@@ -584,7 +603,7 @@ void IR_SetSymbolValue::do_codegen_arm64(emitter::ObjectGenerator* gen,
   auto src_reg = get_reg(m_src, allocs, irec);
   if (auto offset = arm64::fixed_symbol_offset(gen->version(), m_dest->name())) {
     gen->add_instr(InstructionARM64(arm64::fixed_symbol_instruction(
-                       arm64::SymbolAccess::Store, src_reg.id(), *offset)),
+                       arm64::SymbolAccess::Store, emitter::arm64_hw_reg(src_reg.id()), *offset)),
                    irec);
     return;
   }
@@ -654,7 +673,7 @@ void IR_GetSymbolValue::do_codegen_arm64(emitter::ObjectGenerator* gen,
     const auto access = m_sext ? arm64::SymbolAccess::LoadSigned
                                : arm64::SymbolAccess::LoadUnsigned;
     gen->add_instr(InstructionARM64(
-                       arm64::fixed_symbol_instruction(access, load_dst.id(), *offset)),
+                       arm64::fixed_symbol_instruction(access, emitter::arm64_hw_reg(load_dst.id()), *offset)),
                    irec);
   } else {
     emitter::InstructionRecord instr;
@@ -2373,7 +2392,7 @@ void IR_GetSymbolValueAsm::do_codegen_arm64(emitter::ObjectGenerator* gen,
     const auto access = m_sext ? arm64::SymbolAccess::LoadSigned
                                : arm64::SymbolAccess::LoadUnsigned;
     gen->add_instr(InstructionARM64(
-                       arm64::fixed_symbol_instruction(access, load_dst.id(), *offset)),
+                       arm64::fixed_symbol_instruction(access, emitter::arm64_hw_reg(load_dst.id()), *offset)),
                    irec);
   } else {
     emitter::InstructionRecord instr;

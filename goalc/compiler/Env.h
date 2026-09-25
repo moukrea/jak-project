@@ -244,6 +244,19 @@ class FunctionEnv : public DeclareEnv {
   RegVal* push_reg_val(std::unique_ptr<RegVal> in);
 
   int segment = -1;
+  // perf-codegen-arm64-regs (arm64 backend only, unused/left at -1 on x86):
+  // spill stats from the real allocation ("after", using the extended
+  // register file, or the legacy file under OG_CODEGEN_LEGACY_REGS) and
+  // from the same input allocated again with the extended regs disabled
+  // ("before"), for the per-object codegen-regs dump. Asm functions never
+  // run the second pass; before == after for them.
+  int codegen_regs_spills_before = -1;
+  int codegen_regs_spilled_vars_before = -1;
+  int codegen_regs_spills_after = -1;
+  int codegen_regs_spilled_vars_after = -1;
+  // variables live at entry (read before any write on some path): their reads are
+  // undefined in GOAL itself, the verifier counts them apart.
+  std::vector<int> codegen_regs_undef_vars;
   std::string method_of_type_name = "#f";
   TypeSpec method_function_type;
   std::optional<int> method_id;

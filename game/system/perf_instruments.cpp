@@ -34,6 +34,7 @@
 #include "game/runtime.h"
 #include "game/system/autoport_proof.h"
 #include "game/system/codegen_arm64_calls.h"
+#include "game/system/codegen_arm64_regs.h"
 #include "game/system/codegen_arm64_scalar.h"
 
 namespace Mips2C::vu_simd {
@@ -884,6 +885,74 @@ void publish_codegen_scalar() {
   }
 }
 
+constexpr const char* kCodegenRegsItem = "perf-codegen-arm64-regs";
+AUTOPORT_FEATURE_SITE(kCodegenRegsItem);
+
+// perf-codegen-arm64-regs — what the device actually runs. Before this item goalc
+// allocated X0-X15 and V16-V31 only (X16/X17 and V0-V2 are emitter scratch), so a
+// count of X19-X28 / V3-V15 references well above the host's own count for the legacy
+// build (a few dozen, from the #f-into-vector moves this item also fixes),
+// read from the LINKED code of the global heap (ENGINE + GAME) after 600 drawn
+// frames, proves the new CGO — the one goalc now emits with the wider register set
+// — is the one actually linked on the device. The same header
+// (game/system/codegen_arm64_regs.h) is compiled by the host test
+// (.autoport/tests/codegen_regs), so it cannot drift from goalc without that test
+// going red. The results are republished every 60 frames with the boot count, like
+// publish_codegen_scalar.
+struct RegsScan {
+  bool done = false;
+  bool hits_noted = false;
+  uint64_t words = 0;
+  codegen_arm64::RegsStats stats;
+};
+RegsScan g_regs_scan;
+
+void publish_codegen_regs() {
+  if (!autoport_proof::feature_is(kCodegenRegsItem) || g_frames_total % 60 != 0) {
+    return;
+  }
+#if defined(__aarch64__)
+  if (!g_regs_scan.done && g_frames_total >= 600 && g_game_version == GameVersion::Jak1 &&
+      g_ee_main_mem && kglobalheap.offset) {
+    const uint32_t base = kglobalheap->base.offset;
+    const uint32_t current = kglobalheap->current.offset;
+    if (base && current > base && (base & 3u) == 0) {
+      const auto* w = reinterpret_cast<const uint32_t*>(g_ee_main_mem + base);
+      g_regs_scan.words = (current - base) / 4;
+      g_regs_scan.stats = codegen_arm64::inspect_regs(w, g_regs_scan.words);
+      g_regs_scan.done = true;
+    }
+  }
+#endif
+  const auto& st = g_regs_scan.stats;
+  // No scan (x86, or before frame 600), an empty scan, or no hit on either new family
+  // are defects. x18 is published, not judged here: the heap also holds DATA, and a
+  // data word can match a pattern with a field of 18. The host verifier judges X18 on
+  // decoded code (lib/census/perf-codegen-arm64-regs.sh), and compares these counts
+  // with its own: the device may count more (data), never less.
+  const uint64_t defect_sites = (!g_regs_scan.done || g_regs_scan.words == 0 ||
+                                  st.gpr_new == 0 || st.v_new == 0)
+                                     ? 1u
+                                     : 0u;
+  const uint64_t defect_boot = g_frames_total < 600 ? 1u : 0u;
+  autoport_proof::publish("codegen_regs_scanned", g_regs_scan.done);
+  autoport_proof::publish("codegen_regs_scanned_words", g_regs_scan.words);
+  autoport_proof::publish("codegen_regs_gpr_new", st.gpr_new);
+  autoport_proof::publish("codegen_regs_v_new", st.v_new);
+  autoport_proof::publish("codegen_regs_x18", st.x18);
+  autoport_proof::publish("codegen_boot_frames", g_frames_total);
+  autoport_proof::publish("codegen_defect_boot", defect_boot);
+  autoport_proof::publish("codegen_defect_sites", defect_sites);
+  // The census hook republishes `codegen_lot_defects` with its own terms added;
+  // proof.txt keeps the last value written.
+  autoport_proof::publish("codegen_lot_defects", defect_boot + defect_sites);
+  // Hits = new-register sites found linked on the device, counted once.
+  if (g_regs_scan.done && !g_regs_scan.hits_noted) {
+    autoport_proof::note_hit_for(kCodegenRegsItem, st.gpr_new + st.v_new);
+    g_regs_scan.hits_noted = true;
+  }
+}
+
 bool type_is_actor(uint32_t type) {
   auto it = g_type_is_actor.find(type);
   if (it != g_type_is_actor.end()) {
@@ -1350,6 +1419,7 @@ void frame_boundary() {
   g_frames_total++;
   publish_codegen_calls();
   publish_codegen_scalar();
+  publish_codegen_regs();
   // Le reglage peut etre pose avant le lancement (propriete) : on le relit toutes les 120
   // images, comme le vidage A35-PERF, pour ne pas figer un etat lu trop tot.
   if (g_frames_total % 120 == 1) {

@@ -121,6 +121,66 @@ enum ARM64_REG : s8 {
   Q15
 };
 
+// perf-codegen-arm64-regs — additional arm64-only GOAL temporaries.
+// These ids/helpers are defined unconditionally (IGenARM64.cpp, which is
+// compiled into both the x86 and arm64 goalc binaries, calls arm64_hw_reg
+// unconditionally even though its callers only run on the arm64 backend).
+// x86-model ids 32..41 map to hw X19..X28, ids 51..63 map to hw V3..V15.
+// ids 42..50 are placeholders (never allocated, `special = true`) so the
+// two ranges stay contiguous in the Info table without aliasing hw regs.
+enum ARM64_EXTRA_REG : s8 {
+  AX19 = 32,
+  AX20,
+  AX21,
+  AX22,
+  AX23,
+  AX24,
+  AX25,
+  AX26,
+  AX27,
+  AX28 = 41,
+  ARM64_UNUSED_42 = 42,
+  ARM64_UNUSED_43,
+  ARM64_UNUSED_44,
+  ARM64_UNUSED_45,
+  ARM64_UNUSED_46,
+  ARM64_UNUSED_47,
+  ARM64_UNUSED_48,
+  ARM64_UNUSED_49,
+  ARM64_UNUSED_50 = 50,
+  AV3 = 51,
+  AV4,
+  AV5,
+  AV6,
+  AV7,
+  AV8,
+  AV9,
+  AV10,
+  AV11,
+  AV12,
+  AV13,
+  AV14,
+  AV15 = 63,
+};
+
+// perf-codegen-arm64-regs — id -> hw register number, and id -> bank test,
+// for the extended arm64 register file (ids 32..41 = X19..X28,
+// ids 51..63 = V3..V15). Falls back to the classic `id & 0x1f` mapping for
+// every id in 0..31 (unchanged from before this item).
+inline uint32_t arm64_hw_reg(int id) {
+  if (id >= 32 && id <= 41) {
+    return static_cast<uint32_t>(id - 13);  // X19..X28
+  }
+  if (id >= 51 && id <= 63) {
+    return static_cast<uint32_t>(id - 48);  // V3..V15
+  }
+  return static_cast<uint32_t>(id) & 0x1fu;
+}
+
+inline bool arm64_fp_bank(int id) {
+  return (id >= 0) && ((id & 16) != 0);
+}
+
 class Register {
  public:
   Register() = default;
@@ -139,7 +199,13 @@ class Register {
       // INVERTED the test for every x86-model id and mis-classed every
       // function call's args/returns (GPR args became INT_128, 128-bit args
       // became GPR_64 pinned to XMM ids → X16+ clobbers).
+      // perf-codegen-arm64-regs: extended with the V3..V15 temp bank
+      // (ids 51..63); arm64_fp_bank keeps the ids<32 answer unchanged.
+#ifdef GOALC_BACKEND_ARM64
+      return arm64_fp_bank(m_id);
+#else
       return m_id >= XMM0 && m_id <= XMM15;
+#endif
     } else {
       ASSERT_MSG(false, "is_128bit_simd: instruction set not supported");
     }
@@ -159,7 +225,12 @@ class Register {
     if (instr_set == emitter::InstructionSet::X86) {
       return m_id >= RAX && m_id <= R15;
     } else if (instr_set == emitter::InstructionSet::ARM64) {
+      // perf-codegen-arm64-regs: ids 32..41 (X19..X28) are also GPRs.
+#ifdef GOALC_BACKEND_ARM64
+      return (m_id >= X0 && m_id <= X30) || m_id == SP || (m_id >= AX19 && m_id <= AX28);
+#else
       return (m_id >= X0 && m_id <= X30) || m_id == SP;
+#endif
     } else {
       ASSERT_MSG(false, "is_gpr: instruction set not supported");
     }
@@ -206,13 +277,22 @@ class Register {
 class RegisterInfo {
  public:
   static constexpr int N_ARGS = 8;
+  // perf-codegen-arm64-regs: the arm64 backend gets 32 extra temporary ids
+  // (X19..X28, V3..V15, plus a contiguous unused placeholder block) on top
+  // of the classic x86-model 0..31 register file.
+#ifdef GOALC_BACKEND_ARM64
+  static constexpr int N_REGS = 64;
+#else
   static constexpr int N_REGS = 32;
+#endif
   static constexpr int N_SAVED_GPRS = 5;
   static constexpr int N_SAVED_XMMS = 8;
   static constexpr int N_TEMP_GPRS = 5;
   static constexpr int N_TEMP_XMMS = 8;
 
+#ifndef GOALC_BACKEND_ARM64
   static_assert(N_REGS - 1 == XMM15, "bad register count");
+#endif
 
   static RegisterInfo make_register_info();
 

@@ -556,6 +556,26 @@ void recharged_crash_loop_guard_boot() {
 }
 }  // namespace
 
+#if defined(__aarch64__)
+// perf-codegen-arm64-regs — the X30 range check of the GOAL<->C trampolines
+// (game/kernel/asm_funcs_arm64.s, a24_x30_stack_range_check) runs only when
+// `debug.opengoal.x30check=1` on Android, or OG_X30_CHECK=1 elsewhere. Disarmed
+// it costs 3 instructions per transition instead of 7.
+extern "C" void _og_arm64_set_x30_check(u32 on) asm("_og_arm64_set_x30_check");
+static void arm64_x30_check_from_prop() {
+  u32 on = 0;
+#if defined(__ANDROID__)
+  char pv[PROP_VALUE_MAX] = {0};
+  on = (__system_property_get("debug.opengoal.x30check", pv) > 0 && pv[0] == '1') ? 1 : 0;
+#else
+  const char* env = getenv("OG_X30_CHECK");
+  on = (env && env[0] == '1') ? 1 : 0;
+#endif
+  _og_arm64_set_x30_check(on);
+  lg::info("arm64 x30 trampoline check: {}", on ? "armed" : "disarmed");
+}
+#endif
+
 /*!
  * Initialize GOAL Runtime. This is the main initialization which is called before entering
  * the GOAL kernel dispatch loop (KernelCheckAndDispatch).
@@ -566,6 +586,9 @@ int InitMachine() {
   // settings.ini. On Android the external game-root (which decides where the settings dir is)
   // is already set by goal_main before InitMachine runs, so the path is final here.
   recharged_crash_loop_guard_boot();
+#if defined(__aarch64__)
+  arm64_x30_check_from_prop();
+#endif
 
   u32 debug_heap_end = (0xffffffff - DEBUG_HEAP_SPACE_FOR_STACK + 1) & 0x7ffffff;
 

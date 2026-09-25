@@ -1,6 +1,7 @@
 #include "Compiler.h"
 
 #include <chrono>
+#include <set>
 #include <thread>
 
 #include "CompilerException.h"
@@ -9,8 +10,10 @@
 #include "common/goos/PrettyPrinter.h"
 #include "common/link_types.h"
 #include "common/util/FileUtil.h"
+#include "common/versions/versions.h"
 
 #include "goalc/compiler/CodeGenerator.h"
+#include "goalc/debugger/DebugInfo.h"
 #include "goalc/emitter/InstructionSet.h"
 #include "goalc/make/Tools.h"
 #include "goalc/regalloc/Allocator.h"
@@ -279,6 +282,19 @@ Val* Compiler::compile_error_guard(const goos::Object& code, Env* env) {
   }
 }
 
+#ifdef GOALC_BACKEND_ARM64
+// perf-codegen-arm64-regs — read once. When set, the real allocation (used
+// for actual codegen) uses the legacy 32-register file instead of the
+// extended one, for A/B comparison against a known build.
+static bool codegen_legacy_regs_enabled() {
+  static bool result = [] {
+    const char* e = std::getenv("OG_CODEGEN_LEGACY_REGS");
+    return e && std::string(e) == "1";
+  }();
+  return result;
+}
+#endif
+
 void Compiler::color_object_file(FileEnv* env) {
   int num_spills_in_file = 0;
   for (auto& f : env->functions()) {
@@ -309,6 +325,12 @@ void Compiler::color_object_file(FileEnv* env) {
 
     m_debug_stats.total_funcs++;
 
+#ifdef GOALC_BACKEND_ARM64
+    if (codegen_legacy_regs_enabled()) {
+      input.arm64_extra_regs = false;
+    }
+#endif
+
     auto regalloc_result_2 = allocate_registers_v2(input);
 
     if (regalloc_result_2.ok) {
@@ -317,6 +339,42 @@ void Compiler::color_object_file(FileEnv* env) {
         //  regalloc_result_2.num_spilled_vars);
       }
       num_spills_in_file += regalloc_result_2.num_spills;
+#ifdef GOALC_BACKEND_ARM64
+      // perf-codegen-arm64-regs — dump comparison numbers. Asm functions
+      // never see the extended orders (get_alloc_order forces
+      // REG_temp_only_order for them regardless of arm64_extra_regs), so
+      // before == after without a second allocation pass.
+      if (!input.is_asm_function) {
+        AllocationInput before_input = input;
+        before_input.arm64_extra_regs = false;
+        auto before_result = allocate_registers_v2(before_input);
+        f->codegen_regs_spills_before = before_result.ok ? before_result.num_spills : -1;
+        f->codegen_regs_spilled_vars_before =
+            before_result.ok ? before_result.num_spilled_vars : -1;
+      } else {
+        f->codegen_regs_spills_before = regalloc_result_2.num_spills;
+        f->codegen_regs_spilled_vars_before = regalloc_result_2.num_spilled_vars;
+      }
+      f->codegen_regs_spills_after = regalloc_result_2.num_spills;
+      f->codegen_regs_spilled_vars_after = regalloc_result_2.num_spilled_vars;
+      // live-in at the first instruction = variables some path reads before writing.
+      f->codegen_regs_undef_vars.clear();
+      if (!input.instructions.empty() && !regalloc_result_2.live_out.empty()) {
+        std::set<int> live_in0, written0;
+        for (auto& w : input.instructions.at(0).write) {
+          written0.insert(w.id);
+        }
+        for (auto& r : input.instructions.at(0).read) {
+          live_in0.insert(r.id);
+        }
+        for (int v : regalloc_result_2.live_out.at(0)) {
+          if (!written0.count(v)) {
+            live_in0.insert(v);
+          }
+        }
+        f->codegen_regs_undef_vars.assign(live_in0.begin(), live_in0.end());
+      }
+#endif
       f->set_allocations(std::move(regalloc_result_2));
     } else {
       lg::print(
@@ -327,12 +385,152 @@ void Compiler::color_object_file(FileEnv* env) {
       auto regalloc_result = allocate_registers(input);
       m_debug_stats.num_spills_v1 += regalloc_result.num_spills;
       num_spills_in_file += regalloc_result.num_spills;
+#ifdef GOALC_BACKEND_ARM64
+      f->codegen_regs_spills_before = regalloc_result.num_spills;
+      f->codegen_regs_spilled_vars_before = regalloc_result.num_spilled_vars;
+      f->codegen_regs_spills_after = regalloc_result.num_spills;
+      f->codegen_regs_spilled_vars_after = regalloc_result.num_spilled_vars;
+#endif
       f->set_allocations(std::move(regalloc_result));
     }
   }
 
   m_debug_stats.num_spills += num_spills_in_file;
 }
+
+#ifdef GOALC_BACKEND_ARM64
+namespace {
+// perf-codegen-arm64-regs — FNV-1a 64.
+u64 fnv1a64(const std::vector<u8>& data) {
+  u64 h = 0xcbf29ce484222325ull;
+  for (u8 b : data) {
+    h ^= b;
+    h *= 0x100000001b3ull;
+  }
+  return h;
+}
+
+std::string fnv1a64_hex(const std::vector<u8>& data) {
+  return fmt::format("{:016x}", fnv1a64(data));
+}
+
+std::string bytes_to_hex(const std::vector<u8>& data) {
+  std::string out;
+  out.reserve(data.size() * 2);
+  static const char* digits = "0123456789abcdef";
+  for (u8 b : data) {
+    out.push_back(digits[b >> 4]);
+    out.push_back(digits[b & 0xf]);
+  }
+  return out;
+}
+
+bool is_new_arm64_reg_id(int id) {
+  return (id >= emitter::AX19 && id <= emitter::AX28) ||
+         (id >= emitter::AV3 && id <= emitter::AV15);
+}
+
+// which of the new arm64 temp regs (x19..x28, v3..v15) got used by this
+// function's allocation: assigned to a var (ass_as_ranges) or picked as a
+// spill temp (stack_ops).
+// new arm64 temp regs held by the given variables (the live-at-entry ones).
+std::string new_regs_of_vars(const AllocationResult& allocs, const std::vector<int>& vars) {
+  std::set<int> ids;
+  for (int v : vars) {
+    if (v < 0 || v >= (int)allocs.ass_as_ranges.size()) {
+      continue;
+    }
+    const auto& range = allocs.ass_as_ranges.at(v);
+    for (int instr = range.start_instr(); instr <= range.end_instr(); instr++) {
+      const auto& a = range.get(instr);
+      if (a.kind == Assignment::Kind::REGISTER && is_new_arm64_reg_id(a.reg.id())) {
+        ids.insert(a.reg.id());
+      }
+    }
+  }
+  if (ids.empty()) {
+    return "-";
+  }
+  std::string out;
+  for (int id : ids) {
+    if (!out.empty()) {
+      out.push_back(',');
+    }
+    out += emitter::gRegInfo.get_info(id).name;
+  }
+  return out;
+}
+
+std::string new_regs_used(const AllocationResult& allocs) {
+  std::set<int> ids;
+  for (auto& range : allocs.ass_as_ranges) {
+    for (int instr = range.start_instr(); instr <= range.end_instr(); instr++) {
+      auto& a = range.get(instr);
+      if (a.kind == Assignment::Kind::REGISTER && is_new_arm64_reg_id(a.reg.id())) {
+        ids.insert(a.reg.id());
+      }
+    }
+  }
+  for (auto& op_list : allocs.stack_ops) {
+    for (auto& op : op_list.ops) {
+      if (is_new_arm64_reg_id(op.reg.id())) {
+        ids.insert(op.reg.id());
+      }
+    }
+  }
+  if (ids.empty()) {
+    return "-";
+  }
+  std::string out;
+  for (int id : ids) {
+    if (!out.empty()) {
+      out.push_back(',');
+    }
+    out += emitter::gRegInfo.get_info(id).name;
+  }
+  return out;
+}
+}  // namespace
+
+void Compiler::write_codegen_regs_dump(FileEnv* env,
+                                       DebugInfo* debug_info,
+                                       const std::vector<u8>& object_bytes) {
+  auto dir = file_util::get_jak_project_dir() / "out" / game_version_names[m_version] /
+            "codegen-regs";
+  file_util::create_dir_if_needed(dir);
+  auto path = dir / (env->name() + ".txt");
+
+  std::string content;
+  content += fmt::format("object\t{}\t{}\t{}\t{}\n", env->name(), fnv1a64_hex(object_bytes),
+                         object_bytes.size(), codegen_legacy_regs_enabled() ? 1 : 0);
+
+  for (auto& f : env->functions()) {
+    std::vector<u8> code_bytes;
+    std::string code_hex = "-";
+    std::string new_regs = "-";
+    try {
+      auto& fdi = debug_info->function_by_name(f->name());
+      code_hex = bytes_to_hex(fdi.generated_code);
+    } catch (std::exception&) {
+      // no debug info for this function (shouldn't normally happen).
+    }
+    new_regs = new_regs_used(f->alloc_result());
+    const std::string undef_regs = new_regs_of_vars(f->alloc_result(), f->codegen_regs_undef_vars);
+    content += fmt::format("func\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n", f->name(),
+                           f->segment, f->codegen_regs_spills_before,
+                           f->codegen_regs_spilled_vars_before, f->codegen_regs_spills_after,
+                           f->codegen_regs_spilled_vars_after, f->is_asm_func ? 1 : 0, new_regs,
+                           code_hex, undef_regs);
+  }
+
+  try {
+    file_util::write_text_file(path, content);
+  } catch (std::exception& e) {
+    lg::print("Warning: perf-codegen-arm64-regs failed to write codegen-regs dump for {}: {}\n",
+             env->name(), e.what());
+  }
+}
+#endif
 
 std::vector<u8> Compiler::codegen_object_file(FileEnv* env) {
   try {
@@ -348,6 +546,9 @@ std::vector<u8> Compiler::codegen_object_file(FileEnv* env) {
     }
     auto stats = gen.get_obj_stats();
     m_debug_stats.num_moves_eliminated += stats.moves_eliminated;
+#ifdef GOALC_BACKEND_ARM64
+    write_codegen_regs_dump(env, debug_info, result);
+#endif
     env->cleanup_after_codegen();
     return result;
   } catch (std::exception& e) {

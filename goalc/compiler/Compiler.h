@@ -230,6 +230,10 @@ class Compiler {
   SymbolVal* compile_get_sym_obj(const std::string& name, Env* env);
   void color_object_file(FileEnv* env);
   std::vector<u8> codegen_object_file(FileEnv* env);
+#ifdef GOALC_BACKEND_ARM64
+  void write_codegen_regs_dump(FileEnv* env, DebugInfo* debug_info,
+                               const std::vector<u8>& object_bytes);
+#endif
   bool codegen_and_disassemble_object_file(FileEnv* env,
                                            std::vector<u8>* data_out,
                                            std::string* asm_out,

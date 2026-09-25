@@ -11,8 +11,11 @@ class Arm64GoalMemoryCache {
 
   InstructionARM64 reuse(InstructionARM64 instruction, bool writes_address_reg) {
     const auto add = instruction.encoding;
-    if (instruction.extra_words.size() != 1 ||
-        (add & ~0x1e0u) != 0x8b0f0010u || !is_access(instruction.extra_words[0])) {
+    // ADD X16, Xn, X15 with Xn an allocatable GPR: X0-X15, or X19-X28 since
+    // perf-codegen-arm64-regs (never X16/X17 themselves, never X18).
+    const u32 rn = (add >> 5) & 31u;
+    if (instruction.extra_words.size() != 1 || (add & ~0x3e0u) != 0x8b0f0010u ||
+        !(rn < 16u || (rn >= 19u && rn <= 28u)) || !is_access(instruction.extra_words[0])) {
       reset();
       return instruction;
     }

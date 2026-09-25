@@ -321,12 +321,49 @@ AssignmentOrder REG_temp_only_order = {{emitter::XMM7, emitter::XMM6, emitter::X
                                         emitter::XMM3, emitter::XMM2, emitter::XMM1, emitter::XMM0},
                                        {emitter::R9, emitter::R8, emitter::RCX, emitter::RDX,
                                         emitter::RSI, emitter::RDI, emitter::RAX}};
+
+#ifdef GOALC_BACKEND_ARM64
+// perf-codegen-arm64-regs — arm64-only extended orders. X19-X28/V3-V15 are
+// GOAL temporaries (see Register.cpp), so they slot in on the temp-first
+// order right after the classic temp GPRs/XMMs, and are appended at the
+// end of the saved-first order's gpr/xmm lists (used last, as a reservoir
+// once the classic saved regs are exhausted).
+AssignmentOrder REG_saved_first_order_arm64_extra = {
+    {emitter::XMM8, emitter::XMM9, emitter::XMM10, emitter::XMM11, emitter::XMM12, emitter::XMM13,
+     emitter::XMM14, emitter::XMM15, emitter::XMM7, emitter::XMM6, emitter::XMM5, emitter::XMM4,
+     emitter::XMM3, emitter::XMM2, emitter::XMM1, emitter::XMM0, emitter::AV3, emitter::AV4,
+     emitter::AV5, emitter::AV6, emitter::AV7, emitter::AV8, emitter::AV9, emitter::AV10,
+     emitter::AV11, emitter::AV12, emitter::AV13, emitter::AV14, emitter::AV15},
+    {emitter::RBX, emitter::RBP, emitter::R12, emitter::R11, emitter::R10, emitter::R9, emitter::R8,
+     emitter::RCX, emitter::RDX, emitter::RSI, emitter::RDI, emitter::RAX, emitter::AX19,
+     emitter::AX20, emitter::AX21, emitter::AX22, emitter::AX23, emitter::AX24, emitter::AX25,
+     emitter::AX26, emitter::AX27, emitter::AX28}};
+
+AssignmentOrder REG_temp_first_order_arm64_extra = {
+    {emitter::XMM7, emitter::XMM6, emitter::XMM5, emitter::XMM4, emitter::XMM3, emitter::XMM2,
+     emitter::XMM1, emitter::XMM0, emitter::AV3, emitter::AV4, emitter::AV5, emitter::AV6,
+     emitter::AV7, emitter::AV8, emitter::AV9, emitter::AV10, emitter::AV11, emitter::AV12,
+     emitter::AV13, emitter::AV14, emitter::AV15, emitter::XMM8, emitter::XMM9, emitter::XMM10,
+     emitter::XMM11, emitter::XMM12, emitter::XMM13, emitter::XMM14, emitter::XMM15},
+    {emitter::R9, emitter::R8, emitter::RCX, emitter::RDX, emitter::RSI, emitter::RDI, emitter::RAX,
+     emitter::AX19, emitter::AX20, emitter::AX21, emitter::AX22, emitter::AX23, emitter::AX24,
+     emitter::AX25, emitter::AX26, emitter::AX27, emitter::AX28, emitter::RBX, emitter::RBP,
+     emitter::R12, emitter::R11, emitter::R10}};
+#endif
+
 std::vector<emitter::Register> allowable_local_var_move_elim = {
     emitter::R9,    emitter::R8,    emitter::RCX,   emitter::RDX,  emitter::RSI,   emitter::RDI,
     emitter::RAX,   emitter::RBX,   emitter::RBP,   emitter::R12,  emitter::R11,   emitter::R10,
     emitter::XMM7,  emitter::XMM6,  emitter::XMM5,  emitter::XMM4, emitter::XMM3,  emitter::XMM2,
     emitter::XMM1,  emitter::XMM0,  emitter::XMM8,  emitter::XMM9, emitter::XMM10, emitter::XMM11,
-    emitter::XMM12, emitter::XMM13, emitter::XMM14, emitter::XMM15};
+    emitter::XMM12, emitter::XMM13, emitter::XMM14, emitter::XMM15,
+#ifdef GOALC_BACKEND_ARM64
+    emitter::AX19,  emitter::AX20,  emitter::AX21,  emitter::AX22, emitter::AX23,  emitter::AX24,
+    emitter::AX25,  emitter::AX26,  emitter::AX27,  emitter::AX28, emitter::AV3,   emitter::AV4,
+    emitter::AV5,   emitter::AV6,   emitter::AV7,   emitter::AV8,  emitter::AV9,   emitter::AV10,
+    emitter::AV11,  emitter::AV12,  emitter::AV13,  emitter::AV14, emitter::AV15,
+#endif
+};
 
 const std::vector<emitter::Register>& get_alloc_order(int var_idx,
                                                       const AllocationInput& in,
@@ -348,6 +385,27 @@ const std::vector<emitter::Register>& get_alloc_order(int var_idx,
         return REG_extra_hard_order.xmms;
       }
     }
+#ifdef GOALC_BACKEND_ARM64
+    // perf-codegen-arm64-regs: extra temporaries only for the real
+    // allocation (not asm functions, not the torture-test path, and not
+    // when the OG_CODEGEN_LEGACY_REGS ablation / dump-comparison pass has
+    // disabled them for this input).
+    if (in.arm64_extra_regs) {
+      if (saved_first) {
+        if (is_gpr) {
+          return REG_saved_first_order_arm64_extra.gprs;
+        } else {
+          return REG_saved_first_order_arm64_extra.xmms;
+        }
+      } else {
+        if (is_gpr) {
+          return REG_temp_first_order_arm64_extra.gprs;
+        } else {
+          return REG_temp_first_order_arm64_extra.xmms;
+        }
+      }
+    }
+#endif
     if (saved_first) {
       if (is_gpr) {
         return REG_saved_first_order.gprs;

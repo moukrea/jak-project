@@ -633,7 +633,7 @@ void CodeGenerator::do_goal_function_arm64(FunctionEnv* env, int f_idx) {
   std::vector<uint32_t> a40_saved_xmm_rt;
   for (auto& saved_reg : allocs.used_saved_regs) {
     if (saved_reg.id() >= emitter::XMM0 && saved_reg.id() <= emitter::XMM15) {
-      uint32_t rt = static_cast<uint32_t>(saved_reg.id()) & 0x1fu;
+      uint32_t rt = emitter::arm64_hw_reg(saved_reg.id());  // perf-codegen-arm64-regs
       a40_saved_xmm_rt.push_back(rt);
       m_gen.add_instr_no_ir(f_rec, emitter::InstructionARM64(0x3C9F0FE0u | rt),
                             InstructionInfo::Kind::PROLOGUE);
@@ -728,7 +728,7 @@ void CodeGenerator::do_goal_function_arm64(FunctionEnv* env, int f_idx) {
         continue;
       }
       int byte_off = allocs.get_slot_for_spill(op.slot) * GPR_SIZE;
-      uint32_t rt = static_cast<uint32_t>(op.reg.id()) & 0x1fu;
+      uint32_t rt = emitter::arm64_hw_reg(op.reg.id());  // perf-codegen-arm64-regs
       uint32_t enc = 0;
       if (op.reg_class == RegClass::GPR_64) {
         uint32_t imm12 = (static_cast<uint32_t>(byte_off) >> 3) & 0xfffu;
@@ -767,7 +767,7 @@ void CodeGenerator::do_goal_function_arm64(FunctionEnv* env, int f_idx) {
         continue;
       }
       int byte_off = allocs.get_slot_for_spill(op.slot) * GPR_SIZE;
-      uint32_t rt = static_cast<uint32_t>(op.reg.id()) & 0x1fu;
+      uint32_t rt = emitter::arm64_hw_reg(op.reg.id());  // perf-codegen-arm64-regs
       uint32_t enc = 0;
       if (op.reg_class == RegClass::GPR_64) {
         uint32_t imm12 = (static_cast<uint32_t>(byte_off) >> 3) & 0xfffu;

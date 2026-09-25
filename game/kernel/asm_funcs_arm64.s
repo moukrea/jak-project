@@ -27,7 +27,7 @@
 ;; trampoline is unambiguously named by its emit_pc.
 ;;
 ;; X16, X17 are AAPCS intra-procedure call scratch (IP0/IP1) — caller-
-;; save, clobberable here. The macro emits 7 instructions per RET site.
+;; save, clobberable here. The macro emits 10 instructions per RET site, 3 executed when disarmed.
 ;; Always-on (no compile-time gate): the .s file is consumed by GNU as
 ;; with no C-preprocessor pass, and the runtime cost is ~4 ns per
 ;; trampoline call (~hundreds of thousands of calls across a boot, so
@@ -58,7 +58,29 @@
 ;; trapped. It never was on the intended layout either (that range is where
 ;; host return addresses live, and is indistinguishable from a legitimate
 ;; native return), so no real detection is lost — only the false positive.
+;; perf-codegen-arm64-regs — the check runs only under `debug.opengoal.x30check=1`.
+;; It costs 7 instructions on the return path of EVERY GOAL->C and C->GOAL
+;; transition; disarmed it costs 3 (ADRP + LDR + CBZ). The flag is a LOCAL
+;; data word (non-preemptible, so ADRP/:lo12: is legal in libgk.so), written
+;; once at boot through _og_arm64_set_x30_check (game/kernel/jak1/kmachine.cpp).
+.pushsection .data
+.balign 4
+og_x30_check_flag:
+  .word 0
+.popsection
+
+.global _og_arm64_set_x30_check
+.align 4
+_og_arm64_set_x30_check:
+  adrp x16, og_x30_check_flag
+  add  x16, x16, :lo12:og_x30_check_flag
+  str  w0, [x16]
+  ret
+
 .macro a24_x30_stack_range_check
+  adrp x16, og_x30_check_flag
+  ldr  w16, [x16, :lo12:og_x30_check_flag]
+  cbz  w16, 9999f               // disarmed (default) -> skip the 7-word check
   sub  x17, x30, x15            // X17 = X30 - EE_BASE (unsigned offset into EE)
   movz x16, #0x0700, lsl #16    // X16 = 0x07000000 (GOAL stack-range floor)
   cmp  x17, x16

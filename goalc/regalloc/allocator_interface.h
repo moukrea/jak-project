@@ -111,6 +111,10 @@ class AssignmentRange {
   const Assignment& get(int instr) const { return m_ass.at(instr - m_start); }
   bool has_info_at(int instr) const { return instr >= m_start && instr <= m_end; }
   int stack_slot() const { return m_ass.at(0).stack_slot; }
+  // perf-codegen-arm64-regs: exposed so the codegen-regs dump can scan every
+  // assignment in the range without guessing an instruction bound.
+  int start_instr() const { return m_start; }
+  int end_instr() const { return m_end; }
 
  private:
   int m_start = -1;
@@ -164,6 +168,12 @@ struct AllocationInput {
   std::vector<std::string> debug_instruction_names;  // optional, for debug prints
   int stack_slots_for_stack_vars = 0;
   bool is_asm_function = false;
+  // perf-codegen-arm64-regs (arm64 backend only): true = allocate from the
+  // extended orders that include X19-X28/V3-V15. false = legacy x86-model
+  // register file only (32 regs) -- used both for the "before" spill count
+  // dumped alongside every object, and for the OG_CODEGEN_LEGACY_REGS
+  // ablation env var. Ignored entirely by the x86 backend.
+  bool arm64_extra_regs = true;
 
   std::string function_name;
 

@@ -2,6 +2,8 @@
 
 #include <stdexcept>
 
+#include "fmt/format.h"
+
 namespace emitter {
 RegisterInfo RegisterInfo::make_register_info() {
   RegisterInfo info;
@@ -40,6 +42,38 @@ RegisterInfo RegisterInfo::make_register_info() {
   info.m_info[XMM13] = {true, false, "xmm13"};
   info.m_info[XMM14] = {true, false, "xmm14"};
   info.m_info[XMM15] = {true, false, "xmm15"};
+
+#ifdef GOALC_BACKEND_ARM64
+  // perf-codegen-arm64-regs: X19..X28 and V3..V15 as extra GOAL temporaries.
+  // Not saved (they are caller-saved GOAL temporaries, clobbered on every
+  // GOAL function call, exactly like RAX/RCX/etc. above) and not special.
+  info.m_info[AX19] = {false, false, "x19"};
+  info.m_info[AX20] = {false, false, "x20"};
+  info.m_info[AX21] = {false, false, "x21"};
+  info.m_info[AX22] = {false, false, "x22"};
+  info.m_info[AX23] = {false, false, "x23"};
+  info.m_info[AX24] = {false, false, "x24"};
+  info.m_info[AX25] = {false, false, "x25"};
+  info.m_info[AX26] = {false, false, "x26"};
+  info.m_info[AX27] = {false, false, "x27"};
+  info.m_info[AX28] = {false, false, "x28"};
+  for (int i = ARM64_UNUSED_42; i <= ARM64_UNUSED_50; i++) {
+    info.m_info[i] = {false, true, fmt::format("arm64-unused-{}", i)};
+  }
+  info.m_info[AV3] = {false, false, "v3"};
+  info.m_info[AV4] = {false, false, "v4"};
+  info.m_info[AV5] = {false, false, "v5"};
+  info.m_info[AV6] = {false, false, "v6"};
+  info.m_info[AV7] = {false, false, "v7"};
+  info.m_info[AV8] = {false, false, "v8"};
+  info.m_info[AV9] = {false, false, "v9"};
+  info.m_info[AV10] = {false, false, "v10"};
+  info.m_info[AV11] = {false, false, "v11"};
+  info.m_info[AV12] = {false, false, "v12"};
+  info.m_info[AV13] = {false, false, "v13"};
+  info.m_info[AV14] = {false, false, "v14"};
+  info.m_info[AV15] = {false, false, "v15"};
+#endif
 
   info.m_gpr_arg_regs = std::array<Register, N_ARGS>({RDI, RSI, RDX, RCX, R8, R9, R10, R11});
   // skip xmm0 so it can be used for return.
