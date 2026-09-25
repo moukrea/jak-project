@@ -6112,7 +6112,7 @@ items:
     value: 4
   game: jak1
   max_turns: 1600
-  max_retries: 8
+  max_retries: 9
   depends_on:
   - ao-indirect-clean
   - lighting-regimes
@@ -6227,7 +6227,10 @@ items:
     24/09 (superviseur) : rouvert, ombres justes mais quasi invisibles (retour owner n°2).
 
     24/09 : attend lighting-regimes (equilibre direct/indirect) ; l''owner : « pas validable en l''état
-    et faut que les autres chantiers liés avancent ».'
+    et faut que les autres chantiers liés avancent ».
+
+    budget : +1 le 25/09 (plafond 9) : l''essai 4 a ete refuse par acquis/flipped-faces.sh, rouge par
+    construction et retire, pas par son propre travail.'
   spec: prompts/SPEC-refonte-lumiere.md
   hits_means: pixels de sol ombres par un acteur
   proof_timeout: 240
