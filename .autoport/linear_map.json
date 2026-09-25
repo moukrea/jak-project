@@ -36,7 +36,7 @@
    "url": "https://linear.app/moukrea/document/e1fe9500339a"
   }
  },
- "_gen": 658,
+ "_gen": 662,
  "_ids": {
   "labels": {
    "ok": "000e105b-24ba-4fa3-a579-bc3bf0869242",
@@ -1798,11 +1798,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-287/le-vieux-reglage-rt-light-disparait-comme-le-veut-la-spec-telephone-et"
  },
  "lighting-shadows": {
-  "hash": "ace2b0cac8fa38b65e21292a91109cea23d18668",
+  "hash": "24d32fb9db268e29a09f6286d50d1682b131a6e4",
   "identifier": "JAK-51",
   "issue_id": "923462dc-521a-4c79-ba5f-2e2e8cc4c758",
   "last_state": "In Progress",
-  "last_verdict_announced": "validator-010.txt",
+  "last_verdict_announced": "validator-011.txt",
   "pulled_at": "2026-09-25T15:19:14.299Z",
   "relations": [
    "ao-prepass-tie-alpha",
