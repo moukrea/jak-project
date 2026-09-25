@@ -36,7 +36,7 @@
    "url": "https://linear.app/moukrea/document/e1fe9500339a"
   }
  },
- "_gen": 531,
+ "_gen": 537,
  "_ids": {
   "labels": {
    "ok": "000e105b-24ba-4fa3-a579-bc3bf0869242",
@@ -778,7 +778,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-269/ce-que-directives-promet-est-fait-par-du-code-le-rapport-perime-est"
  },
  "harness-flipped-faces-acquis-offline": {
-  "hash": "bd35edeb6e0ed6fcb3d631dfae3951e07c52eeac",
+  "hash": "a4dd1cd9162f37e397d81f0ae00129953993f247",
   "identifier": "JAK-283",
   "issue_id": "94aa1d8b-92aa-4d89-bc52-1c8770435a98",
   "last_state": "Todo",
@@ -1730,12 +1730,12 @@
   "url": "https://linear.app/moukrea/issue/JAK-50/la-lumiere-cle-nest-pas-toujours-un-soleil"
  },
  "lighting-shadows": {
-  "hash": "08222e5052076df99a6e8de493baaf605517c52d",
+  "hash": "51c663b9d2dab51f2eda4f8ab929fb23e97d1ca0",
   "identifier": "JAK-51",
   "issue_id": "923462dc-521a-4c79-ba5f-2e2e8cc4c758",
   "last_state": "In Progress",
-  "last_verdict_announced": "validator-007.txt",
-  "pulled_at": "2026-09-25T08:44:30.482Z",
+  "last_verdict_announced": "validator-008.txt",
+  "pulled_at": "2026-09-25T08:55:41.339Z",
   "relations": [
    "ao-prepass-tie-alpha",
    "lighting-ao-indirect",
