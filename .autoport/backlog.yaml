@@ -6016,7 +6016,7 @@ items:
   delivered: '2026-09-25'
 - id: lighting-shadows
   feature: Deux astres, deux jeux d'ombres, et les acteurs qui en projettent
-  status: in-progress
+  status: to-test
   priority: 28
   owner_feedback:
   - date: '2026-09-03'
@@ -6247,15 +6247,15 @@ items:
   supervisor_recovery: true
   gate_verdict:
     result: porte-tenue
-    date: '2026-09-24'
-    proof_sha: 9d85e1631f520905
-    proof_bytes: 76685
-    attempt: 5
-    journal: validator-005.txt
-  delivered: '2026-09-24'
+    date: '2026-09-25'
+    proof_sha: 5499eff3bf49c034
+    proof_bytes: 79428
+    attempt: 9
+    journal: validator-009.txt
+  delivered: '2026-09-25'
 - id: lighting-local-lights
   feature: Les lampes, torches et laves eclairent enfin
-  status: open
+  status: in-progress
   priority: 30
   owner_feedback:
   - date: '2026-09-03'
@@ -22754,7 +22754,7 @@ items:
 - id: harness-flipped-faces-acquis-offline
   feature: Le garde-fou des faces a l'envers relit les assets hors ligne, et le moteur ne porte plus d'instrumentation
     de ce sujet
-  status: open
+  status: validated
   priority: 19
   code_scope: harnais
   device: false
@@ -22790,6 +22790,14 @@ items:
     4. `flipped_acquis_leftovers` ; doit valoir 0.
 
     CONTROLE POSITIF + CONTROLE NEGATIF.'
+  no_code: true
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-25'
+    proof_sha: 1345fc5e5ec9705c
+    proof_bytes: 77844
+    attempt: 2
+    journal: validator-002.txt
 - id: owner-crashes-rgressions
   status: open
   game: jak1
@@ -22844,3 +22852,33 @@ items:
   out_of_scope: ''
   spec: null
   linear_issue: 9a657f0f-0a44-4bdf-96ac-67db193c3ff1
+- id: harness-directives-gate-reads-any-report-name
+  feature: La porte DIRECTIVES ne brule plus un essai vert parce que le rapport s'appelle report.md au
+    lieu de report.txt
+  status: open
+  priority: 19
+  code_scope: harnais
+  device: false
+  owner_test: false
+  max_retries: 4
+  gate:
+    key: directives_gate_misnamed_refusals
+    op: ==
+    value: 0
+  prompt: prompts/item-harness-directives-gate-reads-any-report-name.md
+  known_cause: 'Signale par le worker de lighting-shadows : `orchestrator.py:~2488` (GATE DIRECTIVES,
+    livree par harness-directives-promises-are-implemented) ne lit que reports/<id>/report.txt ; l''essai
+    8 de lighting-shadows avait une porte VERTE et un rapport ecrit sous report.md : l''essai entier a
+    ete refuse et COMPTE dans le plafond. Une porte de forme qui brule un essai de fond = defaut prioritaire
+    (elle peut frapper tous les chantiers).'
+  deliverable: '1. La porte trouve la ligne DIRECTIVES dans le rapport quel que soit son nom (report.txt,
+    report.md, handoff.md) ou, a defaut, dit exactement quel fichier elle attend AVANT la fin de l''essai
+    (au lancement).
+
+    2. Un refus de pure forme n''est jamais compte dans le plafond : il est nomme et l''essai est rejoue.
+
+    3. Recenser les essais deja refuses pour ce motif et rendre leur budget.
+
+    4. `directives_gate_misnamed_refusals` ; doit valoir 0.
+
+    CONTROLE POSITIF + CONTROLE NEGATIF.'
