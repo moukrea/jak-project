@@ -36,7 +36,7 @@
    "url": "https://linear.app/moukrea/document/e1fe9500339a"
   }
  },
- "_gen": 519,
+ "_gen": 524,
  "_ids": {
   "labels": {
    "ok": "000e105b-24ba-4fa3-a579-bc3bf0869242",
@@ -74,6 +74,7 @@
   "user_id": "d0008b80-8dd5-41c3-bf05-e65b59f5f4e5"
  },
  "acquis-hud-eco-gauge": {
+  "harness_archived_at": "2026-09-25T08:19:49.000Z",
   "hash": "7c9cf2133e1001e5d63cc6e8a2f7296ff5df80fd",
   "identifier": "JAK-194",
   "issue_id": "70b3d847-940c-42fa-8902-d8923f34b3d8",
@@ -623,6 +624,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-263/restes-de-larchivage-en-cours-dessai-et-des-ecritures-de-statut"
  },
  "harness-archived-census-controls-are-alive": {
+  "harness_archived_at": "2026-09-25T08:19:52.000Z",
   "hash": "f6e2e576581aab385644230fca8fd70b1521ea0b",
   "identifier": "JAK-247",
   "issue_id": "bc6136e5-4613-451c-bf06-4e263e12fcae",
@@ -756,6 +758,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-260/les-acquis-sur-appareil-partagent-une-seule-garde-de-preuve-ont-leur"
  },
  "harness-device-deploy-gate-must-compare-the-asset-pack": {
+  "harness_archived_at": "2026-09-25T08:19:37.000Z",
   "hash": "d0e8ba9e23500c95fad638ba33cfd5f2a309a69c",
   "identifier": "JAK-193",
   "issue_id": "046a0869-7c44-4202-b4c8-69b703c349bf",
@@ -773,6 +776,14 @@
   "pulled_at": "2026-09-23T10:09:48.000Z",
   "state_at": "2026-09-24T22:29:14.677Z",
   "url": "https://linear.app/moukrea/issue/JAK-269/ce-que-directives-promet-est-fait-par-du-code-le-rapport-perime-est"
+ },
+ "harness-flipped-faces-acquis-offline": {
+  "hash": "bd35edeb6e0ed6fcb3d631dfae3951e07c52eeac",
+  "identifier": "JAK-283",
+  "issue_id": "94aa1d8b-92aa-4d89-bc52-1c8770435a98",
+  "last_state": "Todo",
+  "pulled_at": "2026-09-25T08:20:27.000Z",
+  "url": "https://linear.app/moukrea/issue/JAK-283/le-garde-fou-des-faces-a-lenvers-relit-les-assets-hors-ligne-et-le"
  },
  "harness-goalc-unit-tests-run-again": {
   "hash": "d319670bf3b0cb200d0e191eaa75ce35031f836a",
@@ -833,6 +844,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-252/un-projet-une-etiquette-ou-une-vue-linear-archives-par-lowner-ne-sont"
  },
  "harness-linear-auto-archive-when-space-runs-out": {
+  "harness_archived_at": "2026-09-25T08:19:39.000Z",
   "hash": "b29e93319d8111b13d613e602a355dc1e249d322",
   "identifier": "JAK-230",
   "issue_id": "db751adc-6d9d-4415-8b40-9e7a68f82d77",
@@ -842,6 +854,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-230/quand-lespace-linear-approche-de-sa-limite-de-tickets-la-synchro"
  },
  "harness-linear-census-reads-archived-tickets": {
+  "harness_archived_at": "2026-09-25T08:19:41.000Z",
   "hash": "cc3f140ed1ca058ea4a1bb7def13e40b4593a3d8",
   "identifier": "JAK-231",
   "issue_id": "5861d6cd-8474-4396-9cb0-53266511cf9f",
@@ -851,6 +864,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-231/les-garde-fous-qui-lisent-linear-retrouvent-aussi-les-tickets-archives"
  },
  "harness-linear-check-survives-a-bad-ticket": {
+  "harness_archived_at": "2026-09-25T08:19:50.000Z",
   "hash": "917d594f334de9fb84a48d3da5cf1a65ef090d95",
   "identifier": "JAK-241",
   "issue_id": "cf0cf671-f3b3-4b73-86e9-67e502d11abe",
@@ -861,6 +875,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-241/la-verification-de-coherence-linear-continue-apres-un-ticket-en-erreur"
  },
  "harness-linear-learned-limit-can-rise": {
+  "harness_archived_at": "2026-09-25T08:19:51.000Z",
   "hash": "8a38bf832111551c4ea4c947707051f2a22881d3",
   "identifier": "JAK-240",
   "issue_id": "0762a274-7f10-4527-973e-011c84ce24c1",
@@ -917,6 +932,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-242/le-tirage-linear-lit-tous-les-commentaires-neufs-dun-ticket-meme-plus"
  },
  "harness-linear-pull-reads-archived-tickets": {
+  "harness_archived_at": "2026-09-25T08:19:43.000Z",
   "hash": "19e0e44c3af45d2d6280ed2236e74313a18e2ed3",
   "identifier": "JAK-235",
   "issue_id": "ffab7f75-5753-4725-83fc-5db08f86e0da",
@@ -927,6 +943,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-235/un-commentaire-de-lowner-sur-un-ticket-archive-est-lu-et-un-chantier"
  },
  "harness-linear-relink-keeps-owner-comments": {
+  "harness_archived_at": "2026-09-25T08:19:49.000Z",
   "hash": "a517c084871537466d3576b3ca75f49d1aecb443",
   "identifier": "JAK-232",
   "issue_id": "8785ced9-f7e3-4b12-826d-dcfbe023b2f2",
@@ -970,6 +987,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-261/la-limite-despace-linear-suit-le-vrai-plan-et-le-recensement-de"
  },
  "harness-linear-stale-map-never-fakes-an-owner-move": {
+  "harness_archived_at": "2026-09-25T08:19:49.000Z",
   "hash": "b8f124dd44ce13a528dec81b198b2ae733de98f6",
   "identifier": "JAK-233",
   "issue_id": "a8e5c760-c327-4b87-bd3c-95e672a0e4a1",
@@ -980,6 +998,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-233/la-synchro-ne-prend-jamais-un-etat-perime-de-sa-carte-pour-un"
  },
  "harness-linear-sync-never-creates-two-tickets-for-one-item": {
+  "harness_archived_at": "2026-09-25T08:19:38.000Z",
   "hash": "a27c673413736cdc871e77cbe4a77f3e9fa9a540",
   "identifier": "JAK-229",
   "issue_id": "85d2ee31-97ae-47cd-9872-04a4108020b3",
@@ -1008,6 +1027,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-184/lagent-principal-relit-207-millions-de-jetons-de-memoire-par-essai"
  },
  "harness-one-definition-of-answered": {
+  "harness_archived_at": "2026-09-25T08:19:43.000Z",
   "hash": "b2ebf8bc21d6c8d0b64d4e532c0f8152b395fb78",
   "identifier": "JAK-236",
   "issue_id": "db1c4d51-b92c-4062-bdcd-6209e40257b4",
@@ -1027,6 +1047,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-250/si-lowner-archive-un-chantier-pendant-quun-essai-tourne-dessus-lessai"
  },
  "harness-owner-feedback-write-never-loses-a-return": {
+  "harness_archived_at": "2026-09-25T08:19:51.000Z",
   "hash": "a950f6dc531ea631a2ddaf4e33d6aed3c34addf7",
   "identifier": "JAK-246",
   "issue_id": "fab283ce-6199-46f1-8415-6d05f74dea82",
@@ -1047,6 +1068,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-268/un-geste-de-lowner-pendant-un-essai-ticket-linear-adopte-etc-nest-plus"
  },
  "harness-owner-secret-never-copied-in-clear": {
+  "harness_archived_at": "2026-09-25T08:19:42.000Z",
   "hash": "61932660c16c6017818e138f9cc1b2c6b4a29161",
   "identifier": "JAK-234",
   "issue_id": "791d8471-df6f-45aa-85ae-47fb18ea0ee1",
@@ -1056,6 +1078,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-234/un-secret-colle-par-lowner-dans-un-commentaire-linear-nest-jamais"
  },
  "harness-owner-sla-answer-must-address-the-owner": {
+  "harness_archived_at": "2026-09-25T08:19:40.000Z",
   "hash": "eb73bb1aa46c5f61f35dfc4445f392001bafc8f4",
   "identifier": "JAK-197",
   "issue_id": "c6d16572-7bba-45c1-af41-bf98d5709311",
@@ -1065,6 +1088,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-197/un-retour-de-lowner-ne-compte-comme-repondu-que-si-la-reponse-lui-est"
  },
  "harness-owner-sla-matches-every-owner-comment": {
+  "harness_archived_at": "2026-09-25T08:19:40.000Z",
   "hash": "de3f85aa8dbcca2af8d005d2be25ce7780733a82",
   "identifier": "JAK-196",
   "issue_id": "8c3a3278-4045-4949-9e7d-2c78187ab2f7",
@@ -1074,6 +1098,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-196/chaque-retour-de-lowner-recopie-de-linear-se-retrouve-sur-son-ticket"
  },
  "harness-owner-test-requires-a-capture": {
+  "harness_archived_at": "2026-09-25T08:19:44.000Z",
   "hash": "1f516e6182aadc245e4fb4f7cbe93f924dabb078",
   "identifier": "JAK-189",
   "issue_id": "fc8256ee-9f6a-49d1-9df0-5d2e730b01ca",
@@ -1083,11 +1108,11 @@
   "url": "https://linear.app/moukrea/issue/JAK-189/un-chantier-visible-ne-part-au-test-de-lowner-que-si-son-ticket-porte"
  },
  "harness-owner-thumbs-up-closes-the-thread": {
-  "hash": "ce2c0ff1022c0cff985797b5e68a171245e5fe23",
+  "hash": "20353ea051addbc6ff99e2f5d265afcd238f416d",
   "identifier": "JAK-245",
   "issue_id": "284ef4eb-a1e8-44e5-b0ef-64d2ce29fdd6",
   "last_state": "In Progress",
-  "last_verdict_announced": "validator-003.txt",
+  "last_verdict_announced": "validator-004.txt",
   "pulled_at": "2026-09-23T01:41:24.000Z",
   "state_at": "2026-09-25T08:03:23.735Z",
   "url": "https://linear.app/moukrea/issue/JAK-245/un-pouce-de-lowner-sur-le-dernier-message-du-harnais-clot-la"
@@ -1179,6 +1204,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-130/une-preuve-perimee-se-voit-avant-la-course-pas-au-validateur-une-heure"
  },
  "harness-status-says-when-linear-cache-is-stale": {
+  "harness_archived_at": "2026-09-25T08:19:44.000Z",
   "hash": "35d0e4841354162a3a00857d989c1920136b641d",
   "identifier": "JAK-200",
   "issue_id": "477a9522-4b09-4f59-ad65-05f7a1bab4b6",
@@ -1227,6 +1253,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-186/le-superviseur-coute-338-dollar-par-essai-et-11-000-dollar-depuis-le"
  },
  "harness-supervisor-death-is-an-alarm": {
+  "harness_archived_at": "2026-09-25T08:19:39.000Z",
   "hash": "3a939d15ca649158a954a2b98ccc2060ba44dd85",
   "identifier": "JAK-190",
   "issue_id": "8275066a-2879-43c3-b492-a8432b96aa4b",
@@ -1244,6 +1271,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-243/une-session-ouverte-a-la-main-ne-peut-pas-se-faire-passer-pour-le"
  },
  "harness-supervisor-reader-must-be-the-supervisor": {
+  "harness_archived_at": "2026-09-25T08:19:41.000Z",
   "hash": "b6f607fd605383db99e9927d7adccc9e698b2655",
   "identifier": "JAK-198",
   "issue_id": "931a8dc2-8917-41fa-ba25-461aed2cb41b",
@@ -1253,6 +1281,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-198/seul-le-vrai-superviseur-compte-comme-lecteur-vivant-une-autre-session"
  },
  "harness-supervisor-relay-command": {
+  "harness_archived_at": "2026-09-25T08:19:48.000Z",
   "hash": "a9263a64f80acbf011c03d6ca6c85b79d8d85999",
   "identifier": "JAK-238",
   "issue_id": "f5a7bf52-4100-4911-9ade-0d927e06629f",
@@ -1324,6 +1353,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-255/petits-defauts-du-reveil-et-des-reponses-reveil-inutile-apres-une"
  },
  "harness-wake-unanswered-list-carries-its-age": {
+  "harness_archived_at": "2026-09-25T08:19:48.000Z",
   "hash": "27d5b845f8240a013133c942fdadf69615f66ea9",
   "identifier": "JAK-199",
   "issue_id": "fa1a091e-57bc-436d-9810-aa44899dbcb1",
@@ -1341,6 +1371,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-273/lorchestrateur-ne-perd-plus-les-dernieres-lignes-dun-worker-qui-sort"
  },
  "harness-workers-reply-in-the-owner-thread": {
+  "harness_archived_at": "2026-09-25T08:19:48.000Z",
   "hash": "c410bc7dd7cc895924de2ef40de448cac09b4cf6",
   "identifier": "JAK-237",
   "issue_id": "702e69fe-8ef5-479c-9115-c49aa48159c2",
@@ -1351,6 +1382,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-237/quand-un-worker-repond-a-un-retour-de-lowner-sa-reponse-est-postee"
  },
  "harness-x86-proof-for-a-device-item-must-shout-at-launch": {
+  "harness_archived_at": "2026-09-25T08:19:38.000Z",
   "hash": "06b7b69bfc41f69a9debf0849c28116e6e4e74d5",
   "identifier": "JAK-191",
   "issue_id": "8d0ae93f-70d2-4081-93e0-abdd0c0b4938",
@@ -1478,6 +1510,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-178/le-hud-recharge-apparait-disparait-et-clignote-exactement-comme-le-hud"
  },
  "hud-eco-gauge": {
+  "harness_archived_at": "2026-09-25T08:19:36.000Z",
   "hash": "009fe3bb85ce3fc3cc46b193474afb99b6763aaa",
   "identifier": "JAK-176",
   "issue_id": "a1236c86-f6cf-4316-8d08-b9870a512de3",
@@ -1792,6 +1825,7 @@
   "url": "https://linear.app/moukrea/issue/JAK-277/un-menu-de-teleportation-vers-nimporte-quel-niveau-ouvert-par-une"
  },
  "owner-opus-5-5": {
+  "harness_archived_at": "2026-09-25T08:19:36.000Z",
   "hash": "9241c2e3f75e3473aaa0f078e2199acd72feebda",
   "identifier": "JAK-192",
   "issue_id": "54277465-24d2-439a-aa7f-a423d24e3c68",
