@@ -18,7 +18,7 @@ Demande de l'owner le 25/09 (ticket dedie). lighting-regimes a corrige a village
 5. COUT (question de l'owner, 25/09 : « Le correctif actuel est un shader qui f […suite dans le contrat]
 
 ## Preuve exigee
-`flipped_faces_dark == 0` dans `reports/lighting-flipped-faces-everywhere/proof.txt`.
+`flipped_faces_contract_defects == 0` dans `reports/lighting-flipped-faces-everywhere/proof.txt`.
 Le proof se produit par `lib/proof_run.sh lighting-flipped-faces-everywhere x86` — jamais a la main, jamais recopie dans le rapport.
 
 ## Hors perimetre

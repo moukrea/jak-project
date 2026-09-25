@@ -22456,14 +22456,14 @@ items:
 - id: lighting-flipped-faces-everywhere
   feature: Aucune surface a l'envers ne tombe au noir, dans aucun niveau ni aucune famille de rendu (decor
     et personnages)
-  status: in-progress
-  priority: 25
+  status: open
+  priority: 21
   code_scope: jeu
   device: false
   owner_test: false
   max_retries: 5
   gate:
-    key: flipped_faces_dark
+    key: flipped_faces_contract_defects
     op: ==
     value: 0
   prompt: prompts/item-lighting-flipped-faces-everywhere.md
@@ -22478,7 +22478,20 @@ items:
     commit 57102cdfce). shade() est inclus par tfrag3, etie_base, tie_wind, shrub, grass, ocean_common
     : en principe tout le decor. MAIS rien ne prouve que c''est regle PARTOUT : la sonde sol (floor_probe.cpp,
     `floor_normal_flipped_ppm_<niveau>`) n''a tourne que sur quelques niveaux, et les personnages (merc)
-    ne passent pas par shade().'
+    ne passent pas par shade().
+
+
+    ROUVERT LE 25/09 PAR LE SUPERVISEUR : ferme par la porte (flipped_faces_dark=0) SANS le livrable demande
+    par l''owner. Le rapport le dit : « common/custom_data/MeshConsolidate.cpp (orientation autorite collision)
+    + tools/mesh_audit --bake | NON FAIT : la correction UNE FOIS dans les assets recharges ». Le retournement
+    est TOUJOURS dans shade.glsl (5 occurrences de g_shade_flip) et a ete ETENDU a merc2.frag. Acquis
+    de l''essai (a garder) : plus de plantage au changement de niveau ; recensement 22 etapes x 7 familles.
+
+    A SAVOIR : `.autoport/lib/release_verify.sh:105-117` refuse tout `fr3/*.meshweld` dans le pack recharge
+    alors que build_custom_pack.sh:431-447 les empaquette et que Loader.cpp:944 les lit : a corriger ICI,
+    sinon les niveaux corriges ne pourront pas partir dans le zip. Merc : l''enroulement n''est pas coherent
+    (gl_FrontFacing vrai sur 47 a 90 % des pixels merc selon le niveau) ; les surfaces minces vues de
+    dos (voiles du moulin de village1) changent visiblement.'
   deliverable: '1. Recenser, pour CHAQUE niveau du jeu et chaque famille (tfrag, TIE, TIE au vent, shrub,
     herbe, ocean, merc), la part de pixels dont la normale pointe a l''envers ET qui tombent sous un seuil
     de noir anormal (comparaison eclairage recharge ON / OFF, meme image).
@@ -22507,7 +22520,14 @@ items:
     quand elle est presente, sinon il garde l''original. NE PAS modifier l''extracteur ni les originaux.
     Cout nul au jeu. PAS DE REPLI (owner 25/09 : « Pas de repli, l''asset est là où pas là. Si pas là,
     tant pis on fait pas ton repli shader. ») : une fois les niveaux corriges dans le pack recharge, RETIRER
-    le retournement de normale de shade() ; sans pack recharge, le jeu montre l''original tel quel.'
+    le retournement de normale de shade() ; sans pack recharge, le jeu montre l''original tel quel.
+
+
+    PORTE REFAITE LE 25/09 : `flipped_faces_contract_defects` = (couples niveau/famille encore au noir)
+    + (occurrences d''un retournement de normale au runtime dans shade.glsl ET merc2.frag : doit valoir
+    0, owner « pas de repli ») + (niveaux du jeu SANS version corrigee dans le pack recharge) + (refus
+    de release_verify.sh sur les fichiers corriges). Doit valoir 0. Le jeu sans pack recharge montre l''original
+    tel quel.'
   owner_feedback:
   - date: '2026-09-25'
     text: Top donc comme j'ai dit dans l'autre commentaire pour le soucis des faces qui était mal orientés
@@ -22549,6 +22569,13 @@ items:
       comment: e3f2abf6-90a2-4795-a83a-f1c538ef458c
       ticket: a6c7bbd7-f461-4af9-8e7c-d653a2ed6979
       at: '2026-09-25T00:32:05.545Z'
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-25'
+    proof_sha: 627393c528cce0b2
+    proof_bytes: 178937
+    attempt: 2
+    journal: validator-002.txt
 - id: acquis-lighting-regimes
   feature: 'La lumiere principale par creneau (validee) ne peut plus regresser : un acquis la protege'
   status: open
@@ -22576,7 +22603,7 @@ items:
 - id: arm64-integer-division-matches-x86
   feature: Sur le telephone, la division entiere donne exactement le meme resultat que sur PC (semantique
     32 bits du jeu d'origine)
-  status: open
+  status: in-progress
   priority: 26
   code_scope: jeu
   device: false
