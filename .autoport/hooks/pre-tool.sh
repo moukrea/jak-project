@@ -224,9 +224,17 @@ while IFS= read -r seg; do
       fi ;;
   esac
   # 3d. preuve visuelle : interdite par l'owner, et illisible par une porte.
+  # EXCEPTION (owner 25/09 : « tu devrais pouvoir prendre des captures, surtout si c'est pour les
+  # joindre à la conversation sur Linear ») : une capture ecrite sous .autoport/linear-attach/
+  # sert d'ILLUSTRATION pour --attach ; aucune porte ne lit ce dossier, ce n'est jamais une preuve.
   if [[ $seg =~ (screencap|screenrecord) ]]; then
-    refuse "\`${BASH_REMATCH[1]}\` : la preuve par image est interdite." \
-           "publie un compteur ecrit par le moteur, lu par .autoport/lib/proof_run.sh." ;
+    _cap="${BASH_REMATCH[1]}"
+  else
+    _cap=""
+  fi
+  if [[ -n $_cap && ! $seg =~ \.autoport/linear-attach/ ]]; then
+    refuse "\`${_cap}\` : la preuve par image est interdite." \
+           "une preuve = un compteur ecrit par le moteur, lu par .autoport/lib/proof_run.sh ; une ILLUSTRATION pour Linear s'ecrit sous .autoport/linear-attach/ puis part par linear_sync.py --attach." ;
   fi
 done <<< "$SEGS"
 
