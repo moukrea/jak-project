@@ -2,6 +2,7 @@
 
 ## Defaut cite
 - 2026-09-23 : « Je pense qu'ils les faut tous... à prioriser of course mais tout est pertinent il semblerait, go »
+- 2026-09-23 : « Ok mais codex c'est pas prioritaire du tout, ça sera codex lui même qui traitera quand il voudra, vraiment en bas du bas de la pile »
 
 ## Cause connue
 Signale par le worker de harness-supervisor-death-is-an-alarm (reports/harness-supervisor-death-is-an-alarm/FINDINGS.txt, ligne 7), non corrige ; l'owner a dit d'ouvrir tous ces chantiers le 23/09.

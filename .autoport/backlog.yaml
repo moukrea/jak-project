@@ -6255,7 +6255,7 @@ items:
   delivered: '2026-09-25'
 - id: lighting-local-lights
   feature: Les lampes, torches et laves eclairent enfin
-  status: in-progress
+  status: open
   priority: 30
   owner_feedback:
   - date: '2026-09-03'
@@ -6303,10 +6303,18 @@ items:
     sur le master seul (SPEC 1.1, 6.2, 7.3). Ne touche a aucune feature validee. Pas de mesure visuelle.
     Pas d'ombre par lumiere locale a cet item.
   notes: 'budget : lexique d''assets, extraction hors ligne, grille de clusters, pont de vacillement,
-    avec un bras appareil pour le budget. SPEC section 6.7.'
+    avec un bras appareil pour le budget. SPEC section 6.7.
+
+    25/09 (superviseur) : rouvert. Bloque par une panne d''authentification de l''API (401, jeton expire
+    puis renouvele a 15:16), pas par son travail ; l''essai n''est pas decompte.'
   spec: prompts/SPEC-refonte-lumiere.md
   hits_means: pixels eclaires par au moins une lumiere locale
   supervisor_recovery: true
+  proof_props:
+  - debug.opengoal.recharged=1
+  - debug.opengoal.lighting=1
+  - debug.opengoal.level.warp=village1-warp
+  - debug.opengoal.tod.hour=21
 - id: lighting-interiors
   feature: Les interieurs gardent leur lumiere, sans fuite par les murs
   status: open
@@ -6839,7 +6847,10 @@ items:
   notes: 'SPEC sections 5.6, 4 (les 7 invariants). Vantages : village1-out, beach.
 
     23/09 (superviseur) : dependance lighting-ao-indirect (ARCHIVE, supplante le 17/09) remplacee par
-    son successeur ao-indirect-clean (valide) : elle bloquait l''item depuis 6 jours.'
+    son successeur ao-indirect-clean (valide) : elle bloquait l''item depuis 6 jours.
+
+    25/09 (superviseur) : rouvert. Bloque par une panne d''authentification de l''API (401, jeton expire
+    puis renouvele a 15:16), pas par son travail ; l''essai n''est pas decompte.'
   spec: prompts/SPEC-refonte-eau.md
   hits_means: fragments d'eau passes par shade()
   supervisor_recovery: true
@@ -8267,7 +8278,10 @@ items:
   out_of_scope: Pas de changement de l'ABI GOAL<->C visible des .s sans mise a jour des deux cotes dans
     le meme commit. Ne touche a aucune feature validee.
   notes: 'budget : regalloc, calling convention, deux fichiers verrouilles du cookbook a deverrouiller
-    explicitement. Point de vue : village1-hut.'
+    explicitement. Point de vue : village1-hut.
+
+    25/09 (superviseur) : rouvert. Bloque par une panne d''authentification de l''API (401, jeton expire
+    puis renouvele a 15:16), pas par son travail ; l''essai n''est pas decompte.'
   max_turns: 1600
   hits_means: fonctions sans spill
   proof_timeout: 600
@@ -8280,7 +8294,6 @@ items:
   - debug.opengoal.perf.buckets=1
   prompt: prompts/item-perf-codegen-arm64-regs.md
   device_serial: eae4df44
-  block_reason: null
 - id: perf-instrument-cost
   feature: Un instrument desarme ne coute rien, et le prouve lui-meme
   status: open
@@ -12466,10 +12479,12 @@ items:
     budget : plafond 6 = compteur 5 + accordes ; owner 20/09 (touffes indistinctes, puis palette par espece)
     : 2 essais par retour + 1 pour l''essai 4 perdu en plomberie, recalcules depuis state.json
 
-    budget : plafond 8 = compteur 6 + 2 (owner 20/09 20:40, palette hors biome)'
+    budget : plafond 8 = compteur 6 + 2 (owner 20/09 20:40, palette hors biome)
+
+    25/09 (superviseur) : rouvert. Bloque par une panne d''authentification de l''API (401, jeton expire
+    puis renouvele a 15:16), pas par son travail ; l''essai n''est pas decompte.'
   hits_means: brins ayant recu une variante
   prompt: prompts/item-grass-blade-variants.md
-  block_reason: ''
   proof_props:
   - debug.opengoal.recharged=1
   - debug.opengoal.level.warp=training-start
@@ -12983,10 +12998,12 @@ items:
   notes: 'SPEC sections 0, 11. Preuve appareil obligatoire : le piege Adreno est invisible sur x86.
 
     budget : plafond 4 = compteur 1 + accordes ; owner 20/09 (spheres de collision, ressort) : 3 essais,
-    recalcules depuis state.json'
+    recalcules depuis state.json
+
+    25/09 (superviseur) : rouvert. Bloque par une panne d''authentification de l''API (401, jeton expire
+    puis renouvele a 15:16), pas par son travail ; l''essai n''est pas decompte.'
   hits_means: contacts dynamiques appliques
   prompt: prompts/item-grass-interaction-direction.md
-  block_reason: ''
   gate_verdict:
     result: porte-tenue
     date: '2026-09-20'
@@ -13638,7 +13655,10 @@ items:
   where: Rien a voir dans le jeu.
   out_of_scope: 'Ne charge rien dans le moteur, ne dessine rien : c''est soft-shell-renderer. Tout ce
     qui n''est pas cet item.'
-  notes: 'SPEC section 3. Patron : tools/grass_bake et son controle de round-trip.'
+  notes: 'SPEC section 3. Patron : tools/grass_bake et son controle de round-trip.
+
+    25/09 (superviseur) : rouvert. Bloque par une panne d''authentification de l''API (401, jeton expire
+    puis renouvele a 15:16), pas par son travail ; l''essai n''est pas decompte.'
   hits_means: chunks serialises
   prompt: prompts/item-soft-bake-format.md
   owner_feedback: []
@@ -16364,7 +16384,10 @@ items:
     `grass_bake_stale_defects=` seule sur sa ligne ; `--off` rend `armed=0 hits=0`.'
   where: 'Rien a voir dans le jeu : une cuisson d''herbe perimee ne peut plus etre livree.'
   out_of_scope: Ne change ni le format des bakes ni le rendu. Tout ce qui n'est pas cet item.
-  notes: 'Cree le 17/09 par le superviseur : section 5 de la SPEC sans item.'
+  notes: 'Cree le 17/09 par le superviseur : section 5 de la SPEC sans item.
+
+    25/09 (superviseur) : rouvert. Bloque par une panne d''authentification de l''API (401, jeton expire
+    puis renouvele a 15:16), pas par son travail ; l''essai n''est pas decompte.'
   hits_means: comparaisons d'empreinte faites
   prompt: prompts/item-grass-bake-invalidation.md
 - status: open
@@ -17837,6 +17860,8 @@ items:
     et de clignotement.'
   out_of_scope: Aucun nouveau comportement. Tout ce qui n'est pas cet item.
   prompt: prompts/item-hud-behavior-parity.md
+  notes: '25/09 (superviseur) : rouvert. Bloque par une panne d''authentification de l''API (401, jeton
+    expire puis renouvele a 15:16), pas par son travail ; l''essai n''est pas decompte.'
 - status: validated
   game: jak1
   code_scope: jeu
@@ -19742,7 +19767,7 @@ items:
     journal: validator-003.txt
 - id: harness-codex-supervisor-launched-by-hand-is-seen
   feature: Un superviseur Codex lance a la main est vu vivant par le harnais
-  status: open
+  status: blocked
   priority: 990
   code_scope: harnais
   device: false
@@ -19782,6 +19807,10 @@ items:
     CONTROLE POSITIF fabrique (le defaut semé rougit la porte et est NOMME) + CONTROLE NEGATIF (cas sain
     a 0). Publier le denominateur.'
   notes: '23/09 : owner -> tout en bas de la pile ; c''est Codex qui le traitera lui-meme quand il voudra.'
+  no_code: true
+  block_reason: 'consigne PERIMEE : item-harness-codex-supervisor-launched-by-hand-is-seen.md est notre
+    fabrication, mais l''item a bouge depuis. Refabrique-la avant de relancer — sinon le worker travaille
+    sur un cahier des charges depasse.'
 - id: harness-supervisor-seen-stamp-per-reader
   feature: 'Deux superviseurs en meme temps sont comptes separement : la mort de l''un ne se cache plus
     derriere l''autre'
@@ -19810,6 +19839,9 @@ items:
 
     CONTROLE POSITIF fabrique (le defaut semé rougit la porte et est NOMME) + CONTROLE NEGATIF (cas sain
     a 0). Publier le denominateur.'
+  no_code: true
+  notes: '25/09 (superviseur) : rouvert. Bloque par une panne d''authentification de l''API (401, jeton
+    expire puis renouvele a 15:16), pas par son travail ; l''essai n''est pas decompte.'
 - id: harness-linear-sync-never-creates-two-tickets-for-one-item
   feature: La synchro Linear ne cree jamais deux tickets pour un meme chantier, et ne prend jamais son
     propre ticket pour un ticket de l'owner
@@ -20337,6 +20369,9 @@ items:
 
     CONTROLE POSITIF fabrique (le defaut seme rougit la porte et est NOMME) + CONTROLE NEGATIF (cas sain
     a 0). Publier le denominateur.'
+  no_code: true
+  notes: '25/09 (superviseur) : rouvert. Bloque par une panne d''authentification de l''API (401, jeton
+    expire puis renouvele a 15:16), pas par son travail ; l''essai n''est pas decompte.'
 - id: harness-linear-learned-limit-can-rise
   feature: La limite de tickets apprise sur un refus Linear remonte d'elle-meme si l'owner change de plan
   status: validated
@@ -20451,6 +20486,9 @@ items:
 
     CONTROLE POSITIF fabrique (le defaut seme rougit la porte et est NOMME) + CONTROLE NEGATIF (cas sain
     a 0). Publier le denominateur.'
+  no_code: true
+  notes: '25/09 (superviseur) : rouvert. Bloque par une panne d''authentification de l''API (401, jeton
+    expire puis renouvele a 15:16), pas par son travail ; l''essai n''est pas decompte.'
 - id: harness-supervisor-proof-not-by-pasted-text
   feature: Une session ouverte a la main ne peut pas se faire passer pour le superviseur en recevant le
     texte d'un reveil
@@ -20483,6 +20521,9 @@ items:
     valoir 0.
 
     CONTROLE POSITIF fabrique + CONTROLE NEGATIF. Publier le denominateur.'
+  no_code: true
+  notes: '25/09 (superviseur) : rouvert. Bloque par une panne d''authentification de l''API (401, jeton
+    expire puis renouvele a 15:16), pas par son travail ; l''essai n''est pas decompte.'
 - id: harness-supervisor-seen-log-rotates
   feature: Le journal des tampons de lecture du superviseur est purge au lieu de grossir sans fin
   status: open
@@ -20511,6 +20552,9 @@ items:
     2. `supervisor_seen_log_unbounded` = journal au-dela de la borne ; doit valoir 0.
 
     CONTROLE POSITIF fabrique + CONTROLE NEGATIF. Publier le denominateur.'
+  no_code: true
+  notes: '25/09 (superviseur) : rouvert. Bloque par une panne d''authentification de l''API (401, jeton
+    expire puis renouvele a 15:16), pas par son travail ; l''essai n''est pas decompte.'
 - id: harness-owner-thumbs-up-closes-the-thread
   feature: 'Un pouce de l''owner sur le dernier message du harnais clot la discussion du ticket : plus
     aucune etiquette « A traiter », « A lire » ni « En discussion » n''y reste'
@@ -20975,6 +21019,9 @@ items:
       source: supervisor
       at: '2026-09-23T05:37:47+00:00'
       by: autoport feedback
+  no_code: true
+  notes: '25/09 (superviseur) : rouvert. Bloque par une panne d''authentification de l''API (401, jeton
+    expire puis renouvele a 15:16), pas par son travail ; l''essai n''est pas decompte.'
 - id: harness-secret-guards-hardening
   feature: 'Les gardes anti-secret couvrent aussi les cas limites : --no-verify, reponses de l''outil
     d''identite, secret sur deux lignes, requete ecrite en morceaux'
@@ -21016,6 +21063,9 @@ items:
       source: supervisor
       at: '2026-09-23T05:37:31+00:00'
       by: autoport feedback
+  no_code: true
+  notes: '25/09 (superviseur) : rouvert. Bloque par une panne d''authentification de l''API (401, jeton
+    expire puis renouvele a 15:16), pas par son travail ; l''essai n''est pas decompte.'
 - id: harness-wake-and-reply-minor-gaps
   feature: 'Petits defauts du reveil et des reponses : reveil inutile apres une reponse en retard, libelle
     de delai faux, retours du terminal sans fil, cible de --reply-to'
@@ -21060,6 +21110,9 @@ items:
       source: supervisor
       at: '2026-09-23T05:37:48+00:00'
       by: autoport feedback
+  no_code: true
+  notes: '25/09 (superviseur) : rouvert. Bloque par une panne d''authentification de l''API (401, jeton
+    expire puis renouvele a 15:16), pas par son travail ; l''essai n''est pas decompte.'
 - id: harness-invisible-item-comment-has-no-capture-boilerplate
   feature: Un chantier invisible (harnais, rien a tester par l'owner) ne parle jamais de capture ni de
     build a tester dans son commentaire
@@ -21337,6 +21390,9 @@ items:
     3. `linear_space_limit_stale` ; doit valoir 0.
 
     CONTROLE POSITIF fabrique + CONTROLE NEGATIF. Publier le denominateur.'
+  no_code: true
+  notes: '25/09 (superviseur) : rouvert. Bloque par une panne d''authentification de l''API (401, jeton
+    expire puis renouvele a 15:16), pas par son travail ; l''essai n''est pas decompte.'
 - id: harness-census-seeds-anchored-structurally
   feature: 'Les recensements du harnais ne dependent plus d''une ligne de code exacte : une reecriture
     ne les rend plus muets'
@@ -22164,6 +22220,9 @@ items:
     type ; doit valoir 0.
 
     CONTROLE POSITIF fabrique + CONTROLE NEGATIF. Publier le denominateur.'
+  no_code: true
+  notes: '25/09 (superviseur) : rouvert. Bloque par une panne d''authentification de l''API (401, jeton
+    expire puis renouvele a 15:16), pas par son travail ; l''essai n''est pas decompte.'
 - id: harness-dead-dependency-is-named-never-silent
   feature: 'Un chantier qui depend d''un chantier archive ou supplante n''attend plus en silence : le
     lint rougit, le superviseur et l''owner le voient'
@@ -22300,6 +22359,9 @@ items:
     ; doit valoir 0.
 
     CONTROLE POSITIF (ancien code : lignes perdues) + CONTROLE NEGATIF.'
+  no_code: true
+  notes: '25/09 (superviseur) : rouvert. Bloque par une panne d''authentification de l''API (401, jeton
+    expire puis renouvele a 15:16), pas par son travail ; l''essai n''est pas decompte.'
 - id: harness-dead-dependency-leftovers
   feature: 'Restes des dependances mortes : un archivage fait par l''owner redirige aussi ses dependants,
     et le statut machine compte les chantiers geles'
@@ -22332,6 +22394,9 @@ items:
     4. `dead_dependency_leftovers` ; doit valoir 0.
 
     CONTROLE POSITIF + CONTROLE NEGATIF.'
+  no_code: true
+  notes: '25/09 (superviseur) : rouvert. Bloque par une panne d''authentification de l''API (401, jeton
+    expire puis renouvele a 15:16), pas par son travail ; l''essai n''est pas decompte.'
 - id: acquis-lighting-bake
   feature: 'La separation de l''eclairage en ambiante + soleil (validee) ne peut plus regresser : un acquis
     la protege'
@@ -22357,6 +22422,9 @@ items:
     CONTROLE NEGATIF : binaire courant -> 0.
 
     3. Publier `lighting_bake_acquis_defects` et le nombre de niveaux mesures (0 niveau = defaut).'
+  no_code: true
+  notes: '25/09 (superviseur) : rouvert. Bloque par une panne d''authentification de l''API (401, jeton
+    expire puis renouvele a 15:16), pas par son travail ; l''essai n''est pas decompte.'
 - id: harness-acquis-leftovers
   feature: 'Restes des acquis : un acquis coupe ne laisse plus d''orphelin, et tous les acquis passent
     par la meme garde'
@@ -22388,6 +22456,9 @@ items:
     0.
 
     CONTROLE POSITIF + CONTROLE NEGATIF.'
+  no_code: true
+  notes: '25/09 (superviseur) : rouvert. Bloque par une panne d''authentification de l''API (401, jeton
+    expire puis renouvele a 15:16), pas par son travail ; l''essai n''est pas decompte.'
 - id: owner-level-teleport-menu
   feature: Un menu de teleportation vers n'importe quel niveau, ouvert par une combinaison de touches,
     pour que l'owner teste vite partout
@@ -22520,6 +22591,9 @@ items:
     2. `census_liveness_leftovers` ; doit valoir 0.
 
     CONTROLE POSITIF + CONTROLE NEGATIF.'
+  no_code: true
+  notes: '25/09 (superviseur) : rouvert. Bloque par une panne d''authentification de l''API (401, jeton
+    expire puis renouvele a 15:16), pas par son travail ; l''essai n''est pas decompte.'
 - id: lighting-flipped-faces-everywhere
   feature: Aucune surface a l'envers ne tombe au noir, dans aucun niveau ni aucune famille de rendu (decor
     et personnages)
@@ -22670,6 +22744,9 @@ items:
     2. CONTROLE POSITIF (reintroduire la negation de direction -> rouge nomme) + CONTROLE NEGATIF.
 
     3. Publier le nombre de grandeurs lues (0 = defaut).'
+  no_code: true
+  notes: '25/09 (superviseur) : rouvert. Bloque par une panne d''authentification de l''API (401, jeton
+    expire puis renouvele a 15:16), pas par son travail ; l''essai n''est pas decompte.'
 - id: arm64-integer-division-matches-x86
   feature: Sur le telephone, la division entiere donne exactement le meme resultat que sur PC (semantique
     32 bits du jeu d'origine)
@@ -22751,6 +22828,9 @@ items:
     4. `goalc_unit_tests_broken` = tests en echec ou non lances ; doit valoir 0.
 
     CONTROLE POSITIF (casser une instruction de l''emetteur -> un test rougit) + CONTROLE NEGATIF.'
+  no_code: true
+  notes: '25/09 (superviseur) : rouvert. Bloque par une panne d''authentification de l''API (401, jeton
+    expire puis renouvele a 15:16), pas par son travail ; l''essai n''est pas decompte.'
 - id: harness-flipped-faces-acquis-offline
   feature: Le garde-fou des faces a l'envers relit les assets hors ligne, et le moteur ne porte plus d'instrumentation
     de ce sujet
@@ -22855,7 +22935,7 @@ items:
 - id: harness-directives-gate-reads-any-report-name
   feature: La porte DIRECTIVES ne brule plus un essai vert parce que le rapport s'appelle report.md au
     lieu de report.txt
-  status: open
+  status: validated
   priority: 19
   code_scope: harnais
   device: false
@@ -22882,3 +22962,11 @@ items:
     4. `directives_gate_misnamed_refusals` ; doit valoir 0.
 
     CONTROLE POSITIF + CONTROLE NEGATIF.'
+  no_code: true
+  gate_verdict:
+    result: porte-tenue
+    date: '2026-09-25'
+    proof_sha: 7864335a9b4e2a3f
+    proof_bytes: 77676
+    attempt: 2
+    journal: validator-002.txt
