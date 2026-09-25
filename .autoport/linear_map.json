@@ -36,7 +36,7 @@
    "url": "https://linear.app/moukrea/document/e1fe9500339a"
   }
  },
- "_gen": 468,
+ "_gen": 474,
  "_ids": {
   "labels": {
    "ok": "000e105b-24ba-4fa3-a579-bc3bf0869242",
@@ -1596,12 +1596,13 @@
   "url": "https://linear.app/moukrea/issue/JAK-46/fiabiliser-les-comparaisons-onoff-pour-corriger-les-blancs-hdr"
  },
  "lighting-flipped-faces-everywhere": {
-  "hash": "66367787126a0930b46bba51bb1e25a6d8007c26",
+  "hash": "04e9f08e56f55e7bee3ca6a57ec2f0e69a3d8c5d",
   "identifier": "JAK-279",
   "issue_id": "a6c7bbd7-f461-4af9-8e7c-d653a2ed6979",
   "last_state": "In Progress",
-  "pulled_at": "2026-09-25T00:01:48.462Z",
-  "state_at": "2026-09-24T23:49:24.893Z",
+  "last_verdict_announced": "validator-002.txt",
+  "pulled_at": "2026-09-25T00:32:05.545Z",
+  "state_at": "2026-09-25T00:17:12.262Z",
   "url": "https://linear.app/moukrea/issue/JAK-279/aucune-surface-a-lenvers-ne-tombe-au-noir-dans-aucun-niveau-ni-aucune"
  },
  "lighting-interiors": {
