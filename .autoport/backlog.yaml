@@ -22456,7 +22456,7 @@ items:
 - id: lighting-flipped-faces-everywhere
   feature: Aucune surface a l'envers ne tombe au noir, dans aucun niveau ni aucune famille de rendu (decor
     et personnages)
-  status: open
+  status: in-progress
   priority: 21
   code_scope: jeu
   device: false
@@ -22603,7 +22603,7 @@ items:
 - id: arm64-integer-division-matches-x86
   feature: Sur le telephone, la division entiere donne exactement le meme resultat que sur PC (semantique
     32 bits du jeu d'origine)
-  status: in-progress
+  status: open
   priority: 26
   code_scope: jeu
   device: false
@@ -22644,3 +22644,33 @@ items:
       source: supervisor
       at: '2026-09-24T23:49:32+00:00'
       by: autoport feedback
+- id: harness-goalc-unit-tests-run-again
+  feature: Les tests unitaires du compilateur GOAL tournent de nouveau et sont rebatis avec lui
+  status: open
+  priority: 123
+  code_scope: harnais
+  device: false
+  owner_test: false
+  max_retries: 4
+  gate:
+    key: goalc_unit_tests_broken
+    op: ==
+    value: 0
+  prompt: prompts/item-harness-goalc-unit-tests-run-again.md
+  known_cause: 'Signale par le worker de arm64-integer-division-matches-x86, non corrige ; ouvert sous
+    la delegation de l''owner pour les signalements de harnais.
+
+    `build/goalc-test` date du 27/08, n''est jamais rebati par `.autoport/lib/build_x86.sh`, et part en
+    SIGSEGV des le premier test (EmitterAVX.VF_NOP) : AUCUN test unitaire du compilateur n''est executable
+    aujourd''hui. Toute regression de l''emetteur (x86 ou arm64 : division, swizzle, float->int) passe
+    sans bruit.'
+  deliverable: '1. Rebatir goalc-test avec le meme outil de build que gk/goalc (build_x86.sh le couvre),
+    et comprendre le SIGSEGV (binaire perime ou vraie panne).
+
+    2. La suite passe (ou chaque echec est nomme et range en item).
+
+    3. Une porte de harnais la lance sur tout essai qui touche goalc/.
+
+    4. `goalc_unit_tests_broken` = tests en echec ou non lances ; doit valoir 0.
+
+    CONTROLE POSITIF (casser une instruction de l''emetteur -> un test rougit) + CONTROLE NEGATIF.'
