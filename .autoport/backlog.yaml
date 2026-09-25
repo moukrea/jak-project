@@ -22970,3 +22970,34 @@ items:
     proof_bytes: 77676
     attempt: 2
     journal: validator-002.txt
+- id: harness-api-auth-outage-pauses-not-blocks
+  feature: Une panne d'authentification de l'API met l'orchestrateur en pause au lieu de bloquer toute
+    la file
+  status: open
+  priority: 17
+  code_scope: harnais
+  device: false
+  owner_test: false
+  max_retries: 4
+  gate:
+    key: auth_outage_items_blocked
+    op: ==
+    value: 0
+  prompt: prompts/item-harness-api-auth-outage-pauses-not-blocks.md
+  known_cause: '25/09 vers 15h : le jeton OAuth de la CLI a expire (renouvele a 15:16). Chaque essai lance
+    a rendu « erreur API 401 » immediatement ; l''orchestrateur a marque chaque item BLOQUE l''un apres
+    l''autre (25 items en cascade, dont lighting-local-lights en plein travail) puis s''est arrete, orch=0.
+    Le superviseur a tout rouvert a la main. Une panne d''authentification n''est PAS un echec du chantier
+    : c''est l''environnement.'
+  deliverable: '1. Un 401/403 (ou tout refus d''authentification) sur un essai : l''essai n''est ni compte
+    ni bloque ; l''orchestrateur se met en PAUSE, re-sonde l''API toutes les N minutes (appel minimal)
+    et reprend seul quand elle repond, en le journalisant.
+
+    2. Au-dela d''un seuil (ex. 30 min), alerte au superviseur (reveil) une seule fois.
+
+    3. `autoport status` dit « En pause : authentification API refusee depuis X ».
+
+    4. `auth_outage_items_blocked` = items bloques pour une cause d''authentification ; doit valoir 0.
+
+    CONTROLE POSITIF (API simulee qui rend 401 puis 200) + CONTROLE NEGATIF (un vrai echec de modele reste
+    compte).'
