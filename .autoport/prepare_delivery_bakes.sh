@@ -44,6 +44,16 @@ for level in "${levels[@]}"; do
   build/tools/mesh_audit/mesh_audit --game jak1 --fr3-dir "$stage" --level "$level" \
     --bake --out "$log" --csv "${log%.txt}.csv" > "$log.stdout" 2>&1 \
     || fail "outil refuse $level (voir $log.stdout)"
+  # Niveau sans decor (GAME, 0 triangle) : le cuiseur n'ecrit pas de compagnon depuis bc0c08fcfe
+  # et retire celui d'une cuisson passee. Rien a livrer, ce n'est pas un echec.
+  if grep -qE '^BAKED SIDECARS: 0 written, 0 total' "$log.stdout" \
+    && grep -qF 'bake=none(no-decor)' "$log.stdout"; then
+    [ ! -e "$mw" ] || fail "compagnon residuel pour un niveau sans decor: $level"
+    cleanup
+    stage=""
+    echo "[delivery-bake] niveau=$level sans_decor=1 sidecar=aucun"
+    continue
+  fi
   # mesh_audit peut rendre 0 apres une ecriture ratee : verifier le resultat.
   grep -qE '^BAKED SIDECARS: 1 written' "$log.stdout" || fail "cuisson non confirmee: $level"
   [ -s "$stage/$level.meshweld" ] || fail "sidecar non produit: $level"
