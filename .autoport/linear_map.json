@@ -36,7 +36,7 @@
    "url": "https://linear.app/moukrea/document/e1fe9500339a"
   }
  },
- "_gen": 562,
+ "_gen": 565,
  "_ids": {
   "labels": {
    "ok": "000e105b-24ba-4fa3-a579-bc3bf0869242",
@@ -768,13 +768,13 @@
   "url": "https://linear.app/moukrea/issue/JAK-193/la-porte-de-deploiement-sur-appareil-compare-aussi-le-pack-dassets"
  },
  "harness-directives-gate-reads-any-report-name": {
-  "hash": "a095ebbb1bbeec9303a1df3b7d8a46302a98c713",
+  "hash": "9ff9bc8344521c6f5286d054c7f6410017d647d1",
   "identifier": "JAK-285",
   "issue_id": "190d7015-3275-4f5a-88de-ea477b3b015c",
-  "last_state": "In Progress",
+  "last_state": "Done",
   "last_verdict_announced": "validator-002.txt",
   "pulled_at": "2026-09-25T11:08:19.000Z",
-  "state_at": "2026-09-25T11:54:00.441Z",
+  "state_at": "2026-09-25T12:01:45.319Z",
   "url": "https://linear.app/moukrea/issue/JAK-285/la-porte-directives-ne-brule-plus-un-essai-vert-parce-que-le-rapport"
  },
  "harness-directives-promises-are-implemented": {
@@ -1683,16 +1683,16 @@
   "url": "https://linear.app/moukrea/issue/JAK-90/les-reglages-declairage-de-lancien-monde-ne-cohabitent-plus-avec-la"
  },
  "lighting-local-lights": {
-  "hash": "cbbfdd5268af79ae92ac7caf98f339a9943aa156",
+  "hash": "8b999cca0706a7c2a42c5012206b0c89b063ad5b",
   "identifier": "JAK-52",
   "issue_id": "e4cfe312-46c3-45fb-a3ce-f4f65ca6ef0b",
-  "last_state": "Todo",
+  "last_state": "In Progress",
   "last_verdict_announced": "validator-001.txt",
   "pulled_at": "2026-09-17T05:36:55.000Z",
   "relations": [
    "lighting-regimes"
   ],
-  "state_at": "2026-09-25T11:18:17.907Z",
+  "state_at": "2026-09-25T12:01:44.383Z",
   "url": "https://linear.app/moukrea/issue/JAK-52/les-lampes-torches-et-laves-eclairent-enfin"
  },
  "lighting-materials": {
