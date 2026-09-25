@@ -14,14 +14,17 @@
 // (with --bake) the per-level <level>.meshweld precompute sidecars next to the .fr3 files.
 
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "common/custom_data/MeshConsolidate.h"
+#include "common/custom_data/normal_pack.h"
 #include "common/custom_data/Tfrag3Data.h"
 #include "common/util/FileUtil.h"
 #include "common/util/Serializer.h"
@@ -46,6 +49,8 @@ static void usage() {
       "  --geom-orient  bake with the geometric outward-escape orientation vote (wrong for\n"
       "                 terrain/interiors, see ROUND 32; default is OFF, collision-first)\n"
       "  --no-geom-orient  accepted, no-op (this is the default now)\n"
+      "  --check-orient DIR  offline: apply DIR/<level>.meshweld (the recharged pack's fr3/) and\n"
+      "                 count decor triangles whose STORED normal opposes the coplanar collision\n"
       "  --verify-bake  round-trip self-test: re-load the fr3, apply the sidecar, and compare it\n"
       "                 field-by-field against the live pass (requires --bake)\n");
 }
@@ -243,6 +248,522 @@ u64 verify_bake_compare(const std::string& level_name,
 
 }  // namespace
 
+// ================================================================================================
+// --check-orient DIR — lighting-flipped-faces-everywhere (owner 25/09 : « un truc qu'on fait sur
+// les assets du jeu directement »). HORS LIGNE, sans lancer le jeu : pour chaque niveau extrait de
+// l'ISO (le .fr3, intact), applique le compagnon <niveau>.meshweld trouve dans DIR (le fr3/ du pack
+// d'assets recharges) exactement comme Loader.cpp, puis compte les triangles du decor (tfrag, TIE
+// statique, shrub) dont la normale STOCKEE par sommet s'oppose a la surface de collision COPLANAIRE
+// (la cote marchable / visible du monde). La meme mesure sur l'asset d'origine (avant compagnon)
+// est publiee a cote : c'est le temoin que l'instrument voit le defaut.
+// Un triangle sans collision coplanaire n'a pas d'autorite : il est compte `unjudged`, jamais juge.
+// ================================================================================================
+struct OrientCount {
+  u64 tris = 0, no_normal = 0, judged = 0, reversed = 0;
+};
+
+// Triangles de collision ranges par cellules de 2 m sur leur boite englobante.
+struct CollTriGrid {
+  struct Tri {
+    math::Vector3f a, b, c;  // sommets
+    math::Vector3f gn;       // normale geometrique unitaire (sens de l'enroulement)
+    math::Vector3f n;        // normale STOCKEE de la collision, unitaire : l'autorite
+  };
+  std::vector<Tri> tris;
+  std::unordered_map<u64, std::vector<u32>> cells;
+  float cell = 2.f * 4096.f;
+  static u64 key(s64 x, s64 y, s64 z) {
+    return ((u64)(x & 0x1fffff) << 42) | ((u64)(y & 0x1fffff) << 21) | (u64)(z & 0x1fffff);
+  }
+  void build(const tfrag3::CollisionMesh& m) {
+    for (size_t i = 0; i + 2 < m.vertices.size(); i += 3) {
+      const auto& v0 = m.vertices[i];
+      const auto& v1 = m.vertices[i + 1];
+      const auto& v2 = m.vertices[i + 2];
+      Tri t;
+      t.a = math::Vector3f(v0.x, v0.y, v0.z);
+      t.b = math::Vector3f(v1.x, v1.y, v1.z);
+      t.c = math::Vector3f(v2.x, v2.y, v2.z);
+      math::Vector3f g = (t.b - t.a).cross(t.c - t.a);
+      const float gl = g.length();
+      math::Vector3f n((float)v0.nx + v1.nx + v2.nx, (float)v0.ny + v1.ny + v2.ny,
+                       (float)v0.nz + v1.nz + v2.nz);
+      const float nl = n.length();
+      if (!(gl > 1e-3f) || !(nl > 1e-6f)) {
+        continue;
+      }
+      t.gn = g * (1.f / gl);
+      t.n = n * (1.f / nl);
+      if (std::abs(t.n.dot(t.gn)) < 0.9f) {
+        continue;  // normale stockee hors du plan du triangle : pas une autorite fiable
+      }
+      const u32 id = (u32)tris.size();
+      tris.push_back(t);
+      s64 lo[3], hi[3];
+      for (int k = 0; k < 3; k++) {
+        const float mn = std::min({t.a[k], t.b[k], t.c[k]});
+        const float mx = std::max({t.a[k], t.b[k], t.c[k]});
+        lo[k] = (s64)std::floor(mn / cell);
+        hi[k] = (s64)std::floor(mx / cell);
+      }
+      for (s64 x = lo[0]; x <= hi[0]; x++)
+        for (s64 y = lo[1]; y <= hi[1]; y++)
+          for (s64 z = lo[2]; z <= hi[2]; z++)
+            cells[key(x, y, z)].push_back(id);
+    }
+  }
+  // Autorite d'un triangle rendu : une collision COPLANAIRE (normales a moins de ~25 degres au
+  // signe pres, centre a moins de 0,15 m du plan) dont l'aire contient le centre projete (0,1 m de
+  // marge). La plus proche en distance au plan l'emporte.
+  bool authority(const math::Vector3f& c, const math::Vector3f& gu, math::Vector3f* out) const {
+    const auto it = cells.find(key((s64)std::floor(c.x() / cell), (s64)std::floor(c.y() / cell),
+                                   (s64)std::floor(c.z() / cell)));
+    if (it == cells.end()) {
+      return false;
+    }
+    const float plane_tol = 0.15f * 4096.f, edge_tol = 0.10f * 4096.f;
+    float best = plane_tol;
+    bool found = false;
+    bool opposed = false;  // une autre collision acceptee dit le contraire
+    math::Vector3f best_n;
+    std::vector<math::Vector3f> accepted;
+    for (u32 id : it->second) {
+      const Tri& t = tris[id];
+      if (std::abs(gu.dot(t.gn)) < 0.9f) {
+        continue;
+      }
+      const float d = (c - t.a).dot(t.gn);
+      if (std::abs(d) >= plane_tol) {
+        continue;
+      }
+      const math::Vector3f p = c - t.gn * d;
+      const math::Vector3f* v[3] = {&t.a, &t.b, &t.c};
+      bool inside = true;
+      for (int e = 0; e < 3 && inside; e++) {
+        const math::Vector3f edge = *v[(e + 1) % 3] - *v[e];
+        math::Vector3f in = t.gn.cross(edge);
+        const float il = in.length();
+        if (!(il > 1e-6f)) {
+          inside = false;
+          break;
+        }
+        in = in * (1.f / il);
+        inside = (p - *v[e]).dot(in) >= -edge_tol;
+      }
+      if (!inside) {
+        continue;
+      }
+      accepted.push_back(t.n);
+      if (std::abs(d) < best || !found) {
+        best = std::abs(d);
+        best_n = t.n;
+        found = true;
+      }
+    }
+    if (!found) {
+      return false;
+    }
+    for (const auto& n : accepted) {
+      opposed = opposed || n.dot(best_n) < 0.f;
+    }
+    // Collision a double face (les deux cotes d'une paroi mince sont marchables / heurtables) :
+    // l'autorite ne sait pas quel cote est vu, elle s'abstient.
+    if (opposed) {
+      return false;
+    }
+    *out = best_n;
+    return true;
+  }
+};
+
+template <typename V>
+void check_orient_tree(const std::vector<V>& verts,
+                       const std::vector<u32>& idx,
+                       bool use_strips,
+                       const CollTriGrid& grid,
+                       OrientCount& oc) {
+  auto emit = [&](u32 i0, u32 i1, u32 i2) {
+    if (i0 >= verts.size() || i1 >= verts.size() || i2 >= verts.size()) {
+      return;
+    }
+    const V& a = verts[i0];
+    const V& b = verts[i1];
+    const V& c = verts[i2];
+    const math::Vector3f pa(a.x, a.y, a.z), pb(b.x, b.y, b.z), pc(c.x, c.y, c.z);
+    math::Vector3f g = (pb - pa).cross(pc - pa);
+    const float gl = g.length();
+    if (!(gl > 1e-3f)) {
+      return;  // triangle degenere (raccord de bande) : pas une surface
+    }
+    oc.tris++;
+    const math::Vector3f ns = tfrag3::unpack_gl_normal_2_10_10_10(a.nor) +
+                              tfrag3::unpack_gl_normal_2_10_10_10(b.nor) +
+                              tfrag3::unpack_gl_normal_2_10_10_10(c.nor);
+    if (!(ns.length() > 1e-3f)) {
+      oc.no_normal++;
+      return;
+    }
+    math::Vector3f cn;
+    if (!grid.authority((pa + pb + pc) * (1.f / 3.f), g * (1.f / gl), &cn)) {
+      return;
+    }
+    oc.judged++;
+    if (ns.dot(cn) < 0.f) {
+      oc.reversed++;
+    }
+  };
+  if (use_strips) {
+    u32 x = UINT32_MAX, y = UINT32_MAX, k = 0;
+    for (u32 vi : idx) {
+      if (vi == UINT32_MAX) {
+        x = y = UINT32_MAX;
+        k = 0;
+        continue;
+      }
+      if (x != UINT32_MAX && y != UINT32_MAX) {
+        if ((k & 1) != 0) {
+          emit(y, x, vi);
+        } else {
+          emit(x, y, vi);
+        }
+      }
+      x = y;
+      y = vi;
+      k++;
+    }
+  } else {
+    for (size_t t = 0; t + 2 < idx.size(); t += 3) {
+      if (idx[t] != UINT32_MAX && idx[t + 1] != UINT32_MAX && idx[t + 2] != UINT32_MAX) {
+        emit(idx[t], idx[t + 1], idx[t + 2]);
+      }
+    }
+  }
+}
+
+// famille 0 = tfrag, 1 = TIE statique (le chemin vent n'est pas dans unpacked.indices), 2 = shrub
+void check_orient_level(const tfrag3::Level& lev, const CollTriGrid& grid, OrientCount fam[3]) {
+  for (const auto& geom : lev.tfrag_trees) {
+    for (const auto& t : geom) {
+      check_orient_tree(t.unpacked.vertices, t.unpacked.indices, t.use_strips, grid, fam[0]);
+    }
+  }
+  for (const auto& geom : lev.tie_trees) {
+    for (const auto& t : geom) {
+      check_orient_tree(t.unpacked.vertices, t.unpacked.indices, t.use_strips, grid, fam[1]);
+    }
+  }
+  for (const auto& t : lev.shrub_trees) {
+    check_orient_tree(t.unpacked.vertices, t.indices, true, grid, fam[2]);
+  }
+}
+
+// ================================================================================================
+// --bake : ORIENTATION PAR LA COLLISION, ecrite UNE FOIS dans le compagnon (owner 25/09).
+// Apres la passe de consolidation, la normale STOCKEE de chaque surface du decor est tournee du cote
+// de la collision coplanaire (meme autorite que --check-orient) :
+//   1. par COMPOSANTE (sommets relies par les triangles d'un arbre) : le vote, pondere par l'aire,
+//      des triangles qui ont une autorite ; une composante majoritairement a l'envers est
+//      retournee EN ENTIER, y compris ses triangles sans autorite (meme surface lissee) ;
+//   2. par SOMMET : un sommet encore majoritairement oppose a l'autorite de ses triangles est
+//      retourne (composante melee, souvent une soudure entre deux surfaces).
+// Negation exacte du 2-10-10-10 : chaque composante 10 bits signee change de signe (plage +-511).
+// ================================================================================================
+inline u32 negate_packed_normal(u32 p) {
+  u32 out = p & 0xc0000000u;
+  for (int k = 0; k < 3; k++) {
+    u32 v = (p >> (10 * k)) & 0x3ffu;
+    int iv = (v & 0x200u) ? (int)v - 1024 : (int)v;
+    out |= ((u32)(-iv) & 0x3ffu) << (10 * k);
+  }
+  return out;
+}
+
+struct OrientFix {
+  u64 comps_flipped = 0, verts_flipped_comp = 0, verts_flipped_vertex = 0, verts_reset = 0,
+      verts_zeroed = 0, rounds = 0;
+};
+
+template <typename V>
+void orient_tree_by_collision(std::vector<V>& verts,
+                              const std::vector<u32>& idx,
+                              bool use_strips,
+                              const CollTriGrid& grid,
+                              OrientFix& fx) {
+  const u32 n = (u32)verts.size();
+  if (n == 0) {
+    return;
+  }
+  struct Tri {
+    u32 i[3];
+    math::Vector3f cn;
+    float area;
+  };
+  std::vector<Tri> judged;
+  std::vector<u32> parent(n);
+  for (u32 i = 0; i < n; i++) {
+    parent[i] = i;
+  }
+  auto find = [&](u32 x) {
+    while (parent[x] != x) {
+      parent[x] = parent[parent[x]];
+      x = parent[x];
+    }
+    return x;
+  };
+  auto emit = [&](u32 i0, u32 i1, u32 i2) {
+    if (i0 >= n || i1 >= n || i2 >= n) {
+      return;
+    }
+    const math::Vector3f pa(verts[i0].x, verts[i0].y, verts[i0].z);
+    const math::Vector3f pb(verts[i1].x, verts[i1].y, verts[i1].z);
+    const math::Vector3f pc(verts[i2].x, verts[i2].y, verts[i2].z);
+    math::Vector3f g = (pb - pa).cross(pc - pa);
+    const float gl = g.length();
+    if (!(gl > 1e-3f)) {
+      return;
+    }
+    parent[find(i0)] = find(i1);
+    parent[find(i1)] = find(i2);
+    math::Vector3f cn;
+    if (grid.authority((pa + pb + pc) * (1.f / 3.f), g * (1.f / gl), &cn)) {
+      judged.push_back({{i0, i1, i2}, cn, 0.5f * gl});
+    }
+  };
+  if (use_strips) {
+    u32 x = UINT32_MAX, y = UINT32_MAX, k = 0;
+    for (u32 vi : idx) {
+      if (vi == UINT32_MAX) {
+        x = y = UINT32_MAX;
+        k = 0;
+        continue;
+      }
+      if (x != UINT32_MAX && y != UINT32_MAX) {
+        if ((k & 1) != 0) {
+          emit(y, x, vi);
+        } else {
+          emit(x, y, vi);
+        }
+      }
+      x = y;
+      y = vi;
+      k++;
+    }
+  } else {
+    for (size_t t = 0; t + 2 < idx.size(); t += 3) {
+      if (idx[t] != UINT32_MAX && idx[t + 1] != UINT32_MAX && idx[t + 2] != UINT32_MAX) {
+        emit(idx[t], idx[t + 1], idx[t + 2]);
+      }
+    }
+  }
+  if (judged.empty()) {
+    return;
+  }
+  auto nrm = [&](u32 i) { return tfrag3::unpack_gl_normal_2_10_10_10(verts[i].nor); };
+  // 1. composantes
+  std::unordered_map<u32, double> cvote;
+  for (const auto& t : judged) {
+    const math::Vector3f ns = nrm(t.i[0]) + nrm(t.i[1]) + nrm(t.i[2]);
+    const float d = ns.dot(t.cn);
+    if (d != 0.f) {
+      cvote[find(t.i[0])] += d > 0.f ? t.area : -t.area;
+    }
+  }
+  std::unordered_map<u32, bool> cflip;
+  for (const auto& [root, v] : cvote) {
+    if (v < 0.0) {
+      cflip[root] = true;
+      fx.comps_flipped++;
+    }
+  }
+  if (!cflip.empty()) {
+    for (u32 i = 0; i < n; i++) {
+      if (cflip.count(find(i)) && verts[i].nor != 0) {
+        verts[i].nor = negate_packed_normal(verts[i].nor);
+        fx.verts_flipped_comp++;
+      }
+    }
+  }
+  // 2. sommets
+  std::unordered_map<u32, double> vvote;
+  for (const auto& t : judged) {
+    for (u32 i : t.i) {
+      const float d = nrm(i).dot(t.cn);
+      if (d != 0.f) {
+        vvote[i] += d > 0.f ? t.area : -t.area;
+      }
+    }
+  }
+  for (const auto& [i, v] : vvote) {
+    if (v < 0.0 && verts[i].nor != 0) {
+      verts[i].nor = negate_packed_normal(verts[i].nor);
+      fx.verts_flipped_vertex++;
+    }
+  }
+  // 3. triangles encore a l'envers : leurs sommets sont partages avec des triangles que la
+  //    collision oriente autrement (pli serre lisse d'un seul tenant). Un tel sommet recoit la
+  //    moyenne, ponderee par l'aire, des normales de collision de SES triangles juges — si elle les
+  //    satisfait tous ; sinon il garde la sienne et le triangle reste compte par --check-orient.
+  std::unordered_map<u32, std::vector<u32>> incident;
+  for (u32 k = 0; k < (u32)judged.size(); k++) {
+    for (u32 i : judged[k].i) {
+      incident[i].push_back(k);
+    }
+  }
+  // Un sommet remis a zero peut laisser un voisin a l'envers : on repasse jusqu'a stabilite (un
+  // sommet nul ne se rallume jamais, donc la boucle termine).
+  for (int round = 0; round < 16; round++) {
+  std::vector<u32> residual;
+  for (u32 k = 0; k < (u32)judged.size(); k++) {
+    const auto& t = judged[k];
+    if ((nrm(t.i[0]) + nrm(t.i[1]) + nrm(t.i[2])).dot(t.cn) < 0.f) {
+      residual.push_back(k);
+    }
+  }
+  if (residual.empty()) {
+    break;
+  }
+  fx.rounds = std::max(fx.rounds, (u64)round + 1);
+  for (u32 k : residual) {
+    for (u32 i : judged[k].i) {
+      math::Vector3f m(0.f, 0.f, 0.f);
+      for (u32 j : incident[i]) {
+        m += judged[j].cn * judged[j].area;
+      }
+      const float ml = m.length();
+      if (!(ml > 1e-6f)) {
+        continue;
+      }
+      m = m * (1.f / ml);
+      bool ok = true;
+      for (u32 j : incident[i]) {
+        ok = ok && m.dot(judged[j].cn) > 0.f;
+      }
+      if (ok) {
+        const u32 packed = tfrag3::pack_gl_normal_2_10_10_10(m) | (verts[i].nor & 0xc0000000u);
+        if (packed != verts[i].nor) {
+          verts[i].nor = packed;
+          fx.verts_reset++;
+        }
+      } else if ((verts[i].nor & 0x3fffffffu) != 0) {
+        // 4. aucune normale ne satisfait ses triangles (deux cotes d'un pli a plat) : le sommet
+        //    n'impose plus de cote, ses voisins decident (normale nulle, lue « sans normale »).
+        verts[i].nor &= 0xc0000000u;
+        fx.verts_zeroed++;
+      }
+    }
+  }
+  }
+}
+
+// Oriente tout le niveau et recopie les normales dans le compagnon (ordre de gather_level :
+// tfrag, TIE, shrub). Rend false si le compagnon n'a pas le nombre de sommets attendu.
+bool orient_level_by_collision(tfrag3::Level& lev, tfrag3::MeshBakeData* bake, OrientFix& fx) {
+  CollTriGrid grid;
+  grid.build(lev.collision);
+  for (auto& geom : lev.tfrag_trees) {
+    for (auto& t : geom) {
+      orient_tree_by_collision(t.unpacked.vertices, t.unpacked.indices, t.use_strips, grid, fx);
+    }
+  }
+  for (auto& geom : lev.tie_trees) {
+    for (auto& t : geom) {
+      orient_tree_by_collision(t.unpacked.vertices, t.unpacked.indices, t.use_strips, grid, fx);
+    }
+  }
+  for (auto& t : lev.shrub_trees) {
+    orient_tree_by_collision(t.unpacked.vertices, t.indices, true, grid, fx);
+  }
+  if (!bake) {
+    return true;
+  }
+  std::vector<u32> nor;
+  nor.reserve(bake->nor.size());
+  for (const auto& geom : lev.tfrag_trees) {
+    for (const auto& t : geom) {
+      for (const auto& v : t.unpacked.vertices) {
+        nor.push_back(v.nor);
+      }
+    }
+  }
+  for (const auto& geom : lev.tie_trees) {
+    for (const auto& t : geom) {
+      for (const auto& v : t.unpacked.vertices) {
+        nor.push_back(v.nor);
+      }
+    }
+  }
+  for (const auto& t : lev.shrub_trees) {
+    for (const auto& v : t.unpacked.vertices) {
+      nor.push_back(v.nor);
+    }
+  }
+  if (nor.size() != bake->nor.size()) {
+    fmt::print("ORIENT-BAKE error: {} sommets relus, {} dans le compagnon\n", nor.size(),
+               bake->nor.size());
+    return false;
+  }
+  bake->nor.swap(nor);
+  return true;
+}
+
+int run_check_orient(const std::vector<fs::path>& fr3_files, const std::string& check_dir) {
+  u64 levels = 0, applied = 0, missing = 0, refused = 0;
+  OrientCount tot, tot_before;
+  for (const auto& fr3_path : fr3_files) {
+    const std::string level_name = fr3_path.stem().string();
+    levels++;
+    tfrag3::Level lev;
+    load_level_fr3(fr3_path, lev);
+    CollTriGrid grid;
+    grid.build(lev.collision);
+    OrientCount before[3], after[3];
+    check_orient_level(lev, grid, before);
+    const fs::path side = fs::path(check_dir) / tfrag3::mesh_consolidate_bake_name(level_name);
+    std::string state = "applied";
+    if (!fs::exists(side)) {
+      state = "missing";
+      missing++;
+    } else if (!tfrag3::mesh_consolidate_apply_bake(lev, side.string(), /*do_shrub=*/true)) {
+      state = "refused";
+      refused++;
+    } else {
+      applied++;
+      check_orient_level(lev, grid, after);
+    }
+    OrientCount lb, la;
+    for (int f = 0; f < 3; f++) {
+      lb.tris += before[f].tris;
+      lb.no_normal += before[f].no_normal;
+      lb.judged += before[f].judged;
+      lb.reversed += before[f].reversed;
+      la.tris += after[f].tris;
+      la.no_normal += after[f].no_normal;
+      la.judged += after[f].judged;
+      la.reversed += after[f].reversed;
+    }
+    tot_before.tris += lb.tris;
+    tot_before.judged += lb.judged;
+    tot_before.reversed += lb.reversed;
+    tot.tris += la.tris;
+    tot.no_normal += la.no_normal;
+    tot.judged += la.judged;
+    tot.reversed += la.reversed;
+    fmt::print(
+        "CHECK-ORIENT level={} sidecar={} coll_tris={} tris={} judged={} no_normal={} "
+        "reversed_before={} reversed={} tfrag={}/{} tie={}/{} shrub={}/{}\n",
+        level_name, state, grid.tris.size(), la.tris, la.judged, la.no_normal, lb.reversed,
+        la.reversed, after[0].reversed, after[0].judged, after[1].reversed, after[1].judged,
+        after[2].reversed, after[2].judged);
+    fflush(stdout);
+  }
+  fmt::print(
+      "CHECK-ORIENT-TOTAL levels={} sidecars_applied={} levels_missing={} levels_refused={} "
+      "tris={} judged={} unjudged={} no_normal={} judged_before={} reversed_before={} reversed={}\n",
+      levels, applied, missing, refused, tot.tris, tot.judged, tot.tris - tot.judged - tot.no_normal,
+      tot.no_normal, tot_before.judged, tot_before.reversed, tot.reversed);
+  return 0;
+}
+
 int main(int argc, char** argv) {
   std::string game = "jak1";
   std::string fr3_dir;
@@ -253,6 +774,7 @@ int main(int argc, char** argv) {
   bool do_bake = false;
   bool verify_bake = false;
   bool geom_orient = false;
+  std::string check_dir;
 
   for (int i = 1; i < argc; ++i) {
     std::string a = argv[i];
@@ -282,6 +804,8 @@ int main(int argc, char** argv) {
       // no-op : c'est desormais le defaut (voir ROUND 32 plus bas).
     } else if (a == "--geom-orient") {
       geom_orient = true;
+    } else if (a == "--check-orient") {
+      check_dir = need_val("--check-orient");
     } else if (a == "--verify-bake") {
       verify_bake = true;
     } else if (a == "-h" || a == "--help") {
@@ -363,6 +887,9 @@ int main(int argc, char** argv) {
   if (fr3_files.empty()) {
     fmt::print("error: no .fr3 files found in {}\n", fr3_dir);
     return 1;
+  }
+  if (!check_dir.empty()) {
+    return run_check_orient(fr3_files, check_dir);
   }
 
   auto cfg = tfrag3::mesh_consolidate_config_from_env();
@@ -450,6 +977,14 @@ int main(int argc, char** argv) {
         }
 
         if (do_bake) {
+          OrientFix fx;
+          if (!orient_level_by_collision(lev, &bake, fx)) {
+            throw std::runtime_error("orient_level_by_collision: gather order mismatch");
+          }
+          fmt::print("ORIENT-BAKE level={} comps_flipped={} verts_flipped_comp={} "
+                     "verts_flipped_vertex={} verts_reset={} verts_zeroed={} rounds={}\n",
+                     level_name, fx.comps_flipped, fx.verts_flipped_comp,
+                     fx.verts_flipped_vertex, fx.verts_reset, fx.verts_zeroed, fx.rounds);
           const std::string bake_path =
               (fs::path(fr3_dir) / tfrag3::mesh_consolidate_bake_name(level_name)).string();
           u64 bake_bytes = 0;

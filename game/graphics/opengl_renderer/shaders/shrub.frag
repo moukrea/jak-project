@@ -49,9 +49,11 @@ void main() {
     float gNl = length(gN);
     gN = gNl > 1e-6 ? gN * (1.0 / gNl) : vec3(0.0, 1.0, 0.0);
     bool has_vn = dot(v_normal, v_normal) > 1e-6;
-    vec3 N = has_vn ? normalize(v_normal) : gN;
     vec3 Vv = -normalize(v_fringe_rel);
-    if (!has_vn && dot(N, Vv) < 0.0) N = -N;
+    // Sans normale stockee, la normale d'ecran tournee vers la camera ; la normale stockee, elle,
+    // n'est jamais retournee ici (orientee une fois dans l'asset, lighting-flipped-faces-everywhere).
+    vec3 gN_view = dot(gN, Vv) < 0.0 ? -gN : gN;
+    vec3 N = has_vn ? normalize(v_normal) : gN_view;
     Surface s;
     s.base = color;
     s.baked = fragment_color;
